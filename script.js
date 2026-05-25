@@ -1006,6 +1006,7 @@ function runMultilingualAnalysis() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderEventCards();
+  navigateTo('home');
 
   document.querySelectorAll('[data-page]').forEach(el => {
     el.addEventListener('click', e => {
@@ -1026,3 +1027,5 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🎌 Shared Memory Project 로드 완료');
   console.log(`📚 등록된 사건: ${eventsData.length}개`);
 });
+
+  
