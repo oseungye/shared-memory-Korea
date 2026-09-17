@@ -368,7 +368,7 @@ function openEventDetail(eventId) {
 
   switchTab('compare');
   renderKeywordChart(event);
-  renderSharedList();
+  loadSharedNarratives();
   navigateTo('detail');
 }
 
@@ -642,35 +642,134 @@ function renderKeywordChart(event) {
     });
   }, 100);
 }
+async function submitSharedNarrative() {
+  const nameInput = document.getElementById('userName');
+  const narrativeInput = document.getElementById('userNarrative');
+  const reasonInput = document.getElementById('userReason');
 
-function submitSharedNarrative() {
-  const name = document.getElementById('userName').value.trim();
-  const text = document.getElementById('userNarrative').value.trim();
-  const reason = document.getElementById('userReason').value.trim();
+  const name = nameInput ? nameInput.value.trim() : '';
+  const text = narrativeInput ? narrativeInput.value.trim() : '';
+  const reason = reasonInput ? reasonInput.value.trim() : '';
 
   if (!name || !text) {
     alert('닉네임과 공동 표현은 필수 입력 항목입니다.');
     return;
   }
 
+  if (!currentEventId) {
+    alert('먼저 역사 사건을 선택해주세요.');
+    return;
+  }
+
   const detectedLang = detectLanguage(text);
 
-  sharedNarratives.unshift({
-    user: name,
-    text: text,
-    reason: reason,
-    date: new Date().toLocaleDateString('ko-KR'),
-    eventId: currentEventId,
-    lang: detectedLang,
-    translationOpen: false
-  });
+  const submitButton = document.getElementById('submitNarrative');
 
-  document.getElementById('userName').value = '';
-  document.getElementById('userNarrative').value = '';
-  document.getElementById('userReason').value = '';
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.dataset.originalText = submitButton.textContent;
+    submitButton.textContent = '등록 중...';
+  }
+
+  const { error } = await db
+    .from('shared_expressions')
+    .insert([
+      {
+        event_key: currentEventId,
+        author_name: name,
+        country_code: detectedLang,
+        content: text
+      }
+    ]);
+
+  if (submitButton) {
+    submitButton.disabled = false;
+    submitButton.textContent =
+      submitButton.dataset.originalText || '제안 등록하기';
+  }
+
+  if (error) {
+    console.error('Supabase 저장 오류:', error);
+
+    alert(
+      '등록에 실패했습니다.\n\n오류 내용: ' +
+      error.message
+    );
+
+    return;
+  }
+
+  if (nameInput) nameInput.value = '';
+  if (narrativeInput) narrativeInput.value = '';
+  if (reasonInput) reasonInput.value = '';
+
+  await loadSharedNarratives();
+
+  alert('공동 표현이 등록되었습니다.');
+}
+async function loadSharedNarratives() {
+  if (!currentEventId) {
+    sharedNarratives = [];
+    renderSharedList();
+    return;
+  }
+
+  const list = document.getElementById('sharedList');
+
+  if (list) {
+    list.innerHTML = `
+      <div class="shared-empty">
+        공동 표현을 불러오는 중입니다...
+      </div>
+    `;
+  }
+
+  const { data, error } = await db
+    .from('shared_expressions')
+    .select('*')
+    .eq('event_key', currentEventId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Supabase 불러오기 오류:', error);
+
+    if (list) {
+      list.innerHTML = `
+        <div class="shared-empty">
+          데이터를 불러오지 못했습니다.
+        </div>
+      `;
+    }
+
+    return;
+  }
+
+  sharedNarratives = (data || []).map(item => ({
+    id: item.id,
+    user: item.author_name || '익명',
+    text: item.content || '',
+    reason: '',
+    eventId: item.event_key,
+    lang: item.country_code || 'unknown',
+    date: formatSharedDate(item.created_at),
+    translationOpen: false
+  }));
 
   renderSharedList();
 }
+
+function formatSharedDate(dateString) {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+
+  return date.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  });
+}
+
 
 function renderSharedList() {
   const list = document.getElementById('sharedList');
