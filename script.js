@@ -274,6 +274,7 @@ const eventsData = [
 
 let currentEventId = null;
 let sharedNarratives = [];
+let sharedLanguageFilter = 'all';
 
 function navigateTo(pageName) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -678,7 +679,8 @@ async function submitSharedNarrative() {
         event_key: currentEventId,
         author_name: name,
         country_code: detectedLang,
-        content: text
+        content: text,
+        reason: reason
       }
     ]);
 
@@ -748,7 +750,7 @@ async function loadSharedNarratives() {
     id: item.id,
     user: item.author_name || '익명',
     text: item.content || '',
-    reason: '',
+    reason: item.reason || '',
     eventId: item.event_key,
     lang: item.country_code || 'unknown',
     date: formatSharedDate(item.created_at),
@@ -771,16 +773,29 @@ function formatSharedDate(dateString) {
 }
 
 
+document.getElementById('sharedLanguageTabs')?.addEventListener('click', event => {
+  const button = event.target.closest('[data-shared-language]');
+  if (!button) return;
+  sharedLanguageFilter = button.dataset.sharedLanguage;
+  document.querySelectorAll('[data-shared-language]').forEach(tab => {
+    const active = tab === button;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  renderSharedList();
+});
+
 function renderSharedList() {
   const list = document.getElementById('sharedList');
   if (!list) return;
 
   const items = sharedNarratives
     .map((item, idx) => ({ item, idx }))
-    .filter(pair => pair.item.eventId === currentEventId);
+    .filter(pair => pair.item.eventId === currentEventId &&
+      (sharedLanguageFilter === 'all' || pair.item.lang?.toLowerCase() === sharedLanguageFilter));
 
   if (items.length === 0) {
-    list.innerHTML = `<div class="shared-empty">아직 등록된 제안이 없습니다. 첫 번째 제안을 작성해 보세요!</div>`;
+    list.innerHTML = `<div class="shared-empty">${sharedLanguageFilter === 'all' ? '아직 등록된 제안이 없습니다. 첫 번째 제안을 작성해 보세요!' : '이 언어로 등록된 제안이 없습니다.'}</div>`;
     return;
   }
 

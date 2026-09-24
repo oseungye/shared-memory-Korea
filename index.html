@@ -241,8 +241,14 @@
           <!-- 등록된 제안 목록 -->
           <div class="shared-list">
             <h4 class="section-h section-h--small">등록된 공동 표현 제안</h4>
+            <div class="shared-language-tabs" id="sharedLanguageTabs" role="tablist" aria-label="제안 언어 선택">
+              <button type="button" class="shared-language-tabs__tab is-active" data-shared-language="all" role="tab" aria-selected="true">전체</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="ko" role="tab" aria-selected="false">한국어</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="en" role="tab" aria-selected="false">영어</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="ja" role="tab" aria-selected="false">일본어</button>
+            </div>
             <div id="sharedList">
-              <!-- JS가 채워줍니다 (브라우저 메모리에만 저장) -->
+              <!-- Supabase에서 불러온 제안을 언어별로 표시합니다 -->
             </div>
           </div>
         </div>
