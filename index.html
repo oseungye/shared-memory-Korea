@@ -6,7 +6,9 @@
   파일 구성:
     - index.html : 페이지 구조(HTML)
     - style.css  : 디자인/레이아웃(CSS)
-    - script.js  : 동작/데이터(JavaScript)
+    - events-data.js : 역사 사건 데이터(국가별 서술 원문)
+    - nlp-analyzer.js: 국가별 서술 비교 분석 모듈(TF-IDF·유사도)
+    - script.js  : 화면 동작(JavaScript)
 
   이 파일은 SPA(Single Page Application) 구조입니다.
   실제로는 페이지 이동이 아니라, 같은 HTML 안의 여러 <section>을
@@ -154,7 +156,7 @@
       <!-- 탭 메뉴: 비교 / AI 분석 / 키워드 / 공동 표현 -->
       <div class="tabs">
         <button class="tab active" data-tab="compare">국가별 서술</button>
-        <button class="tab" data-tab="ai">AI 분석</button>
+        <button class="tab" data-tab="ai">AI/NLP 비교 분석</button>
         <button class="tab" data-tab="keywords">키워드 비교</button>
         <button class="tab" data-tab="shared">공동 표현 작성</button>
       </div>
@@ -174,17 +176,17 @@
         </div>
       </div>
 
-      <!-- 탭 2: AI 분석 -->
+      <!-- 탭 2: AI/NLP 비교 분석 (nlp-analyzer.js가 서술 텍스트로부터 직접 계산) -->
       <div class="tab-content" data-tab-content="ai">
         <div class="ai-box">
           <div class="ai-box__intro">
-            <h3 class="section-h">AI 기반 비교 분석</h3>
-            <p>세 국가 서술의 공통점·차이점·표현 특징을 자동으로 분석합니다.<br />
-              <small>※ 본 기능은 학습용 시뮬레이션이며, 실제 자연어 처리 알고리즘의 동작 원리를 단순화한 형태로 구현되어 있습니다.</small>
+            <h3 class="section-h">AI/NLP 기반 서술 비교 분석</h3>
+            <p>세 국가 서술의 핵심 키워드·공통 표현·특징적 표현·텍스트 유사도를 계산합니다.<br />
+              <small>※ 외부 AI API 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다.</small>
             </p>
             <button class="btn btn--ai" id="aiAnalyzeBtn">
               <span class="btn__icon">⌬</span>
-              <span>AI 분석 실행</span>
+              <span>비교 분석 실행</span>
             </button>
           </div>
 
@@ -295,6 +297,8 @@
   <!-- 자바스크립트 파일 로드 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./supabase-config.js"></script>
+<script src="./events-data.js"></script>
+<script src="./nlp-analyzer.js"></script>
 <script src="./script.js"></script>
 </body>
 </html>

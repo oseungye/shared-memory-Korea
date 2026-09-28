@@ -2,276 +2,6 @@
    Shared Memory Project — script.js
    ============================================================ */
 
-const eventsData = [
-  {
-    id: 'imjin',
-    title: '임진왜란',
-    titleJP: '文禄·慶長の役',
-    titleCN: '万历朝鲜战争',
-    era: '1592 – 1598',
-    mark: '壬',
-    shortDesc: '일본의 한반도 침공으로 시작된 7년간의 동북아 국제 전쟁. 한·중·일 모두 막대한 피해를 입은 사건이지만, 부르는 이름과 강조하는 측면이 가장 극명하게 갈린다.',
-    tags: ['16세기', '국제전쟁', '명·청 교체기'],
-
-    korea: {
-      title: '왜의 침략에 맞선 7년 항쟁',
-      text: '1592년 일본이 명나라 침략의 길을 빌린다는 명목으로 조선을 침공한 침략 전쟁이다. 이순신 장군의 해전 승리와 의병들의 항전, 그리고 명나라의 원군이 결합되어 일본군을 격퇴했다. 전쟁으로 국토는 황폐화되었고 수많은 백성이 희생되었다.',
-      keywords: ['침략', '항쟁', '의병', '이순신', '왜군'],
-      feature: '"침략"·"왜"라는 표현을 통해 일본의 부당성을 명확히 하고, 자발적 저항과 영웅 서사를 강조한다.'
-    },
-    japan: {
-      title: '대륙 진출과 두 차례의 출병',
-      text: '도요토미 히데요시가 명나라 정복을 목표로 추진한 대륙 진출 정책으로, 조선을 경유지로 삼아 두 차례 군대를 보냈다. 명·조선 연합군의 저항과 히데요시의 사망으로 철수했으며, 일본 사회에는 조선에서 들여온 도자기 기술과 활자 인쇄술 등 문화적 영향을 남겼다.',
-      keywords: ['出兵', '進出', '경유', '히데요시', '문화 전파'],
-      feature: '"침략" 대신 "출병"·"진출"이라는 중립적 표현을 사용하며, 문화적 교류 측면을 부각한다.'
-    },
-    china: {
-      title: '조선을 도와 왜를 막은 의로운 전쟁',
-      text: '명나라가 조선의 요청에 응하여 군대를 보내 일본의 침략으로부터 조선을 구원한 전쟁이다. 동아시아 조공 질서를 수호한 의로운 전쟁이었으나, 막대한 군사비 지출은 명조 국력 약화의 한 원인이 되었다.',
-      keywords: ['抗倭援朝', '번방', '의병', '조공질서', '구원'],
-      feature: '"왜에 맞서 조선을 도왔다"는 종주국적 관점에서 서술하며, 명나라의 정당성과 책임감을 강조한다.'
-    },
-
-    timeline: [
-      { year: '1592.4', text: '일본군 부산 상륙. 한 달 만에 한양 함락.' },
-      { year: '1592.5', text: '이순신, 옥포해전에서 첫 승리. 제해권 장악.' },
-      { year: '1593.1', text: '조·명 연합군, 평양성 탈환.' },
-      { year: '1597.1', text: '정유재란 발발.' },
-      { year: '1598.11', text: '노량해전. 이순신 전사. 일본군 철수.' }
-    ],
-
-    keywordFreq: {
-      '침략': { korea: 9, japan: 0, china: 4 },
-      '진출/출병': { korea: 0, japan: 8, china: 1 },
-      '구원/도움': { korea: 3, japan: 1, china: 9 },
-      '문화 교류': { korea: 2, japan: 7, china: 2 }
-    }
-  },
-
-  {
-    id: 'culture',
-    title: '한중일 문화 교류',
-    titleJP: '東アジア文化交流',
-    titleCN: '东亚文化交流',
-    era: '4 – 19세기',
-    mark: '文',
-    shortDesc: '불교·한자·유교·도자기 등 동북아 삼국이 오랜 시간 주고받은 문화의 흐름. 누가 전수자이고 누가 수용자인가에 대한 시각이 갈린다.',
-    tags: ['장기지속사', '문화사', '문명 전파'],
-
-    korea: {
-      title: '문화 전파의 교량 역할',
-      text: '한국은 중국 대륙의 선진 문물을 받아들여 자체적으로 발전시킨 후 일본에 전파하는 중계 역할을 했다. 백제의 왕인 박사가 일본에 한자와 천자문을 전했고, 고구려 승려 담징이 종이·먹·맷돌 제작 기술을 일본에 전수했다.',
-      keywords: ['전파', '교량', '왕인', '담징', '능동적 수용'],
-      feature: '"전수자"로서의 자부심과 단순 수용이 아닌 창조적 변용을 강조한다.'
-    },
-    japan: {
-      title: '대륙 문화의 주체적 수용',
-      text: '일본은 견수사·견당사를 파견하여 중국 문화를 직접 수용하기도 했으며, 한반도 도래인을 통해 다양한 기술과 학문을 받아들였다. 이를 일본 풍토에 맞게 변용하여 독자적 문화를 완성했다.',
-      keywords: ['도래인', '견당사', '주체적 수용', '국풍문화', '변용'],
-      feature: '"전해 받았다"가 아니라 "주체적으로 받아들였다"는 능동적 표현을 사용한다.'
-    },
-    china: {
-      title: '동아시아 문명의 중심',
-      text: '중국은 한자, 유교, 율령 제도, 불교 등 동아시아 문명의 핵심 요소를 발신한 중심지였다. 주변국들은 중국 문화를 수용하여 한자문화권을 형성했으며, 이는 동아시아 공동의 문화적 토대가 되었다.',
-      keywords: ['중심', '발신', '한자문화권', '율령', '문명 전수'],
-      feature: '중국을 문명의 중심이자 발신자로 위치시킨다.'
-    },
-
-    timeline: [
-      { year: '372', text: '고구려에 불교 전래.' },
-      { year: '538', text: '백제, 일본에 불교 전수.' },
-      { year: '630', text: '일본, 제1차 견당사 파견 시작.' },
-      { year: '1592', text: '임진왜란을 통한 도자기·인쇄술 전래.' }
-    ],
-
-    keywordFreq: {
-      '전파/전수': { korea: 8, japan: 2, china: 7 },
-      '수용/도입': { korea: 4, japan: 9, china: 2 },
-      '변용/창조': { korea: 6, japan: 8, china: 3 },
-      '중심': { korea: 1, japan: 1, china: 9 }
-    }
-  },
-
-  {
-    id: 'tribute',
-    title: '조공 관계',
-    titleJP: '朝貢関係',
-    titleCN: '朝贡体制',
-    era: '7 – 19세기',
-    mark: '貢',
-    shortDesc: '동아시아 천년의 국제 질서. 같은 제도를 두고 한국은 실리 외교, 중국은 천하 질서, 일본은 전근대적 굴종으로 다르게 평가한다.',
-    tags: ['국제관계사', '제도사', '동아시아 질서'],
-
-    korea: {
-      title: '실리를 위한 사대 외교',
-      text: '조공은 중국 중심 국제질서 안에서 안보를 보장받고 선진 문물을 수입하기 위한 외교적 선택이었다. 조선은 명·청에 조공을 보냈으나 내정의 자주성을 유지했으며, 이는 굴종이 아닌 실용적 외교 전략이었다.',
-      keywords: ['사대', '실리', '자주성', '외교 전략', '문물 수입'],
-      feature: '조공을 굴종이 아닌 실리적 선택으로 재해석하며 내정 자주성을 강조한다.'
-    },
-    japan: {
-      title: '중화 질서에서 벗어난 일본',
-      text: '일본은 헤이안 시대 견당사 폐지 이후 중국 중심 조공 체제에서 사실상 이탈하였다. 무로마치 막부의 일시적 감합무역을 제외하면 조공국이 아닌 독자적 위치를 유지했다.',
-      keywords: ['이탈', '독자성', '감합무역', '비조공국', '근대화 기반'],
-      feature: '조공을 부정적·전근대적 체제로 보고, 이탈한 일본의 독자성을 강조한다.'
-    },
-    china: {
-      title: '천하의 조화로운 질서',
-      text: '조공 체제는 중국을 중심으로 한 동아시아의 평화적·문화적 국제 질서였다. 후왕박래 원칙으로 운영되었으며, 단순한 지배-종속이 아닌 의례적·문화적 관계였다.',
-      keywords: ['천하', '예치', '후왕박래', '책봉', '조화'],
-      feature: '조화로운 질서라는 긍정적 시각으로 조공을 묘사한다.'
-    },
-
-    timeline: [
-      { year: '7세기', text: '신라, 당과 조공·책봉 관계 수립.' },
-      { year: '894', text: '일본, 견당사 파견 중단.' },
-      { year: '1401', text: '조선·명, 조공 관계 공식화.' },
-      { year: '1894', text: '청일전쟁 이후 조공 체제 붕괴.' }
-    ],
-
-    keywordFreq: {
-      '사대/조공': { korea: 7, japan: 3, china: 9 },
-      '자주/독자': { korea: 8, japan: 9, china: 1 },
-      '질서/평화': { korea: 2, japan: 1, china: 8 },
-      '굴종/종속': { korea: 1, japan: 6, china: 0 }
-    }
-  },
-
-  {
-    id: 'modern',
-    title: '근대화 과정',
-    titleJP: '近代化',
-    titleCN: '近代化',
-    era: '1840 – 1910',
-    mark: '近',
-    shortDesc: '서구 열강의 충격 앞에서 한·중·일이 걸어간 서로 다른 길. 같은 시대를 한 국가는 성공, 한 국가는 치욕, 한 국가는 좌절로 기억한다.',
-    tags: ['19세기', '근대화', '제국주의'],
-
-    korea: {
-      title: '좌절된 자주 근대화',
-      text: '갑신정변·갑오개혁·광무개혁 등 자주적 근대화 시도가 있었으나, 일본의 침략과 열강의 간섭으로 좌절되었다. 동학농민운동에서 보이듯 민중의 근대화 열망도 강했으나, 결국 1910년 국권을 상실하는 비극적 결말을 맞이했다.',
-      keywords: ['자주 개혁', '좌절', '동학', '국권 상실', '저항'],
-      feature: '좌절된 자주성을 핵심으로 하여 외세 책임론을 강조한다.'
-    },
-    japan: {
-      title: '메이지 유신과 동양 유일의 근대 국가',
-      text: '1868년 메이지 유신을 통해 일본은 동양에서 가장 빠르게 서구식 근대 국가를 수립했다. 탈아입구의 기치 아래 산업화·헌법 제정·의회 설립을 이루었고, 청일·러일 전쟁의 승리로 열강 반열에 올랐다.',
-      keywords: ['메이지 유신', '탈아입구', '문명개화', '부국강병', '성공'],
-      feature: '근대화의 성공 모델로서 일본을 자리매김하고, 침략 측면은 축소하는 경향이 있다.'
-    },
-    china: {
-      title: '백 년의 치욕',
-      text: '아편전쟁부터 시작된 서구 열강의 침략은 중국에게 백 년의 치욕이었다. 양무운동·무술변법·신해혁명 등 자강 노력이 있었으나, 반식민지 상태에서 벗어나지 못했다.',
-      keywords: ['百年國恥', '반식민지', '자강', '아편전쟁', '민족 부흥'],
-      feature: '치욕이라는 강한 감정 어휘로 서구·일본의 침략 책임을 부각하고 부흥 서사로 연결한다.'
-    },
-
-    timeline: [
-      { year: '1840', text: '아편전쟁 발발.' },
-      { year: '1868', text: '일본 메이지 유신.' },
-      { year: '1876', text: '강화도조약으로 조선 개항.' },
-      { year: '1894', text: '청일전쟁으로 동아시아 질서 재편.' },
-      { year: '1910', text: '한일강제병합.' }
-    ],
-
-    keywordFreq: {
-      '자주/자강': { korea: 8, japan: 2, china: 7 },
-      '개화/문명': { korea: 4, japan: 9, china: 3 },
-      '침략/치욕': { korea: 8, japan: 0, china: 9 },
-      '성공/발전': { korea: 1, japan: 8, china: 2 }
-    }
-  },
-
-  {
-    id: 'zainichi',
-    title: '재일조선인',
-    titleJP: '在日朝鮮人',
-    titleCN: '在日朝鲜人',
-    era: '1910 – 현재',
-    mark: '在',
-    shortDesc: '일제강점기와 전후 일본 사회 속에서 형성된 한반도 출신 주민 공동체. 강제성, 생활 기반, 국적, 차별 문제를 어떻게 바라보는지에 따라 서술 관점이 갈린다.',
-    tags: ['식민지 지배', '이주', '소수자'],
-
-    korea: {
-      title: '식민지 지배가 남긴 이주와 차별의 역사',
-      text: '재일조선인은 일제강점기 노동 이주, 강제 동원, 전쟁 수행 과정 속에서 일본에 거주하게 된 조선인과 그 후손을 가리킨다. 해방 이후에도 많은 이들이 일본에 남았지만, 국적·교육·취업·사회적 차별 문제를 겪었다.',
-      keywords: ['식민지 지배', '강제 동원', '차별', '국적', '정체성'],
-      feature: '식민지 지배의 책임과 전후 차별 문제를 중심으로 서술하며, 피해와 권리 회복의 관점을 강조한다.'
-    },
-    japan: {
-      title: '전후 일본 사회의 외국인 주민 문제',
-      text: '재일조선인은 일본의 식민지 지배 시기 일본으로 이주하거나 동원된 조선인과 그 후손으로, 전후 일본 사회에 남아 생활 기반을 형성했다. 일본 서술에서는 이들을 외국인 주민 또는 특별영주자 문제로 다루며, 교육·복지·지역사회 통합의 관점에서 설명하는 경향이 있다.',
-      keywords: ['在日', '외국인 주민', '특별영주자', '지역사회', '통합'],
-      feature: '식민지 책임보다는 전후 제도와 사회 통합 문제로 설명하는 경향이 강하다.'
-    },
-    china: {
-      title: '일본 제국주의와 동아시아 이주 문제',
-      text: '중국의 시각에서는 재일조선인 문제가 일본 제국주의가 동아시아에 남긴 구조적 문제 중 하나로 이해된다. 조선인 이주와 차별은 식민지 지배, 전쟁 동원, 전후 처리의 불완전성과 연결되며, 동아시아 역사 인식 갈등의 사례로 해석된다.',
-      keywords: ['제국주의', '전쟁 동원', '동아시아', '역사 인식', '차별'],
-      feature: '일본 제국주의의 책임과 동아시아 전체의 역사 문제라는 틀에서 바라본다.'
-    },
-
-    timeline: [
-      { year: '1910', text: '한일강제병합 이후 조선인의 일본 이주 증가.' },
-      { year: '1930년대', text: '일본 산업화와 전시 체제 속 조선인 노동자 증가.' },
-      { year: '1945', text: '해방 이후 다수는 귀국했으나 일부는 일본에 잔류.' },
-      { year: '1952', text: '재일조선인의 법적 지위 변화.' },
-      { year: '현재', text: '차별, 정체성, 권리 문제가 계속 논의됨.' }
-    ],
-
-    keywordFreq: {
-      '식민지 지배': { korea: 9, japan: 3, china: 8 },
-      '외국인 주민': { korea: 2, japan: 8, china: 2 },
-      '차별/권리': { korea: 8, japan: 5, china: 6 },
-      '정체성': { korea: 7, japan: 6, china: 4 }
-    }
-  },
-
-  {
-    id: 'hiroshima',
-    title: '히로시마 원폭과 조선인 피해자',
-    titleJP: '広島原爆と朝鮮人被害者',
-    titleCN: '广岛原爆与朝鲜人受害者',
-    era: '1945 – 현재',
-    mark: '爆',
-    shortDesc: '1945년 히로시마 원자폭탄 투하와 그 속에 포함된 조선인 피해자 문제. 전쟁 피해, 식민지 동원, 기억의 사각지대를 함께 보여주는 사건이다.',
-    tags: ['제2차 세계대전', '원폭', '기억과 추모'],
-
-    korea: {
-      title: '해방과 피해가 겹친 조선인 원폭 피해',
-      text: '히로시마 원폭 피해자 중에는 일제강점기 일본으로 이주하거나 강제 동원된 조선인들이 포함되어 있었다. 이들은 일본 제국주의의 전쟁 동원 피해자이면서 동시에 원폭 피해자였다.',
-      keywords: ['조선인 피해자', '강제 동원', '원폭 피해', '해방', '기억'],
-      feature: '원폭 피해를 단순한 전쟁 피해가 아니라 식민지 지배와 강제 동원의 결과로 연결해 설명한다.'
-    },
-    japan: {
-      title: '전쟁과 핵무기의 비극',
-      text: '히로시마 원폭은 제2차 세계대전 말기 미국이 일본에 투하한 핵무기로, 수많은 민간인이 희생된 비극적 사건이다. 일본 서술은 핵무기의 참혹성과 평화의 중요성을 강조하는 경향이 강하다.',
-      keywords: ['原爆', '전쟁 피해', '핵무기', '평화', '히바쿠샤'],
-      feature: '핵 피해와 평화 담론을 중심으로 서술하며, 식민지 피해자의 위치는 약해질 수 있다.'
-    },
-    china: {
-      title: '일본 군국주의와 전쟁 피해의 복합성',
-      text: '중국의 시각에서는 히로시마 원폭이 일본 군국주의와 태평양 전쟁의 결과 속에서 발생한 사건으로 이해된다. 조선인 피해자의 존재는 일본 제국주의가 식민지 주민까지 전쟁 체제에 동원했음을 보여준다.',
-      keywords: ['군국주의', '전쟁 책임', '조선인 피해', '반전', '식민지 동원'],
-      feature: '일본의 전쟁 책임과 식민지 동원을 함께 강조하며, 원폭 피해만을 분리해 보지 않는다.'
-    },
-
-    timeline: [
-      { year: '1910–1945', text: '일제강점기 조선인의 일본 이주와 강제 동원 발생.' },
-      { year: '1945.8.6', text: '미국, 히로시마에 원자폭탄 투하.' },
-      { year: '1945.8.15', text: '일본 패전과 조선 해방.' },
-      { year: '전후', text: '조선인 원폭 피해자 상당수가 귀국하거나 일본에 잔류.' },
-      { year: '현재', text: '피해 보상, 기억, 추모 방식 논의 지속.' }
-    ],
-
-    keywordFreq: {
-      '원폭 피해': { korea: 8, japan: 9, china: 6 },
-      '강제 동원': { korea: 9, japan: 2, china: 7 },
-      '평화/반전': { korea: 5, japan: 9, china: 7 },
-      '전쟁 책임': { korea: 7, japan: 3, china: 9 }
-    }
-  }
-];
-
 let currentEventId = null;
 let sharedNarratives = [];
 let sharedLanguageFilter = 'all';
@@ -381,161 +111,383 @@ function switchTab(tabName) {
   document.querySelector(`[data-tab-content="${tabName}"]`)?.classList.add('active');
 }
 
+/* ------------------------------------------------------------
+   AI/NLP 비교 분석 (nlp-analyzer.js 사용)
+   · 결과는 events-data.js의 서술 텍스트로부터 매번 계산됩니다.
+   ------------------------------------------------------------ */
+
+const NLP_COUNTRIES = [
+  { key: 'korea', name: '한국', flag: '韓' },
+  { key: 'japan', name: '일본', flag: '日' },
+  { key: 'china', name: '중국', flag: '中' }
+];
+
+let nlpAnalysis = null;      // 마지막으로 계산된 분석 결과
+let nlpSelectedTerm = null;  // 근거 확인 패널에서 강조할 표현
+
+function nlpCountryName(key) {
+  return (NLP_COUNTRIES.find(c => c.key === key) || {}).name || key;
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;');
+}
+
+function formatNum(value, digits = 2) {
+  return Number(value).toFixed(digits);
+}
+
 function runAIAnalysis() {
   const event = eventsData.find(e => e.id === currentEventId);
   if (!event) return;
 
   const resultBox = document.getElementById('aiResult');
-
-  resultBox.innerHTML = `<div class="ai-result__loading">AI가 세 국가의 서술을 분석하고 있습니다</div>`;
   resultBox.classList.add('show');
 
-  setTimeout(() => {
-    const analysisMap = {
-      'imjin': {
-        common: [
-          '세 국가 모두 1592–1598년의 사건임에는 일치하며, 일본의 군사 행동이 시작이었다는 사실 자체는 부정하지 않는다.',
-          '명나라의 참전이 전쟁의 향방을 바꾼 중요 변수였다는 점도 공통적으로 인정한다.'
-        ],
-        diff: [
-          '한국: "침략"이라는 가치 평가가 들어간 용어를 사용한다.',
-          '일본: "출병"·"진출"이라는 비교적 중립적인 표현을 사용한다.',
-          '중국: "왜에 맞서 조선을 도왔다"는 구원자적 위치를 강조한다.'
-        ],
-        feature: [
-          '한국은 저항과 피해의 서사를 강조한다.',
-          '일본은 군사 행동과 문화 교류의 결과를 강조한다.',
-          '중국은 동아시아 질서 수호와 명나라의 역할을 강조한다.'
-        ]
-      },
-      'culture': {
-        common: [
-          '문화 교류가 일방향이 아닌 다방향이었다는 사실은 세 국가 모두 인정한다.',
-          '한자·불교·유교가 동아시아 공통 문화 기반이라는 점에 합의한다.'
-        ],
-        diff: [
-          '한국: 문화 전파의 교량 역할을 강조한다.',
-          '일본: 주체적 수용과 변용을 강조한다.',
-          '중국: 문명의 중심이자 발신자 역할을 강조한다.'
-        ],
-        feature: [
-          '같은 문화 교류를 두고 각국은 자신을 서로 다른 위치에 놓는다.',
-          '한국은 중계자, 일본은 수용자이자 변용자, 중국은 발신자로 서술한다.'
-        ]
-      },
-      'tribute': {
-        common: [
-          '동아시아에 중국 중심의 국제 질서가 존재했다는 사실 자체는 부정되지 않는다.',
-          '조공 체제가 19세기 말 서구의 충격으로 붕괴되었다는 점도 공통적으로 나타난다.'
-        ],
-        diff: [
-          '한국: 조공을 실리 외교로 재해석한다.',
-          '일본: 조공 체제에서 벗어난 독자성을 강조한다.',
-          '중국: 조공을 조화로운 천하 질서로 설명한다.'
-        ],
-        feature: [
-          '같은 제도를 두고 실리, 이탈, 조화라는 서로 다른 평가가 나타난다.',
-          '평가 어휘의 차이가 국제 질서를 보는 관점의 차이를 드러낸다.'
-        ]
-      },
-      'modern': {
-        common: [
-          '19세기 서구 열강의 충격이 동아시아 근대화의 출발점이었다는 점에 일치한다.',
-          '각국이 자강을 위한 개혁을 시도했다는 사실도 공통적이다.'
-        ],
-        diff: [
-          '한국: 자주적 근대화의 좌절을 강조한다.',
-          '일본: 메이지 유신의 성공을 강조한다.',
-          '중국: 백 년의 치욕과 민족 부흥 서사를 강조한다.'
-        ],
-        feature: [
-          '같은 시대를 한국은 비극, 일본은 성공, 중국은 굴욕으로 기억한다.',
-          '근대화 서술은 각국의 현재 역사 인식과 깊게 연결된다.'
-        ]
-      },
-      'zainichi': {
-        common: [
-          '세 국가 모두 재일조선인이 일본 제국주의 시기와 전후 일본 사회의 변화 속에서 형성된 집단이라는 점은 인정한다.',
-          '국적, 정체성, 차별 문제가 재일조선인 서술의 핵심 쟁점이라는 점도 공통적으로 나타난다.'
-        ],
-        diff: [
-          '한국: 식민지 지배와 강제 동원의 결과로 보며 피해와 권리 회복을 강조한다.',
-          '일본: 전후 일본 사회의 외국인 주민 문제로 보며 제도와 통합을 강조한다.',
-          '중국: 일본 제국주의가 남긴 동아시아 문제로 보며 역사 책임을 강조한다.'
-        ],
-        feature: [
-          '한국 서술은 식민지 지배와 차별이라는 역사적 책임의 언어를 사용한다.',
-          '일본 서술은 특별영주자·지역사회처럼 행정적 표현을 선호한다.',
-          '중국 서술은 재일조선인을 동아시아 반제국주의 역사 인식의 사례로 연결한다.'
-        ]
-      },
-      'hiroshima': {
-        common: [
-          '세 국가 모두 히로시마 원폭이 대규모 민간인 피해를 낳은 사건이라는 점은 인정한다.',
-          '조선인 피해자의 존재는 전쟁 피해와 식민지 동원을 함께 보게 만드는 중요한 지점이다.'
-        ],
-        diff: [
-          '한국: 조선인 피해자를 강제 동원과 식민지 지배의 맥락에서 설명한다.',
-          '일본: 핵무기의 참혹성과 평화의 중요성을 중심으로 설명한다.',
-          '중국: 일본 군국주의와 전쟁 책임의 결과로 해석한다.'
-        ],
-        feature: [
-          '한국 서술은 해방과 피해가 동시에 존재한 복합적 기억을 강조한다.',
-          '일본 서술은 반핵·평화 담론이 강하지만 식민지 피해자의 위치는 약해질 수 있다.',
-          '중국 서술은 원폭 피해를 일본의 전쟁 책임과 분리하지 않고 해석한다.'
-        ]
-      }
-    };
+  if (!window.SharedMemoryNLP) {
+    resultBox.innerHTML = `<div class="shared-empty">분석 모듈(nlp-analyzer.js)을 불러오지 못했습니다.</div>`;
+    return;
+  }
 
-    const data = analysisMap[currentEventId];
+  nlpAnalysis = SharedMemoryNLP.analyzeEventData(event, eventsData);
+  nlpSelectedTerm = nlpAnalysis.common[0]?.term || nlpAnalysis.keywords.korea[0]?.term || null;
 
-    resultBox.innerHTML = `
-      <div class="ai-result__section">
-        <div class="ai-result__heading">
-          <span>✓</span>
-          <span>1. 세 국가 서술의 공통점</span>
-        </div>
-        <ul class="ai-result__list">
-          ${data.common.map(item => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-
-      <div class="ai-result__section">
-        <div class="ai-result__heading">
-          <span>≠</span>
-          <span>2. 핵심 차이점</span>
-        </div>
-        <ul class="ai-result__list">
-          ${data.diff.map(item => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-
-      <div class="ai-result__section">
-        <div class="ai-result__heading">
-          <span>※</span>
-          <span>3. 표현 특징 분석</span>
-        </div>
-        <ul class="ai-result__list">
-          ${data.feature.map(item => `<li>${item}</li>`).join('')}
-        </ul>
-      </div>
-
-      <div class="ai-result__section" style="background: #f5f1e8; border-left-color: #8b3a3a;">
-        <div class="ai-result__heading">
-          <span>💡</span>
-          <span>4. AI의 종합 제언</span>
-        </div>
-        <ul class="ai-result__list">
-          <li>같은 사실을 다르게 표현하는 어휘 선택은 역사 인식의 출발점이자 결과물이다.</li>
-          <li>공동 표현을 만들기 위해서는 가치 평가 어휘를 줄이고, 검증 가능한 사실 어휘를 늘려야 한다.</li>
-          <li>"공동 표현 작성" 탭에서 직접 중립적 서술을 제안해 보세요.</li>
-        </ul>
-      </div>
-
-      ${renderMultilingualSection()}
-    `;
-  }, 1500);
+  resultBox.innerHTML = `
+    ${renderNLPAnalysis(nlpAnalysis)}
+    ${renderEditorNotes(editorNotes[event.id])}
+    ${renderMultilingualSection()}
+    <div class="nlp-next">
+      <p>분석 결과를 참고해, 세 국가가 함께 받아들일 수 있는 표현을 직접 제안해 보세요.</p>
+      <button type="button" class="btn btn--primary" data-goto-tab="shared">공동 표현 제안하러 가기 →</button>
+    </div>
+  `;
 }
+
+function nlpChip(term, country, extra = '') {
+  const selected = term === nlpSelectedTerm ? ' is-selected' : '';
+  const tone = country ? ` nlp-chip--${country}` : '';
+  return `<button type="button" class="nlp-chip${tone}${selected}" data-nlp-term="${escapeAttr(term)}" title="원문에서 근거 보기">${escapeHtml(term)}${extra}</button>`;
+}
+
+function nlpCountsLabel(counts) {
+  return NLP_COUNTRIES.map(c => `${c.name} ${counts[c.key]}`).join(' · ');
+}
+
+function renderNLPAnalysis(a) {
+  const statLine = NLP_COUNTRIES.map(c =>
+    `${c.name} ${a.stats[c.key].tokens}개 어휘 토큰(서로 다른 어휘 ${a.stats[c.key].uniqueTerms}개)`
+  ).join(' / ');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>⌬</span><span>분석 개요</span></div>
+      <ul class="ai-result__list">
+        <li>분석 대상: 각 국가 서술의 제목과 본문 — ${statLine}</li>
+        <li>가중치 기준: 사이트에 등록된 전체 서술 ${a.meta.corpusSize}개를 말뭉치로 사용해, 여러 서술에 흔히 나오는 단어의 비중을 낮춥니다.</li>
+        <li>아래의 모든 단어 칩을 누르면 <strong>5. 근거 확인</strong>에서 해당 표현이 원문 어디에 쓰였는지 강조됩니다.</li>
+      </ul>
+    </div>
+    ${renderNLPKeywords(a)}
+    ${renderNLPCommon(a)}
+    ${renderNLPDistinctive(a)}
+    ${renderNLPSimilarity(a)}
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>⌕</span><span>5. 근거 확인 — 원문에서 표현 찾기</span></div>
+      <div id="nlpEvidence">${renderNLPEvidence()}</div>
+    </div>
+    ${renderNLPMethod(a)}
+  `;
+}
+
+function renderNLPKeywords(a) {
+  const cols = NLP_COUNTRIES.map(c => {
+    const list = a.keywords[c.key];
+    const max = list.length ? list[0].score : 1;
+    const rows = list.map(k => `
+      <li class="nlp-row">
+        ${nlpChip(k.term, c.key)}
+        <span class="nlp-bar"><span class="nlp-bar__fill nlp-bar__fill--${c.key}" style="width:${Math.round(k.score / max * 100)}%"></span></span>
+        <span class="nlp-meta" title="TF(등장 횟수) × IDF(희소성)">${k.tf}회 × ${formatNum(k.idf)} = ${formatNum(k.score)}</span>
+      </li>`).join('');
+    return `
+      <div class="nlp-col nlp-col--${c.key}">
+        <div class="nlp-col__head">${c.flag} ${c.name} 서술</div>
+        <ul class="nlp-rows">${rows || '<li class="nlp-meta">추출된 어휘가 없습니다.</li>'}</ul>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>★</span><span>1. 국가별 핵심 키워드 (TF-IDF)</span></div>
+      <p class="nlp-desc">해당 서술에서 자주 쓰이면서(TF) 다른 서술에서는 드문(IDF) 단어일수록 점수가 높습니다.</p>
+      <div class="nlp-grid">${cols}</div>
+    </div>`;
+}
+
+function renderNLPCommon(a) {
+  const commonHtml = a.common.length
+    ? a.common.map(e => nlpChip(e.term, null, `<small>${nlpCountsLabel(e.counts)}</small>`)).join('')
+    : '<span class="nlp-meta">세 서술에 모두 등장하는 표현이 없습니다.</span>';
+
+  const pairHtml = SharedMemoryNLP.PAIRS.map(([x, y]) => {
+    const list = a.pairShared[`${x}-${y}`].slice(0, 6);
+    const chips = list.length
+      ? list.map(e => nlpChip(e.term, null, `<small>${nlpCountsLabel(e.counts)}</small>`)).join('')
+      : '<span class="nlp-meta">없음</span>';
+    return `<div class="nlp-pair"><div class="nlp-pair__label">${nlpCountryName(x)}–${nlpCountryName(y)}만</div><div class="nlp-chips">${chips}</div></div>`;
+  }).join('');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>∩</span><span>2. 세 국가 서술의 공통 표현</span></div>
+      <p class="nlp-desc">세 서술 모두에 등장한 단어·2어절 표현입니다. 숫자는 국가별 등장 횟수입니다.</p>
+      <div class="nlp-chips">${commonHtml}</div>
+      <p class="nlp-desc nlp-desc--sub">두 국가만 함께 쓰고 나머지 한 국가는 쓰지 않은 표현</p>
+      ${pairHtml}
+    </div>`;
+}
+
+function renderNLPDistinctive(a) {
+  const cols = NLP_COUNTRIES.map(c => {
+    const rows = a.distinctive[c.key].map(d => {
+      const others = Object.entries(d.otherCounts).map(([k, v]) => `${nlpCountryName(k)} ${v}`).join('·');
+      return `
+        <li class="nlp-row nlp-row--stack">
+          <div>${nlpChip(d.term, c.key)}${d.exclusive ? '<span class="nlp-badge">단독 사용</span>' : ''}</div>
+          <span class="nlp-meta">${c.name} ${d.count}회 / ${others}회 · 상대 빈도 ${formatNum(d.ratio, 1)}배</span>
+        </li>`;
+    }).join('');
+    return `
+      <div class="nlp-col nlp-col--${c.key}">
+        <div class="nlp-col__head">${c.flag} ${c.name} 서술에서 두드러지는 표현</div>
+        <ul class="nlp-rows">${rows || '<li class="nlp-meta">두드러지는 표현이 없습니다.</li>'}</ul>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>≠</span><span>3. 국가별 특징적 표현</span></div>
+      <p class="nlp-desc">한 국가의 서술에서 나머지 두 국가보다 상대적으로 많이 쓰인 표현입니다. 여러 번 반복된 표현일수록 위에 놓입니다.</p>
+      <div class="nlp-grid">${cols}</div>
+    </div>`;
+}
+
+function renderNLPSimilarity(a) {
+  const sorted = a.similarity.slice().sort((x, y) => y.cosine - x.cosine);
+  const pairName = s => `${nlpCountryName(s.pair[0])}–${nlpCountryName(s.pair[1])}`;
+  const summary = sorted[0].cosine === sorted[sorted.length - 1].cosine
+    ? '세 쌍의 어휘 유사도가 같습니다.'
+    : `세 쌍 가운데 <strong>${pairName(sorted[0])}</strong> 서술의 어휘가 가장 가깝고(${formatNum(sorted[0].cosine)}), <strong>${pairName(sorted[sorted.length - 1])}</strong> 서술이 가장 멉니다(${formatNum(sorted[sorted.length - 1].cosine)}).`;
+
+  const rows = a.similarity.map(s => {
+    const contrib = s.contributions.length
+      ? s.contributions.map(c => nlpChip(c.term, null, `<small>+${formatNum(c.contribution, 3)}</small>`)).join('')
+      : '<span class="nlp-meta">공유 어휘 없음</span>';
+    return `
+      <div class="nlp-sim">
+        <div class="nlp-sim__label">${pairName(s)}</div>
+        <div class="nlp-sim__bars">
+          <div class="nlp-sim__metric">
+            <span>코사인</span>
+            <span class="nlp-bar"><span class="nlp-bar__fill" style="width:${Math.round(s.cosine * 100)}%"></span></span>
+            <strong>${formatNum(s.cosine)}</strong>
+          </div>
+          <div class="nlp-sim__metric">
+            <span>Jaccard</span>
+            <span class="nlp-bar"><span class="nlp-bar__fill nlp-bar__fill--soft" style="width:${Math.round(s.jaccard * 100)}%"></span></span>
+            <strong>${formatNum(s.jaccard)}</strong>
+          </div>
+          <div class="nlp-meta">공유 어휘 ${s.sharedTerms.length}개 / 전체 어휘 ${s.unionSize}개 · 유사도에 기여한 단어:</div>
+          <div class="nlp-chips">${contrib}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>≈</span><span>4. 서술 간 텍스트 유사도</span></div>
+      <p class="nlp-desc">${summary}<br />
+        <small>코사인 유사도는 TF-IDF 가중치 기준(0~1), Jaccard는 어휘 집합이 겹치는 비율입니다. 서술이 짧아 값이 전반적으로 낮게 나오므로 세 쌍을 서로 비교해 읽는 것이 좋습니다.</small></p>
+      ${rows}
+    </div>`;
+}
+
+function highlightSpans(text, spans) {
+  const sorted = spans.slice().sort((x, y) => x[0] - y[0]);
+  let html = '';
+  let pos = 0;
+  sorted.forEach(([start, end]) => {
+    if (start < pos) return;
+    html += escapeHtml(text.slice(pos, start)) + `<mark class="nlp-mark">${escapeHtml(text.slice(start, end))}</mark>`;
+    pos = end;
+  });
+  html += escapeHtml(text.slice(pos));
+
+  // 첫 줄은 서술 제목입니다.
+  const lineBreak = html.indexOf('\n');
+  return lineBreak < 0
+    ? html
+    : `<strong>${html.slice(0, lineBreak)}</strong><br />${html.slice(lineBreak + 1).replace(/\n/g, '<br />')}`;
+}
+
+function renderNLPEvidence() {
+  if (!nlpAnalysis) return '';
+
+  const term = nlpSelectedTerm;
+  const occ = term ? nlpAnalysis.occurrences(term) : { korea: [], japan: [], china: [] };
+  const counts = term ? nlpAnalysis.countsFor(term) : { korea: 0, japan: 0, china: 0 };
+
+  const head = term
+    ? `<p class="nlp-desc">선택한 표현 <strong>“${escapeHtml(term)}”</strong> — ${nlpCountsLabel(counts)}회 등장 <small>(조사·어미를 떼어낸 기본형 기준, 원문은 어절 단위로 강조)</small></p>`
+    : '<p class="nlp-desc">위의 단어를 선택하면 원문에서 위치를 보여줍니다.</p>';
+
+  const cols = NLP_COUNTRIES.map(c => `
+    <div class="nlp-col nlp-col--${c.key}">
+      <div class="nlp-col__head">${c.flag} ${c.name} 서술 <span class="nlp-meta">(${counts[c.key]}회)</span></div>
+      <p class="nlp-evidence__text">${highlightSpans(nlpAnalysis.texts[c.key], occ[c.key])}</p>
+    </div>`).join('');
+
+  return `${head}<div class="nlp-grid">${cols}</div>`;
+}
+
+function selectNLPTerm(term) {
+  nlpSelectedTerm = term;
+  document.querySelectorAll('#aiResult [data-nlp-term]').forEach(chip => {
+    chip.classList.toggle('is-selected', chip.dataset.nlpTerm === term);
+  });
+  const evidence = document.getElementById('nlpEvidence');
+  if (evidence) {
+    evidence.innerHTML = renderNLPEvidence();
+    evidence.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function renderNLPMethod(a) {
+  return `
+    <details class="ai-result__section nlp-method">
+      <summary class="ai-result__heading"><span>?</span><span>분석 방법 자세히 보기</span></summary>
+      <ul class="ai-result__list">
+        <li><strong>전처리</strong>: 문장을 어절로 나누고, 규칙 기반으로 조사·어미를 떼어 기본형으로 맞춥니다(예: “일본군을”→“일본군”, “희생되었다”→“희생”). 의미가 약한 기능어는 제외합니다.</li>
+        <li><strong>핵심 키워드</strong>: TF-IDF = 등장 횟수 × IDF, IDF = ln((1+N)/(1+df))+1 (N = 전체 서술 ${a.meta.corpusSize}개, df = 그 단어가 나온 서술 수).</li>
+        <li><strong>공통 표현</strong>: 세 서술에 모두 한 번 이상 나온 단어와 이어진 2어절 표현.</li>
+        <li><strong>특징적 표현</strong>: 해당 국가의 상대 빈도 ÷ 나머지 두 국가의 상대 빈도(가산 평활 α=${a.meta.alpha}). 정렬은 로그 오즈비를 표준오차로 나눈 z-점수 기준이라, 한 번만 나온 단어보다 반복된 단어를 더 신뢰합니다.</li>
+        <li><strong>유사도</strong>: 두 서술의 TF-IDF 벡터 사이 코사인 값. 각 공유 단어의 기여도를 모두 더하면 코사인 값과 같습니다. Jaccard = 공통 어휘 수 ÷ 전체 어휘 수.</li>
+        <li><strong>한계</strong>: 형태소 분석기가 아닌 규칙 기반 처리라 일부 활용형이 남거나 잘릴 수 있고, 같은 뜻의 다른 단어(예: 침략·침공)는 서로 다른 단어로 계산됩니다. 결과는 어휘 선택의 경향을 보여줄 뿐, 역사 해석의 옳고 그름을 판정하지 않습니다.</li>
+      </ul>
+    </details>`;
+}
+
+function renderEditorNotes(data) {
+  if (!data) return '';
+  const list = items => items.map(item => `<li>${item}</li>`).join('');
+  return `
+    <details class="ai-result__section nlp-editor">
+      <summary class="ai-result__heading"><span>✎</span><span>참고: 편집자 해설 (사람이 작성한 해석 · 자동 분석 결과 아님)</span></summary>
+      <p class="nlp-desc nlp-desc--sub">공통점</p>
+      <ul class="ai-result__list">${list(data.common)}</ul>
+      <p class="nlp-desc nlp-desc--sub">핵심 차이점</p>
+      <ul class="ai-result__list">${list(data.diff)}</ul>
+      <p class="nlp-desc nlp-desc--sub">표현 특징</p>
+      <ul class="ai-result__list">${list(data.feature)}</ul>
+    </details>`;
+}
+
+// 편집자 해설: 사람이 작성한 사건별 해석입니다. (자동 분석 결과와 구분해 표시)
+const editorNotes = {
+  'imjin': {
+    common: [
+      '세 국가 모두 1592–1598년의 사건임에는 일치하며, 일본의 군사 행동이 시작이었다는 사실 자체는 부정하지 않는다.',
+      '명나라의 참전이 전쟁의 향방을 바꾼 중요 변수였다는 점도 공통적으로 인정한다.'
+    ],
+    diff: [
+      '한국: "침략"이라는 가치 평가가 들어간 용어를 사용한다.',
+      '일본: "출병"·"진출"이라는 비교적 중립적인 표현을 사용한다.',
+      '중국: "왜에 맞서 조선을 도왔다"는 구원자적 위치를 강조한다.'
+    ],
+    feature: [
+      '한국은 저항과 피해의 서사를 강조한다.',
+      '일본은 군사 행동과 문화 교류의 결과를 강조한다.',
+      '중국은 동아시아 질서 수호와 명나라의 역할을 강조한다.'
+    ]
+  },
+  'culture': {
+    common: [
+      '문화 교류가 일방향이 아닌 다방향이었다는 사실은 세 국가 모두 인정한다.',
+      '한자·불교·유교가 동아시아 공통 문화 기반이라는 점에 합의한다.'
+    ],
+    diff: [
+      '한국: 문화 전파의 교량 역할을 강조한다.',
+      '일본: 주체적 수용과 변용을 강조한다.',
+      '중국: 문명의 중심이자 발신자 역할을 강조한다.'
+    ],
+    feature: [
+      '같은 문화 교류를 두고 각국은 자신을 서로 다른 위치에 놓는다.',
+      '한국은 중계자, 일본은 수용자이자 변용자, 중국은 발신자로 서술한다.'
+    ]
+  },
+  'tribute': {
+    common: [
+      '동아시아에 중국 중심의 국제 질서가 존재했다는 사실 자체는 부정되지 않는다.',
+      '조공 체제가 19세기 말 서구의 충격으로 붕괴되었다는 점도 공통적으로 나타난다.'
+    ],
+    diff: [
+      '한국: 조공을 실리 외교로 재해석한다.',
+      '일본: 조공 체제에서 벗어난 독자성을 강조한다.',
+      '중국: 조공을 조화로운 천하 질서로 설명한다.'
+    ],
+    feature: [
+      '같은 제도를 두고 실리, 이탈, 조화라는 서로 다른 평가가 나타난다.',
+      '평가 어휘의 차이가 국제 질서를 보는 관점의 차이를 드러낸다.'
+    ]
+  },
+  'modern': {
+    common: [
+      '19세기 서구 열강의 충격이 동아시아 근대화의 출발점이었다는 점에 일치한다.',
+      '각국이 자강을 위한 개혁을 시도했다는 사실도 공통적이다.'
+    ],
+    diff: [
+      '한국: 자주적 근대화의 좌절을 강조한다.',
+      '일본: 메이지 유신의 성공을 강조한다.',
+      '중국: 백 년의 치욕과 민족 부흥 서사를 강조한다.'
+    ],
+    feature: [
+      '같은 시대를 한국은 비극, 일본은 성공, 중국은 굴욕으로 기억한다.',
+      '근대화 서술은 각국의 현재 역사 인식과 깊게 연결된다.'
+    ]
+  },
+  'zainichi': {
+    common: [
+      '세 국가 모두 재일조선인이 일본 제국주의 시기와 전후 일본 사회의 변화 속에서 형성된 집단이라는 점은 인정한다.',
+      '국적, 정체성, 차별 문제가 재일조선인 서술의 핵심 쟁점이라는 점도 공통적으로 나타난다.'
+    ],
+    diff: [
+      '한국: 식민지 지배와 강제 동원의 결과로 보며 피해와 권리 회복을 강조한다.',
+      '일본: 전후 일본 사회의 외국인 주민 문제로 보며 제도와 통합을 강조한다.',
+      '중국: 일본 제국주의가 남긴 동아시아 문제로 보며 역사 책임을 강조한다.'
+    ],
+    feature: [
+      '한국 서술은 식민지 지배와 차별이라는 역사적 책임의 언어를 사용한다.',
+      '일본 서술은 특별영주자·지역사회처럼 행정적 표현을 선호한다.',
+      '중국 서술은 재일조선인을 동아시아 반제국주의 역사 인식의 사례로 연결한다.'
+    ]
+  },
+  'hiroshima': {
+    common: [
+      '세 국가 모두 히로시마 원폭이 대규모 민간인 피해를 낳은 사건이라는 점은 인정한다.',
+      '조선인 피해자의 존재는 전쟁 피해와 식민지 동원을 함께 보게 만드는 중요한 지점이다.'
+    ],
+    diff: [
+      '한국: 조선인 피해자를 강제 동원과 식민지 지배의 맥락에서 설명한다.',
+      '일본: 핵무기의 참혹성과 평화의 중요성을 중심으로 설명한다.',
+      '중국: 일본 군국주의와 전쟁 책임의 결과로 해석한다.'
+    ],
+    feature: [
+      '한국 서술은 해방과 피해가 동시에 존재한 복합적 기억을 강조한다.',
+      '일본 서술은 반핵·평화 담론이 강하지만 식민지 피해자의 위치는 약해질 수 있다.',
+      '중국 서술은 원폭 피해를 일본의 전쟁 책임과 분리하지 않고 해석한다.'
+    ]
+  }
+};
 
 function renderMultilingualSection() {
   const result = runMultilingualAnalysis();
@@ -545,7 +497,7 @@ function renderMultilingualSection() {
       <div class="ai-result__section">
         <div class="ai-result__heading">
           <span>🌐</span>
-          <span>5. 다국어 공동 표현 분석</span>
+          <span>다국어 공동 표현 분석</span>
         </div>
         <ul class="ai-result__list">
           <li>${result.message}</li>
@@ -585,7 +537,7 @@ function renderMultilingualSection() {
     <div class="ai-result__section">
       <div class="ai-result__heading">
         <span>🌐</span>
-        <span>5. 다국어 공동 표현 분석 (총 ${result.totalCount}건)</span>
+        <span>다국어 공동 표현 분석 (총 ${result.totalCount}건)</span>
       </div>
       <ul class="ai-result__list">
         ${statRows}
@@ -595,7 +547,7 @@ function renderMultilingualSection() {
     <div class="ai-result__section">
       <div class="ai-result__heading">
         <span>🔗</span>
-        <span>6. 언어를 가로지르는 공통 키워드</span>
+        <span>언어를 가로지르는 공통 키워드</span>
       </div>
       <ul class="ai-result__list">
         ${commonKwHtml}
@@ -1136,6 +1088,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('aiAnalyzeBtn')?.addEventListener('click', runAIAnalysis);
+  document.getElementById('aiResult')?.addEventListener('click', e => {
+    const chip = e.target.closest('[data-nlp-term]');
+    if (chip) selectNLPTerm(chip.dataset.nlpTerm);
+    const goto = e.target.closest('[data-goto-tab]');
+    if (goto) {
+      switchTab(goto.dataset.gotoTab);
+      document.querySelector('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
   document.getElementById('submitNarrative')?.addEventListener('click', submitSharedNarrative);
 
   console.log('🎌 Shared Memory Project 로드 완료');
