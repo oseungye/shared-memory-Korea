@@ -867,6 +867,231 @@ a { color: inherit; text-decoration: none; }
 }
 
 
+/* ---------- 12-1. AI/NLP 비교 분석 결과 ---------- */
+.nlp-desc {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+.nlp-desc small { color: var(--ink-mute); font-size: 0.78rem; }
+
+.nlp-desc--sub {
+  margin: 1.2rem 0 0.5rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.nlp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.nlp-col {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border-top: 3px solid var(--line);
+  padding: 1rem 1.1rem;
+  min-width: 0;
+}
+
+.nlp-col--korea { border-top-color: var(--korea); }
+.nlp-col--japan { border-top-color: var(--japan); }
+.nlp-col--china { border-top-color: var(--china); }
+
+.nlp-col__head {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 0.75rem;
+}
+
+.nlp-rows {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.nlp-row {
+  display: grid;
+  grid-template-columns: auto minmax(40px, 1fr);
+  grid-template-areas: "chip bar" "meta meta";
+  align-items: center;
+  column-gap: 0.6rem;
+  row-gap: 0.15rem;
+}
+
+.nlp-row > .nlp-chip { grid-area: chip; justify-self: start; }
+.nlp-row > .nlp-bar { grid-area: bar; }
+.nlp-row > .nlp-meta { grid-area: meta; }
+
+.nlp-row--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.nlp-meta {
+  font-size: 0.74rem;
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+
+.nlp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.nlp-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.22rem 0.65rem;
+  background: var(--bg-main);
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.nlp-chip small { font-size: 0.7rem; color: var(--ink-mute); font-weight: 400; }
+.nlp-chip:hover { border-color: var(--accent); }
+.nlp-chip--korea { box-shadow: inset 2px 0 0 var(--korea); }
+.nlp-chip--japan { box-shadow: inset 2px 0 0 var(--japan); }
+.nlp-chip--china { box-shadow: inset 2px 0 0 var(--china); }
+
+.nlp-chip.is-selected {
+  background: var(--accent);
+  color: white;
+}
+
+.nlp-chip.is-selected small { color: rgba(255, 255, 255, 0.8); }
+
+.nlp-badge {
+  font-size: 0.68rem;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 100px;
+}
+
+.nlp-bar {
+  display: block;
+  height: 8px;
+  background: var(--bg-main);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.nlp-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 100px;
+  background: var(--accent);
+}
+
+.nlp-bar__fill--korea { background: var(--korea); }
+.nlp-bar__fill--japan { background: var(--japan); }
+.nlp-bar__fill--china { background: var(--china); }
+.nlp-bar__fill--soft { background: var(--accent-soft); }
+
+.nlp-pair {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  margin-bottom: 0.5rem;
+}
+
+.nlp-pair__label {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  padding-top: 0.25rem;
+}
+
+.nlp-sim {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px dashed var(--line);
+}
+
+.nlp-sim__label {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+}
+
+.nlp-sim__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.nlp-sim__metric {
+  display: grid;
+  grid-template-columns: 60px 1fr 44px;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.nlp-sim__metric strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  text-align: right;
+  color: var(--ink);
+}
+
+.nlp-evidence__text {
+  font-size: 0.88rem;
+  line-height: 1.85;
+  color: var(--ink-soft);
+}
+
+.nlp-evidence__text strong { color: var(--ink); }
+
+.nlp-mark {
+  background: #f1d59a;
+  color: var(--ink);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+details.ai-result__section > summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+}
+
+details.ai-result__section > summary::-webkit-details-marker { display: none; }
+details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
+
+.nlp-editor { border-left-color: var(--ink-mute); }
+
+.nlp-next {
+  text-align: center;
+  padding: 1.5rem 1rem 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.nlp-next p { margin-bottom: 1rem; }
+
+
 /* ---------- 13. 키워드 차트 ---------- */
 .keywords-box {
   background: var(--bg-card);
@@ -1149,6 +1374,7 @@ a { color: inherit; text-decoration: none; }
   .narratives .narrative-card { max-width: 600px; margin: 0 auto; width: 100%; }
   .about__grid { grid-template-columns: 1fr; }
   .hero__map { width: 70%; opacity: 0.3; }
+  .nlp-grid { grid-template-columns: 1fr; }
 }
 
 /* ============================================================
@@ -1182,5 +1408,8 @@ a { color: inherit; text-decoration: none; }
 
   .keyword-row { grid-template-columns: 80px 1fr; }
   .keyword-bar { grid-template-columns: 40px 1fr 35px; gap: 0.5rem; font-size: 0.78rem; }
+
+  .ai-result__section { padding: 1.2rem 1rem; }
+  .nlp-sim, .nlp-pair { grid-template-columns: 1fr; gap: 0.5rem; }
 }
 
