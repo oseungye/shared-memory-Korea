@@ -1,10 +1,38 @@
 /* ============================================================
    Shared Memory Project — script.js
+   화면 렌더링과 이벤트 처리
+   · 분석 계산은 nlp-analyzer.js / shared-memory-analyzer.js,
+     저장·불러오기는 shared-store.js, 지도 그리기는 memory-map.js가 담당합니다.
    ============================================================ */
 
 let currentEventId = null;
 let sharedNarratives = [];
 let sharedLanguageFilter = 'all';
+let sharedVisibleCount = 20;          // 목록에 한 번에 보여줄 제안 수
+let sharedLoadState = 'idle';         // idle | loading | ready | error
+let sharedLoadError = '';
+let sharedLimited = false;            // 불러오기 상한(500건)에 도달했는지
+
+let eventNlp = null;                  // 현재 사건의 국가별 서술 NLP 결과 (열 때 한 번 계산)
+let expressionAnalysis = null;        // 현재 사건의 공동 표현 분석 결과
+let selectedClusterId = null;
+let draftContext = null;              // 작성 중 실시간 분석용 문맥
+let empathyCounts = {};
+let empathyAvailable = false;
+
+const Analyzer = window.SharedMemoryAnalyzer || null;
+const Guide = window.ContributionGuide || { STYLES: [], TEMPLATES: [], REASONS: [] };
+const Store = window.SharedStore || null;
+const MemoryMap = window.SharedMemoryMap || null;
+const SOURCES = typeof sourcesData !== 'undefined' ? sourcesData : [];
+
+function currentEvent() {
+  return eventsData.find(e => e.id === currentEventId) || null;
+}
+
+function eventNarratives(event) {
+  return event ? { korea: event.korea, japan: event.japan, china: event.china } : {};
+}
 
 function navigateTo(pageName) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -18,7 +46,7 @@ function renderEventCards() {
   if (!grid) return;
 
   grid.innerHTML = eventsData.map(event => `
-    <div class="event-card" data-event-id="${event.id}">
+    <div class="event-card" data-event-id="${event.id}" tabindex="0" role="button" aria-label="${escapeAttr(event.title)} 서술 비교 열기">
       <div class="event-card__visual" data-mark="${event.mark}">
         ${event.mark}
       </div>
@@ -36,6 +64,9 @@ function renderEventCards() {
   grid.querySelectorAll('.event-card').forEach(card => {
     card.addEventListener('click', () => {
       openEventDetail(card.dataset.eventId);
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') openEventDetail(card.dataset.eventId);
     });
   });
 }
@@ -80,7 +111,7 @@ function openEventDetail(eventId) {
         </div>
 
         <div class="narrative-card__section">
-          <div class="narrative-card__label">표현 특징</div>
+          <div class="narrative-card__label">표현 특징 (편집자 해설)</div>
           <p class="narrative-card__feature">${n.feature}</p>
         </div>
       </div>
@@ -97,10 +128,37 @@ function openEventDetail(eventId) {
   document.getElementById('aiResult').classList.remove('show');
   document.getElementById('aiResult').innerHTML = '';
 
+  // 서술 NLP 결과는 작성 가이드·사료 연결·공동 기억 지도에서도 쓰므로 먼저 한 번 계산합니다.
+  eventNlp = computeEventNlp(event);
+  nlpAnalysis = null;
+  nlpSelectedTerm = null;
+  beforeEditing = false;
+  expressionAnalysis = null;
+  selectedClusterId = null;
+  sharedNarratives = [];
+  empathyCounts = {};
+  sharedVisibleCount = 20;
+  sourcesFilter = 'all';
+
   switchTab('compare');
+  renderBeforeCard();
   renderKeywordChart(event);
+  renderSourcesTab();
+  resetGuide(event);
+  rebuildDraftContext();
+  updateDraftPanel();
   loadSharedNarratives();
   navigateTo('detail');
+}
+
+function computeEventNlp(event) {
+  if (!window.SharedMemoryNLP) return null;
+  try {
+    return SharedMemoryNLP.analyzeEventData(event, eventsData);
+  } catch (e) {
+    console.error('NLP 분석 오류:', e);
+    return null;
+  }
 }
 
 function switchTab(tabName) {
@@ -109,10 +167,86 @@ function switchTab(tabName) {
 
   document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('active');
   document.querySelector(`[data-tab-content="${tabName}"]`)?.classList.add('active');
+
+  // 지도는 보이는 상태에서 너비를 재야 하므로 탭을 열 때 다시 그립니다.
+  if (tabName === 'memory') renderMemoryTab();
+}
+
+function gotoTab(tabName) {
+  switchTab(tabName);
+  document.querySelector('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ------------------------------------------------------------
-   AI/NLP 비교 분석 (nlp-analyzer.js 사용)
+   탐구 전 한 문장 (BEFORE)
+   · 국가별 서술을 읽기 전에 적어 두면, 공동 표현(AFTER)과 비교합니다.
+   · 이 브라우저에만 임시 저장되고, 공동 표현을 등록할 때 before_content로 함께 저장됩니다.
+   ------------------------------------------------------------ */
+
+let beforeEditing = false;
+
+function beforeKey(kind) { return `sm_before_${kind || ''}${currentEventId}`; }
+function getBefore() { return (Store && Store.storageGet(beforeKey())) || ''; }
+function setBefore(value) { if (Store) Store.storageSet(beforeKey(), value); }
+function isBeforeSkipped() { return !!(Store && Store.storageGet(beforeKey('skip_'))); }
+
+function renderBeforeCard() {
+  const box = document.getElementById('beforeCard');
+  if (!box) return;
+  const saved = getBefore();
+
+  if (saved && !beforeEditing) {
+    box.className = 'before-card is-saved';
+    box.innerHTML = `
+      <span class="before-card__label">탐구 전 나의 한 문장</span>
+      <span class="before-card__text">“${escapeHtml(saved)}”</span>
+      <button type="button" class="before-card__link" data-before-action="edit">수정</button>`;
+    return;
+  }
+  if (isBeforeSkipped() && !beforeEditing) {
+    box.className = 'before-card is-collapsed';
+    box.innerHTML = `
+      <span class="before-card__hint">서술을 읽기 전의 생각을 한 문장으로 남겨 두면, 나중에 공동 표현과 비교해 생각의 변화를 볼 수 있어요.</span>
+      <button type="button" class="before-card__link" data-before-action="edit">지금 적기</button>`;
+    return;
+  }
+  box.className = 'before-card';
+  box.innerHTML = `
+    <div class="before-card__head">
+      <span class="before-card__label">탐구 전 한 문장 <small>(선택)</small></span>
+      <p class="before-card__desc">국가별 서술을 읽기 전에, 지금 알고 있는 내용만으로 이 사건을 한 문장으로 표현해 주세요.</p>
+    </div>
+    <div class="before-card__row">
+      <input type="text" id="beforeInput" class="shared-form__input" maxlength="500" value="${escapeAttr(saved)}" placeholder="예: 일본이 조선을 침략한 전쟁" aria-label="탐구 전 한 문장" />
+      <button type="button" class="btn btn--small" data-before-action="save">저장</button>
+      <button type="button" class="before-card__link" data-before-action="skip">건너뛰기</button>
+    </div>
+    <p class="before-card__note">이 브라우저에만 임시로 저장되며, 공동 표현을 등록할 때 함께 저장되어 탐구 전·후 변화 분석에 쓰입니다.</p>`;
+}
+
+function handleBeforeAction(action) {
+  if (action === 'edit') {
+    beforeEditing = true;
+    renderBeforeCard();
+    document.getElementById('beforeInput')?.focus();
+    return;
+  }
+  if (action === 'save') {
+    const value = (document.getElementById('beforeInput')?.value || '').trim();
+    setBefore(value);
+    beforeEditing = false;
+    if (!value && Store) Store.storageSet(beforeKey('skip_'), '1');
+  }
+  if (action === 'skip') {
+    if (Store) Store.storageSet(beforeKey('skip_'), '1');
+    beforeEditing = false;
+  }
+  renderBeforeCard();
+  updateDraftPanel();
+}
+
+/* ------------------------------------------------------------
+   NLP 비교 분석 (nlp-analyzer.js 사용)
    · 결과는 events-data.js의 서술 텍스트로부터 매번 계산됩니다.
    ------------------------------------------------------------ */
 
@@ -123,7 +257,7 @@ const NLP_COUNTRIES = [
 ];
 
 let nlpAnalysis = null;      // 마지막으로 계산된 분석 결과
-let nlpSelectedTerm = null;  // 근거 확인 패널에서 강조할 표현
+let nlpSelectedTerm = null;  // 근거 확인 패널에서 강조할 표현 ('concept:ID'이면 개념 사전 기준)
 
 function nlpCountryName(key) {
   return (NLP_COUNTRIES.find(c => c.key === key) || {}).name || key;
@@ -137,8 +271,12 @@ function formatNum(value, digits = 2) {
   return Number(value).toFixed(digits);
 }
 
+function formatPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
+
 function runAIAnalysis() {
-  const event = eventsData.find(e => e.id === currentEventId);
+  const event = currentEvent();
   if (!event) return;
 
   const resultBox = document.getElementById('aiResult');
@@ -149,24 +287,33 @@ function runAIAnalysis() {
     return;
   }
 
-  nlpAnalysis = SharedMemoryNLP.analyzeEventData(event, eventsData);
-  nlpSelectedTerm = nlpAnalysis.common[0]?.term || nlpAnalysis.keywords.korea[0]?.term || null;
+  nlpAnalysis = eventNlp || SharedMemoryNLP.analyzeEventData(event, eventsData);
+  if (!nlpSelectedTerm || !nlpTermExists(nlpSelectedTerm)) {
+    nlpSelectedTerm = nlpAnalysis.common[0]?.term || nlpAnalysis.keywords.korea[0]?.term || null;
+  }
 
   resultBox.innerHTML = `
     ${renderNLPAnalysis(nlpAnalysis)}
     ${renderEditorNotes(editorNotes[event.id])}
     ${renderMultilingualSection()}
     <div class="nlp-next">
-      <p>분석 결과를 참고해, 세 국가가 함께 받아들일 수 있는 표현을 직접 제안해 보세요.</p>
+      <p>분석 결과와 관련 사료를 참고해, 서로 다른 관점을 함께 담을 수 있는 표현을 직접 제안해 보세요.</p>
       <button type="button" class="btn btn--primary" data-goto-tab="shared">공동 표현 제안하러 가기 →</button>
     </div>
   `;
 }
 
-function nlpChip(term, country, extra = '') {
+function nlpTermExists(term) {
+  if (!nlpAnalysis || !term) return false;
+  if (term.indexOf('concept:') === 0) return true;
+  const counts = nlpAnalysis.countsFor(term);
+  return NLP_COUNTRIES.some(c => counts[c.key] > 0);
+}
+
+function nlpChip(term, country, extra = '', label = null) {
   const selected = term === nlpSelectedTerm ? ' is-selected' : '';
   const tone = country ? ` nlp-chip--${country}` : '';
-  return `<button type="button" class="nlp-chip${tone}${selected}" data-nlp-term="${escapeAttr(term)}" title="원문에서 근거 보기">${escapeHtml(term)}${extra}</button>`;
+  return `<button type="button" class="nlp-chip${tone}${selected}" data-nlp-term="${escapeAttr(term)}" title="원문에서 근거 보기">${escapeHtml(label == null ? term : label)}${extra}</button>`;
 }
 
 function nlpCountsLabel(counts) {
@@ -184,7 +331,7 @@ function renderNLPAnalysis(a) {
       <ul class="ai-result__list">
         <li>분석 대상: 각 국가 서술의 제목과 본문 — ${statLine}</li>
         <li>가중치 기준: 사이트에 등록된 전체 서술 ${a.meta.corpusSize}개를 말뭉치로 사용해, 여러 서술에 흔히 나오는 단어의 비중을 낮춥니다.</li>
-        <li>아래의 모든 단어 칩을 누르면 <strong>5. 근거 확인</strong>에서 해당 표현이 원문 어디에 쓰였는지 강조됩니다.</li>
+        <li>아래의 모든 단어 칩을 누르면 <strong>5. 근거 확인</strong>에서 해당 표현이 원문 어디에 쓰였는지, 그리고 연결된 사료가 무엇인지 보여줍니다.</li>
       </ul>
     </div>
     ${renderNLPKeywords(a)}
@@ -195,6 +342,7 @@ function renderNLPAnalysis(a) {
       <div class="ai-result__heading"><span>⌕</span><span>5. 근거 확인 — 원문에서 표현 찾기</span></div>
       <div id="nlpEvidence">${renderNLPEvidence()}</div>
     </div>
+    ${renderNLPEmphasis(a)}
     ${renderNLPMethod(a)}
   `;
 }
@@ -330,24 +478,58 @@ function highlightSpans(text, spans) {
     : `<strong>${html.slice(0, lineBreak)}</strong><br />${html.slice(lineBreak + 1).replace(/\n/g, '<br />')}`;
 }
 
+/** 선택한 표현(단어 또는 'concept:ID')의 원문 위치와 국가별 등장 수 */
+function evidenceFor(term) {
+  const empty = { label: term, occ: { korea: [], japan: [], china: [] }, counts: { korea: 0, japan: 0, china: 0 }, isConcept: false };
+  if (!term || !nlpAnalysis) return empty;
+  if (term.indexOf('concept:') === 0) {
+    const id = term.slice(8);
+    const concept = Analyzer && Analyzer.CONCEPTS.find(c => c.id === id);
+    if (!concept) return empty;
+    const occ = {}, counts = {};
+    NLP_COUNTRIES.forEach(c => {
+      occ[c.key] = Analyzer.matchForms(nlpAnalysis.texts[c.key], concept.forms.ko || []).spans;
+      counts[c.key] = occ[c.key].length;
+    });
+    return { label: concept.label, occ, counts, isConcept: true, concept };
+  }
+  return { label: term, occ: nlpAnalysis.occurrences(term), counts: nlpAnalysis.countsFor(term), isConcept: false };
+}
+
 function renderNLPEvidence() {
   if (!nlpAnalysis) return '';
 
   const term = nlpSelectedTerm;
-  const occ = term ? nlpAnalysis.occurrences(term) : { korea: [], japan: [], china: [] };
-  const counts = term ? nlpAnalysis.countsFor(term) : { korea: 0, japan: 0, china: 0 };
+  const ev = evidenceFor(term);
 
   const head = term
-    ? `<p class="nlp-desc">선택한 표현 <strong>“${escapeHtml(term)}”</strong> — ${nlpCountsLabel(counts)}회 등장 <small>(조사·어미를 떼어낸 기본형 기준, 원문은 어절 단위로 강조)</small></p>`
+    ? `<p class="nlp-desc">선택한 ${ev.isConcept ? '개념' : '표현'} <strong>“${escapeHtml(ev.label)}”</strong> — ${nlpCountsLabel(ev.counts)}회 등장 <small>${ev.isConcept
+      ? `(개념 사전 기준: ${escapeHtml((ev.concept.forms.ko || []).join('·'))})`
+      : '(조사·어미를 떼어낸 기본형 기준, 원문은 어절 단위로 강조)'}</small></p>`
     : '<p class="nlp-desc">위의 단어를 선택하면 원문에서 위치를 보여줍니다.</p>';
 
   const cols = NLP_COUNTRIES.map(c => `
     <div class="nlp-col nlp-col--${c.key}">
-      <div class="nlp-col__head">${c.flag} ${c.name} 서술 <span class="nlp-meta">(${counts[c.key]}회)</span></div>
-      <p class="nlp-evidence__text">${highlightSpans(nlpAnalysis.texts[c.key], occ[c.key])}</p>
+      <div class="nlp-col__head">${c.flag} ${c.name} 서술 <span class="nlp-meta">(${ev.counts[c.key]}회)</span></div>
+      <p class="nlp-evidence__text">${highlightSpans(nlpAnalysis.texts[c.key], ev.occ[c.key])}</p>
     </div>`).join('');
 
-  return `${head}<div class="nlp-grid">${cols}</div>`;
+  return `${head}<div class="nlp-grid">${cols}</div>${renderEvidenceSources(term)}`;
+}
+
+/** NLP 결과 → 원문 위치 → 관련 사료 (sources-data.js의 relatedTerms로 사람이 검증한 연결) */
+function renderEvidenceSources(term) {
+  if (!term) return '';
+  const list = sourcesForTerm(currentEventId, term);
+  const body = list.length
+    ? list.map(s => `<button type="button" class="source-link" data-goto-source="${escapeAttr(s.id)}">${escapeHtml(s.title)} <small>${escapeHtml(sourceTypeLabel(s.sourceType))} · ${escapeHtml(s.year || '')}</small></button>`).join('')
+    : '<span class="nlp-meta">이 표현과 연결된 자료가 아직 등록되지 않았습니다.</span>';
+  return `
+    <div class="evidence-sources">
+      <div class="nlp-desc nlp-desc--sub">이 표현과 연결된 관련 사료·자료</div>
+      <div class="nlp-chips">${body}</div>
+      <p class="nlp-meta">연결은 자동 추정이 아니라 자료마다 편집자가 지정한 관련 표현(relatedTerms)을 기준으로 합니다.</p>
+    </div>`;
 }
 
 function selectNLPTerm(term) {
@@ -362,6 +544,32 @@ function selectNLPTerm(term) {
   }
 }
 
+/* 6. 서술 강조점 비교 — 개념 사전 기준 언급 밀도 (편향 탐지가 아님) */
+function renderNLPEmphasis(a) {
+  if (!Analyzer) return '';
+  const profile = Analyzer.emphasisProfile(a.texts);
+  if (!profile.rows.length) return '';
+  const dots = level => [1, 2, 3].map(i => `<span class="emph-dot${i <= level ? ' is-on' : ''}"></span>`).join('');
+  const rows = profile.rows.map(r => `
+    <div class="emph-row">
+      <div class="emph-row__label">${nlpChip('concept:' + r.id, null, '', r.label)}</div>
+      ${NLP_COUNTRIES.map(c => `
+        <div class="emph-cell emph-cell--${c.key}" title="${c.name} 서술 ${r.counts[c.key]}회">
+          <span class="emph-cell__name">${c.name}</span>
+          <span class="emph-dots" aria-label="${c.name} ${r.counts[c.key]}회, 강조 수준 ${r.levels[c.key]}/3">${dots(r.levels[c.key])}</span>
+          <span class="nlp-meta">${r.counts[c.key]}회</span>
+        </div>`).join('')}
+    </div>`).join('');
+
+  return `
+    <div class="ai-result__section">
+      <div class="ai-result__heading"><span>◎</span><span>6. 서술 강조점 비교 — 관점별 강조 요소</span></div>
+      <p class="nlp-desc">각 서술이 어떤 요소를 얼마나 언급하는지 개념 사전 기준으로 비교합니다. ●의 개수는 서술 길이 대비 언급 밀도를 세 서술 중 가장 높은 값 기준 3단계로 나타낸 것입니다.<br />
+        <small>이는 편향 탐지가 아닙니다. 어떤 요소를 덜 언급했다고 해서 왜곡이라고 판단할 수 없으며, 부정문(“굴종이 아닌”)도 언급으로 셉니다. 한 서술에서만 언급된 요소부터 보여줍니다.</small></p>
+      <div class="emph-table">${rows}</div>
+    </div>`;
+}
+
 function renderNLPMethod(a) {
   return `
     <details class="ai-result__section nlp-method">
@@ -372,7 +580,9 @@ function renderNLPMethod(a) {
         <li><strong>공통 표현</strong>: 세 서술에 모두 한 번 이상 나온 단어와 이어진 2어절 표현.</li>
         <li><strong>특징적 표현</strong>: 해당 국가의 상대 빈도 ÷ 나머지 두 국가의 상대 빈도(가산 평활 α=${a.meta.alpha}). 정렬은 로그 오즈비를 표준오차로 나눈 z-점수 기준이라, 한 번만 나온 단어보다 반복된 단어를 더 신뢰합니다.</li>
         <li><strong>유사도</strong>: 두 서술의 TF-IDF 벡터 사이 코사인 값. 각 공유 단어의 기여도를 모두 더하면 코사인 값과 같습니다. Jaccard = 공통 어휘 수 ÷ 전체 어휘 수.</li>
-        <li><strong>한계</strong>: 형태소 분석기가 아닌 규칙 기반 처리라 일부 활용형이 남거나 잘릴 수 있고, 같은 뜻의 다른 단어(예: 침략·침공)는 서로 다른 단어로 계산됩니다. 결과는 어휘 선택의 경향을 보여줄 뿐, 역사 해석의 옳고 그름을 판정하지 않습니다.</li>
+        <li><strong>서술 강조점</strong>: 사람이 만든 다국어 개념 사전(concept-lexicon.js)의 한국어 표현이 각 서술에 나온 횟수 ÷ 서술의 어휘 토큰 수. 세 서술 중 최댓값을 3으로 두고 반올림합니다(언급이 있으면 최소 1).</li>
+        <li><strong>사료 연결</strong>: 자료마다 편집자가 지정한 관련 표현(relatedTerms)과 선택한 표현이 일치하거나 포함 관계일 때 연결합니다.</li>
+        <li><strong>한계</strong>: 형태소 분석기가 아닌 규칙 기반 처리라 일부 활용형이 남거나 잘릴 수 있고, 개념 사전에 없는 동의어는 서로 다른 단어로 계산됩니다. 결과는 어휘 선택의 경향을 보여줄 뿐, 역사 해석의 옳고 그름을 판정하지 않습니다.</li>
       </ul>
     </details>`;
 }
@@ -401,7 +611,7 @@ const editorNotes = {
     ],
     diff: [
       '한국: "침략"이라는 가치 평가가 들어간 용어를 사용한다.',
-      '일본: "출병"·"진출"이라는 비교적 중립적인 표현을 사용한다.',
+      '일본: "침략" 대신 "출병"·"진출"이라는 표현을 사용해 행위의 성격 규정을 드러내지 않는다.',
       '중국: "왜에 맞서 조선을 도왔다"는 구원자적 위치를 강조한다.'
     ],
     feature: [
@@ -489,6 +699,7 @@ const editorNotes = {
   }
 };
 
+/** NLP 분석 탭 하단의 공동 표현 요약 (자세한 결과는 "공동 기억 지도" 탭) */
 function renderMultilingualSection() {
   const result = runMultilingualAnalysis();
 
@@ -496,7 +707,7 @@ function renderMultilingualSection() {
     return `
       <div class="ai-result__section">
         <div class="ai-result__heading">
-          <span>🌐</span>
+          <span>⇄</span>
           <span>다국어 공동 표현 분석</span>
         </div>
         <ul class="ai-result__list">
@@ -506,95 +717,480 @@ function renderMultilingualSection() {
     `;
   }
 
-  const langOrder = ['ko', 'ja', 'en'];
-  const statRows = langOrder.map(lang => {
-    const s = result.stats[lang];
+  const a = result.analysis;
+  const frames = Analyzer.FRAMES;
+  const langRows = ['ko', 'ja', 'en', 'unknown'].filter(l => a.byLanguage[l] > 0).map(lang => {
     const badge = getLangBadge(lang);
-
-    if (!s) return `<li>${badge.flag} ${badge.label} — 입력 없음</li>`;
-
-    const e = s.emotion;
-    const dominant = e.negative > e.positive && e.negative > e.neutral ? '부정·갈등 어휘 우세'
-                   : e.positive > e.negative && e.positive > e.neutral ? '긍정·화해 어휘 우세'
-                   : e.neutral > 0 ? '중립·사실 어휘 우세'
-                   : '감정 어휘 미검출';
-
-    return `
-      <li>
-        ${badge.flag} ${badge.label} —
-        제안 ${s.count}건, 평균 ${s.avgLen}자,
-        <strong style="color: var(--accent);">${dominant}</strong>
-        (부정 ${e.negative} · 중립 ${e.neutral} · 긍정 ${e.positive})
-      </li>
-    `;
+    const f = a.framing.byLanguage[lang] || {};
+    const frameText = frames.map(fr => `${fr.short} ${f[fr.id] || 0}`).join(' · ');
+    return `<li>${badge.flag} ${badge.label} — 제안 ${a.byLanguage[lang]}건 <span class="nlp-meta">(표현 프레임 어휘: ${frameText})</span></li>`;
   }).join('');
 
-  const commonKwHtml = result.commonHits.length > 0
-    ? result.commonHits.map(k => `<li>"${k.keyword}" — ${k.count}건의 제안에서 등장</li>`).join('')
-    : '<li>아직 사건 표준 키워드와 일치하는 표현이 충분히 등장하지 않았습니다.</li>';
+  const concepts = a.topConcepts.slice(0, 6).map(c => `<li>“${escapeHtml(c.label)}” — ${c.count}건의 제안에서 등장 <span class="nlp-meta">(${c.langs.map(l => getLangBadge(l).label).join('·')})</span></li>`).join('')
+    || '<li>아직 개념 사전과 일치하는 표현이 충분히 등장하지 않았습니다.</li>';
 
   return `
     <div class="ai-result__section">
       <div class="ai-result__heading">
-        <span>🌐</span>
-        <span>다국어 공동 표현 분석 (총 ${result.totalCount}건)</span>
+        <span>⇄</span>
+        <span>다국어 공동 표현 분석 (총 ${a.total}건)</span>
       </div>
-      <ul class="ai-result__list">
-        ${statRows}
-      </ul>
+      <ul class="ai-result__list">${langRows}</ul>
     </div>
 
     <div class="ai-result__section">
       <div class="ai-result__heading">
-        <span>🔗</span>
-        <span>언어를 가로지르는 공통 키워드</span>
+        <span>∞</span>
+        <span>언어를 가로지르는 공통 개념</span>
       </div>
-      <ul class="ai-result__list">
-        ${commonKwHtml}
-      </ul>
+      <p class="nlp-desc">다국어 개념 사전으로 한국어·일본어·영어 표현을 같은 개념으로 묶어 셉니다. (예: 침략 · 侵略 · invasion)</p>
+      <ul class="ai-result__list">${concepts}</ul>
+      <button type="button" class="nlp-chip" data-goto-tab="memory">공동 기억 지도에서 표현군 보기 →</button>
     </div>
   `;
 }
+
+function runMultilingualAnalysis() {
+  if (!Analyzer) return { empty: true, message: '공동 표현 분석 모듈(shared-memory-analyzer.js)을 불러오지 못했습니다.' };
+  if (sharedLoadState === 'loading') return { empty: true, message: '공동 표현을 불러오는 중입니다. 잠시 후 다시 실행해 주세요.' };
+  const a = expressionAnalysis;
+  if (!a || a.total === 0) {
+    return {
+      empty: true,
+      message: '아직 등록된 공동 표현 제안이 없습니다. "공동 표현 작성" 탭에서 한국어·일본어·영어 어떤 언어로든 표현을 등록해 주세요.'
+    };
+  }
+  return { empty: false, analysis: a, totalCount: a.total };
+}
+
+/* ------------------------------------------------------------
+   키워드 비교 차트
+   · events-data.js의 keywordGroups(표현 묶음)를 서술 원문에서 실제로 세어 그립니다.
+   ------------------------------------------------------------ */
 
 function renderKeywordChart(event) {
   const chart = document.getElementById('keywordsChart');
   if (!chart) return;
 
-  chart.innerHTML = Object.entries(event.keywordFreq).map(([keyword, freqs]) => `
+  let rows = [];
+  let manual = false;
+  if (event.keywordGroups && Analyzer) {
+    rows = Analyzer.keywordGroupCounts(event).map(g => ({
+      label: g.label,
+      counts: g.counts,
+      sub: `묶음: ${g.forms.join(' · ')}`
+    }));
+  } else if (event.keywordFreq) {
+    // 예전 형식(사람이 입력한 숫자)이 남아 있는 경우 — 수동 입력값임을 표시합니다.
+    manual = true;
+    rows = Object.entries(event.keywordFreq).map(([label, counts]) => ({ label, counts, sub: '수동 입력값' }));
+  }
+
+  if (!rows.length) {
+    chart.innerHTML = '<div class="shared-empty">이 사건에는 비교할 키워드 묶음이 아직 없습니다.</div>';
+    return;
+  }
+
+  const max = Math.max(1, ...rows.map(r => Math.max(r.counts.korea, r.counts.japan, r.counts.china)));
+  const bar = (key, name, value) => `
+        <div class="keyword-bar">
+          <div class="keyword-bar__country keyword-bar__country--${key}">${name}</div>
+          <div class="keyword-bar__track">
+            <div class="keyword-bar__fill keyword-bar__fill--${key}" data-width="${Math.round(value / max * 100)}"></div>
+          </div>
+          <div class="keyword-bar__value">${value}${manual ? '' : '회'}</div>
+        </div>`;
+
+  chart.innerHTML = rows.map(r => `
     <div class="keyword-row">
-      <div class="keyword-row__label">${keyword}</div>
+      <div class="keyword-row__label">${escapeHtml(r.label)}<small class="keyword-row__sub">${escapeHtml(r.sub)}</small></div>
       <div class="keyword-row__bars">
-        <div class="keyword-bar">
-          <div class="keyword-bar__country keyword-bar__country--korea">한국</div>
-          <div class="keyword-bar__track">
-            <div class="keyword-bar__fill keyword-bar__fill--korea" data-width="${freqs.korea * 10}"></div>
-          </div>
-          <div class="keyword-bar__value">${freqs.korea}</div>
-        </div>
-        <div class="keyword-bar">
-          <div class="keyword-bar__country keyword-bar__country--japan">일본</div>
-          <div class="keyword-bar__track">
-            <div class="keyword-bar__fill keyword-bar__fill--japan" data-width="${freqs.japan * 10}"></div>
-          </div>
-          <div class="keyword-bar__value">${freqs.japan}</div>
-        </div>
-        <div class="keyword-bar">
-          <div class="keyword-bar__country keyword-bar__country--china">중국</div>
-          <div class="keyword-bar__track">
-            <div class="keyword-bar__fill keyword-bar__fill--china" data-width="${freqs.china * 10}"></div>
-          </div>
-          <div class="keyword-bar__value">${freqs.china}</div>
-        </div>
+        ${bar('korea', '한국', r.counts.korea)}
+        ${bar('japan', '일본', r.counts.japan)}
+        ${bar('china', '중국', r.counts.china)}
       </div>
     </div>
   `).join('');
 
   setTimeout(() => {
-    chart.querySelectorAll('.keyword-bar__fill').forEach(bar => {
-      bar.style.width = bar.dataset.width + '%';
+    chart.querySelectorAll('.keyword-bar__fill').forEach(b => {
+      b.style.width = b.dataset.width + '%';
     });
   }, 100);
 }
+
+/* ------------------------------------------------------------
+   관련 사료 · 자료 (sources-data.js)
+   ------------------------------------------------------------ */
+
+let sourcesFilter = 'all';
+const SOURCE_COUNTRY_LABEL = { korea: '한국', japan: '일본', china: '중국', other: '기타' };
+
+function sourceTypeLabel(type) {
+  return { primary: '1차 사료', secondary: '2차 자료', memorial: '기념물·기억 자료' }[type] || '자료';
+}
+
+function safeUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null;
+}
+
+function sourcesForEvent(eventId) {
+  return SOURCES.filter(s => s && s.eventId === eventId);
+}
+
+/** 선택한 표현(또는 개념)과 연결된 자료 — relatedTerms 기준 */
+function sourcesForTerm(eventId, term) {
+  if (!term) return [];
+  let needles = [term];
+  if (term.indexOf('concept:') === 0 && Analyzer) {
+    const concept = Analyzer.CONCEPTS.find(c => c.id === term.slice(8));
+    needles = concept ? (concept.forms.ko || []).map(f => f.replace(/^=/, '')) : [];
+  }
+  const matches = rt => needles.some(n => rt === n || (n.length >= 2 && rt.indexOf(n) >= 0) || (rt.length >= 2 && n.indexOf(rt) >= 0));
+  return sourcesForEvent(eventId).filter(s => (s.relatedTerms || []).some(matches));
+}
+
+function renderSourcesTab() {
+  const grid = document.getElementById('sourcesGrid');
+  const filterBox = document.getElementById('sourcesFilter');
+  if (!grid || !filterBox) return;
+  const all = sourcesForEvent(currentEventId);
+
+  const present = ['korea', 'japan', 'china', 'other'].filter(c => all.some(s => s.country === c));
+  const filters = [['all', `전체 ${all.length}`]].concat(present.map(c => [c, `${SOURCE_COUNTRY_LABEL[c]} ${all.filter(s => s.country === c).length}`]));
+  filterBox.innerHTML = filters.map(([key, label]) =>
+    `<button type="button" class="shared-language-tabs__tab${sourcesFilter === key ? ' is-active' : ''}" role="tab" aria-selected="${sourcesFilter === key}" data-sources-filter="${key}">${label}</button>`
+  ).join('');
+
+  const list = all.filter(s => sourcesFilter === 'all' || s.country === sourcesFilter);
+  if (!list.length) {
+    grid.innerHTML = '<div class="shared-empty">이 사건에 등록된 자료가 아직 없습니다. sources-data.js에 자료를 추가하면 여기에 표시됩니다.</div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(s => {
+    const url = safeUrl(s.url);
+    const related = (s.relatedTerms || []).map(t => {
+      const normalized = window.SharedMemoryNLP && t.indexOf(' ') < 0 ? SharedMemoryNLP.normalizeToken(t) : t;
+      const counts = eventNlp ? eventNlp.countsFor(normalized) : null;
+      const inText = counts && NLP_COUNTRIES.some(c => counts[c.key] > 0);
+      return inText
+        ? `<button type="button" class="nlp-chip" data-evidence-term="${escapeAttr(normalized)}" title="서술 원문에서 위치 보기">${escapeHtml(t)}</button>`
+        : `<span class="source-card__term">${escapeHtml(t)}</span>`;
+    }).join('');
+    const meta = [
+      ['연도', s.year],
+      ['작성 주체', s.creator],
+      ['소장·제공', [s.institution, s.archive].filter(Boolean).join(' · ')],
+      ['자료의 관점', s.perspective]
+    ].filter(([, v]) => v).map(([k, v]) => `<div class="source-card__meta-row"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+
+    return `
+      <article class="source-card source-card--${escapeAttr(s.country)}" id="source-${escapeAttr(s.id)}" data-source-id="${escapeAttr(s.id)}">
+        <div class="source-card__badges">
+          <span class="source-card__type source-card__type--${escapeAttr(s.sourceType)}">${escapeHtml(sourceTypeLabel(s.sourceType))}</span>
+          ${s.typeNote ? `<span class="source-card__note">${escapeHtml(s.typeNote)}</span>` : ''}
+          ${s.reviewed ? '' : '<span class="source-card__review">검토 전</span>'}
+        </div>
+        <h4 class="source-card__title">${escapeHtml(s.title)}</h4>
+        ${s.originalTitle ? `<div class="source-card__original">${escapeHtml(s.originalTitle)}</div>` : ''}
+        <dl class="source-card__meta">${meta}</dl>
+        ${s.description ? `<p class="source-card__desc">${escapeHtml(s.description)}</p>` : ''}
+        ${related ? `<div class="source-card__related"><span class="narrative-card__label">연결된 표현</span><div class="nlp-chips">${related}</div></div>` : ''}
+        <div class="source-card__link">
+          ${url
+            ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">자료 제공 기관 페이지 열기 ↗</a>`
+            : '<span class="nlp-meta">링크 준비 중</span>'}
+          ${s.urlNote ? `<span class="nlp-meta">${escapeHtml(s.urlNote)}</span>` : ''}
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function gotoSource(sourceId) {
+  const source = SOURCES.find(s => s.id === sourceId);
+  if (!source) return;
+  if (sourcesFilter !== 'all' && sourcesFilter !== source.country) {
+    sourcesFilter = 'all';
+    renderSourcesTab();
+  }
+  gotoTab('sources');
+  const card = document.querySelector(`[data-source-id="${CSS.escape ? CSS.escape(sourceId) : sourceId}"]`);
+  if (card) {
+    document.querySelectorAll('.source-card.is-focused').forEach(c => c.classList.remove('is-focused'));
+    card.classList.add('is-focused');
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  }
+}
+
+function showEvidenceFor(term) {
+  gotoTab('ai');
+  if (!document.getElementById('aiResult').classList.contains('show')) {
+    nlpSelectedTerm = term;
+    runAIAnalysis();
+  }
+  selectNLPTerm(term);
+}
+
+/* ------------------------------------------------------------
+   공동 표현 작성 — Guided Contribution
+   STEP 1 핵심 요소 → STEP 2 표현 방식 → STEP 3 문장(문장 틀) → STEP 4 이유
+   ------------------------------------------------------------ */
+
+const guideState = { candidates: [], selected: new Map(), style: null, reasons: new Set() };
+
+function candidateKey(c) {
+  return c.conceptId ? `concept:${c.conceptId}` : `term:${c.term}`;
+}
+
+const CANDIDATE_SOURCE_LABEL = { common: '세 서술 공통', korea: '한국 서술 특징', japan: '일본 서술 특징', china: '중국 서술 특징' };
+
+function resetGuide(event) {
+  guideState.selected = new Map();
+  guideState.style = null;
+  guideState.reasons = new Set();
+  const cands = Analyzer ? Analyzer.candidateElements(event, eventNlp) : { concepts: [], terms: [], general: [] };
+  guideState.candidates = cands.concepts.concat(cands.terms, cands.general);
+
+  const chip = c => {
+    const dots = c.presentIn
+      ? `<span class="guide-chip__dots" aria-hidden="true">${c.presentIn.map(k => `<i class="dot dot--${k}"></i>`).join('')}</span>`
+      : '';
+    const title = c.presentIn
+      ? `${c.presentIn.map(nlpCountryName).join('·')} 서술에서 확인됨`
+      : (CANDIDATE_SOURCE_LABEL[c.source] || '');
+    return `<button type="button" class="guide-chip" aria-pressed="false" data-guide-key="${escapeAttr(candidateKey(c))}" title="${escapeAttr(title)}">${escapeHtml(c.label)}${dots}</button>`;
+  };
+  const group = (label, list, note) => list.length ? `
+    <div class="guide-group">
+      <div class="guide-group__label">${label}${note ? ` <small>${note}</small>` : ''}</div>
+      <div class="guide-group__chips">${list.map(chip).join('')}</div>
+    </div>` : '';
+
+  const conceptsBox = document.getElementById('guideConcepts');
+  if (conceptsBox) {
+    conceptsBox.innerHTML =
+      group('서술에서 확인되는 개념', cands.concepts, '점: 해당 개념이 나온 국가 서술') +
+      group('서술에 자주 쓰인 어휘', cands.terms, 'NLP 공통·특징 표현') +
+      group('함께 생각해 볼 개념', cands.general) ||
+      '<p class="guide-step__desc">후보를 만들지 못했습니다. 바로 STEP 3에서 문장을 작성해도 됩니다.</p>';
+  }
+
+  const stylesBox = document.getElementById('guideStyles');
+  if (stylesBox) {
+    stylesBox.innerHTML = Guide.STYLES.map(s => `
+      <button type="button" class="guide-style" role="radio" aria-checked="false" data-guide-style="${escapeAttr(s.id)}">
+        <strong>${escapeHtml(s.label)}</strong>
+        <span>${escapeHtml(s.desc)}</span>
+      </button>`).join('');
+  }
+  const hint = document.getElementById('guideStyleHint');
+  if (hint) hint.textContent = '어떤 방식도 정답이 아닙니다. 역사적 사실을 지우거나 약화시키지 않는 것이 공통의 출발점입니다.';
+
+  const templatesBox = document.getElementById('guideTemplates');
+  if (templatesBox) {
+    const sample = event.sampleExpression
+      ? `<div class="guide-sample">
+          <span class="guide-sample__tag">참고 예시 · 정답 아님</span>
+          <p>“${escapeHtml(event.sampleExpression)}”</p>
+        </div>`
+      : '';
+    templatesBox.innerHTML = `
+      ${sample}
+      <div class="guide-templates__label">문장 틀로 시작하기 <small>누르면 입력창에 넣어 드려요. 빈칸(______)을 자신의 말로 채워 보세요. 참고용이며 정답이 아닙니다.</small></div>
+      <div class="guide-templates__list">
+        ${Guide.TEMPLATES.map(t => `
+          <button type="button" class="guide-template" data-guide-template="${escapeAttr(t.id)}">
+            <span class="guide-template__name">${escapeHtml(t.label)}</span>
+            <span class="guide-template__text">${escapeHtml(t.text)}</span>
+          </button>`).join('')}
+      </div>`;
+  }
+
+  const reasonsBox = document.getElementById('guideReasons');
+  if (reasonsBox) {
+    reasonsBox.innerHTML = Guide.REASONS.map(r => `
+      <label class="guide-reason">
+        <input type="checkbox" value="${escapeAttr(r.id)}" data-guide-reason />
+        <span>${escapeHtml(r.label)}</span>
+      </label>`).join('');
+  }
+  setSubmitStatus('');
+}
+
+function toggleGuideCandidate(key, button) {
+  const cand = guideState.candidates.find(c => candidateKey(c) === key);
+  if (!cand) return;
+  if (guideState.selected.has(key)) guideState.selected.delete(key);
+  else guideState.selected.set(key, cand);
+  button.setAttribute('aria-pressed', String(guideState.selected.has(key)));
+  button.classList.toggle('is-selected', guideState.selected.has(key));
+  updateDraftPanel();
+}
+
+function selectGuideStyle(id) {
+  guideState.style = guideState.style === id ? null : id;
+  document.querySelectorAll('[data-guide-style]').forEach(b => {
+    const on = b.dataset.guideStyle === guideState.style;
+    b.classList.toggle('is-selected', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  const style = Guide.STYLES.find(s => s.id === guideState.style);
+  const hint = document.getElementById('guideStyleHint');
+  if (hint) hint.textContent = style ? style.hint : '어떤 방식도 정답이 아닙니다. 역사적 사실을 지우거나 약화시키지 않는 것이 공통의 출발점입니다.';
+}
+
+function insertTemplate(id) {
+  const template = Guide.TEMPLATES.find(t => t.id === id);
+  const area = document.getElementById('userNarrative');
+  if (!template || !area) return;
+  const current = area.value.trim();
+  area.value = current ? `${current} ${template.text}` : template.text;
+  const blank = area.value.indexOf('______', current.length);
+  area.focus();
+  if (blank >= 0) area.setSelectionRange(blank, blank + 6);
+  updateDraftPanel();
+}
+
+/* ------------------------------------------------------------
+   작성 중 실시간 표현 분석 패널
+   · 표현의 옳고 그름을 평가하지 않습니다. 텍스트의 특징만 보여줍니다.
+   ------------------------------------------------------------ */
+
+function draftKeywordsFor() {
+  if (!eventNlp) return [];
+  const out = [];
+  const push = t => { if (t && t.indexOf(' ') < 0 && !/[0-9]/.test(t) && out.indexOf(t) < 0) out.push(t); };
+  eventNlp.common.slice(0, 4).forEach(e => push(e.term));
+  NLP_COUNTRIES.forEach(c => (eventNlp.distinctive[c.key] || []).slice(0, 1).forEach(d => push(d.term)));
+  NLP_COUNTRIES.forEach(c => (eventNlp.keywords[c.key] || []).slice(0, 1).forEach(k => push(k.term)));
+  return out.slice(0, 8);
+}
+
+function rebuildDraftContext() {
+  const event = currentEvent();
+  if (!Analyzer || !event) { draftContext = null; return; }
+  try {
+    draftContext = Analyzer.createDraftContext({
+      narratives: eventNarratives(event),
+      existing: sharedNarratives,
+      eventKeywords: draftKeywordsFor()
+    });
+  } catch (e) {
+    console.error('실시간 분석 준비 오류:', e);
+    draftContext = null;
+  }
+}
+
+let draftTimer = null;
+function scheduleDraftPanel() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(updateDraftPanel, 250);
+}
+
+function simBar(key, name, value) {
+  return `
+    <div class="draft-sim">
+      <span class="draft-sim__name draft-sim__name--${key}">${name}</span>
+      <span class="nlp-bar"><span class="nlp-bar__fill nlp-bar__fill--${key}" style="width:${Math.round(Math.min(1, value) * 100)}%"></span></span>
+      <strong>${formatNum(value)}</strong>
+    </div>`;
+}
+
+function updateDraftPanel() {
+  const panel = document.getElementById('draftPanel');
+  if (!panel) return;
+  const text = document.getElementById('userNarrative')?.value || '';
+  const head = `
+    <div class="draft-panel__head">
+      <h4>내 표현 분석</h4>
+      <p>표현의 옳고 그름을 평가하지 않습니다. 문장의 텍스트 특징을 보여주는 참고 정보입니다.</p>
+    </div>`;
+
+  if (!draftContext) {
+    panel.innerHTML = `${head}<p class="draft-panel__empty">분석 모듈을 불러오지 못했습니다. 작성과 등록은 그대로 할 수 있어요.</p>`;
+    return;
+  }
+
+  let a;
+  try {
+    a = draftContext.analyze(text, { selected: [...guideState.selected.values()], before: getBefore() });
+  } catch (e) {
+    console.error('실시간 분석 오류:', e);
+    panel.innerHTML = `${head}<p class="draft-panel__empty">분석 중 문제가 생겼습니다. 작성과 등록은 그대로 할 수 있어요.</p>`;
+    return;
+  }
+
+  const section = (title, body) => `<div class="draft-panel__section"><div class="draft-panel__title">${title}</div>${body}</div>`;
+
+  const selectedHtml = a.selected.length
+    ? `<ul class="draft-check">${a.selected.map(s => `<li class="${s.included ? 'is-on' : ''}"><span aria-hidden="true">${s.included ? '✓' : '○'}</span> ${escapeHtml(s.label)}<span class="sr-only">${s.included ? ' — 문장에 포함됨' : ' — 아직 없음'}</span></li>`).join('')}</ul>`
+    : '<p class="draft-panel__muted">STEP 1에서 요소를 고르면 문장에 들어갔는지 여기서 확인할 수 있어요.</p>';
+
+  if (!a.text) {
+    panel.innerHTML = `${head}${section('선택한 핵심 요소', selectedHtml)}<p class="draft-panel__empty">문장을 입력하면 분석이 여기에 나타납니다.</p>`;
+    return;
+  }
+
+  const kwHtml = a.keywords.length
+    ? `<div class="nlp-chips">${a.keywords.map(k => `<span class="draft-kw${k.included ? ' is-on' : ''}">${k.included ? '✓ ' : ''}${escapeHtml(k.term)}</span>`).join('')}</div>`
+    : '<p class="draft-panel__muted">사건 주요 어휘를 만들지 못했습니다.</p>';
+
+  const langNote = a.lang !== 'ko'
+    ? '<p class="draft-panel__muted">국가별 서술은 한국어로 작성되어 있어, 다른 언어의 문장은 개념 사전(침략·侵略·invasion 등)을 통해서만 비교됩니다.</p>'
+    : '';
+  const simHtml = NLP_COUNTRIES.map(c => simBar(c.key, c.name, a.narrativeSimilarity[c.key])).join('') +
+    `<p class="draft-panel__muted">단어·문자·개념 기반 코사인 유사도(0~1). 값이 높다고 더 좋은 표현이라는 뜻이 아닙니다.</p>${langNote}`;
+
+  const frameHtml = `<div class="draft-frames">${Analyzer.FRAMES.map(f => `<span title="${escapeAttr(f.desc)}">${f.short} <strong>${a.frames.counts[f.id]}</strong></span>`).join('')}</div>`;
+
+  const existingHtml = !a.existingCount
+    ? '<p class="draft-panel__muted">아직 비교할 다른 제안이 없습니다.</p>'
+    : a.similarExisting.length
+      ? `<ul class="draft-similar">${a.similarExisting.map(x => `<li><strong>${formatNum(x.score)}</strong> “${escapeHtml(truncateText(x.item.text, 60))}” <span class="nlp-meta">— ${escapeHtml(x.item.user || '익명')}</span></li>`).join('')}</ul>
+         <p class="draft-panel__muted">비슷한 제안이 있다면, 등록된 목록에서 공감 표시로 함께할 수도 있어요.</p>`
+      : `<p class="draft-panel__muted">등록된 ${a.existingCount}건과 겹치는 표현이 거의 없습니다.</p>`;
+
+  let beforeHtml = '';
+  if (a.beforeAfter) {
+    const b = a.beforeAfter;
+    const chips = (list, cls) => list.length ? list.slice(0, 8).map(t => `<span class="draft-kw ${cls}">${escapeHtml(t)}</span>`).join('') : '<span class="nlp-meta">없음</span>';
+    const shift = NLP_COUNTRIES.filter(c => b.narrativeShift[c.key]).map(c => {
+      const s = b.narrativeShift[c.key];
+      return `<li>${c.name} ${formatNum(s.before)} → ${formatNum(s.after)}</li>`;
+    }).join('');
+    beforeHtml = section('탐구 전 → 지금', `
+      <p class="draft-panel__muted">탐구 전: “${escapeHtml(truncateText(getBefore(), 60))}”</p>
+      <div class="draft-ba"><span>새롭게 등장</span><div class="nlp-chips">${chips(b.addedConcepts.concat(b.added), 'is-new')}</div></div>
+      <div class="draft-ba"><span>유지</span><div class="nlp-chips">${chips(b.keptConcepts.concat(b.kept), 'is-on')}</div></div>
+      <div class="draft-ba"><span>사라진 표현</span><div class="nlp-chips">${chips(b.removedConcepts.concat(b.removed), 'is-gone')}</div></div>
+      <p class="draft-panel__muted">두 문장의 텍스트 유사도 ${formatNum(b.similarity)} · 국가별 서술과의 유사도 변화</p>
+      <ul class="draft-shift">${shift}</ul>`);
+  }
+
+  panel.innerHTML = `
+    ${head}
+    ${section('선택한 핵심 요소', selectedHtml)}
+    ${section('사건 주요 어휘 포함 여부', kwHtml)}
+    ${section('문장 길이', `<p class="draft-panel__stat">${a.chars}자 · 내용어 ${a.tokens}개 · ${getLangBadge(a.lang).label}로 인식</p>`)}
+    ${section('국가별 서술과의 텍스트 유사도', simHtml)}
+    ${section('표현 프레임 어휘', frameHtml)}
+    ${section('이미 등록된 공동 표현과의 텍스트 유사도', existingHtml)}
+    ${beforeHtml}`;
+}
+
+function truncateText(str, max) {
+  const s = String(str || '');
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
+function setSubmitStatus(message, tone) {
+  const el = document.getElementById('submitStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = 'shared-form__status' + (tone ? ` is-${tone}` : '');
+}
+
 async function submitSharedNarrative() {
   const nameInput = document.getElementById('userName');
   const narrativeInput = document.getElementById('userNarrative');
@@ -605,62 +1201,73 @@ async function submitSharedNarrative() {
   const reason = reasonInput ? reasonInput.value.trim() : '';
 
   if (!name || !text) {
-    alert('닉네임과 공동 표현은 필수 입력 항목입니다.');
+    setSubmitStatus('닉네임과 공동 표현은 필수 입력 항목입니다.', 'error');
+    (name ? narrativeInput : nameInput)?.focus();
     return;
   }
-
+  if (text.indexOf('______') >= 0) {
+    setSubmitStatus('문장 틀의 빈칸(______)을 자신의 말로 채운 뒤 등록해 주세요.', 'error');
+    narrativeInput?.focus();
+    return;
+  }
   if (!currentEventId) {
-    alert('먼저 역사 사건을 선택해주세요.');
+    setSubmitStatus('먼저 역사 사건을 선택해주세요.', 'error');
     return;
   }
-
-  const detectedLang = detectLanguage(text);
+  if (!Store) {
+    setSubmitStatus('저장 모듈(shared-store.js)을 불러오지 못했습니다.', 'error');
+    return;
+  }
 
   const submitButton = document.getElementById('submitNarrative');
-
   if (submitButton) {
+    if (submitButton.disabled) return;
     submitButton.disabled = true;
     submitButton.dataset.originalText = submitButton.textContent;
     submitButton.textContent = '등록 중...';
   }
+  setSubmitStatus('');
 
-  const { error } = await db
-    .from('shared_expressions')
-    .insert([
-      {
-        event_key: currentEventId,
-        author_name: name,
-        country_code: detectedLang,
-        content: text,
-        reason: reason
-      }
-    ]);
+  const eventIdAtSubmit = currentEventId;
+  const result = await Store.insertExpression({
+    eventKey: eventIdAtSubmit,
+    author: name,
+    lang: detectLanguage(text),
+    content: text,
+    reason,
+    style: guideState.style,
+    selectedConcepts: [...guideState.selected.values()].map(c => c.label),
+    reasonTags: [...guideState.reasons],
+    before: getBefore()
+  });
 
   if (submitButton) {
     submitButton.disabled = false;
-    submitButton.textContent =
-      submitButton.dataset.originalText || '제안 등록하기';
+    submitButton.textContent = submitButton.dataset.originalText || '제안 등록하기';
   }
 
-  if (error) {
-    console.error('Supabase 저장 오류:', error);
-
-    alert(
-      '등록에 실패했습니다.\n\n오류 내용: ' +
-      error.message
-    );
-
+  if (!result.ok) {
+    console.error('Supabase 저장 오류:', result.raw || result.error);
+    setSubmitStatus(`등록에 실패했습니다. ${result.error || ''}`, 'error');
     return;
   }
 
-  if (nameInput) nameInput.value = '';
   if (narrativeInput) narrativeInput.value = '';
   if (reasonInput) reasonInput.value = '';
+  document.querySelectorAll('[data-guide-reason]').forEach(cb => { cb.checked = false; });
+  guideState.reasons = new Set();
 
-  await loadSharedNarratives();
+  setSubmitStatus(result.legacy
+    ? '공동 표현이 등록되었습니다. (선택한 요소·표현 방식·이유 항목은 데이터베이스 확장 후 함께 저장됩니다)'
+    : '공동 표현이 등록되었습니다. 공동 기억 지도에서 다른 참여자의 표현과 함께 볼 수 있어요.', 'ok');
 
-  alert('공동 표현이 등록되었습니다.');
+  if (eventIdAtSubmit === currentEventId) await loadSharedNarratives();
 }
+
+/* ------------------------------------------------------------
+   공동 표현 불러오기 · 목록
+   ------------------------------------------------------------ */
+
 async function loadSharedNarratives() {
   if (!currentEventId) {
     sharedNarratives = [];
@@ -668,54 +1275,66 @@ async function loadSharedNarratives() {
     return;
   }
 
+  const eventId = currentEventId;
+  sharedLoadState = 'loading';
   const list = document.getElementById('sharedList');
+  if (list) list.innerHTML = '<div class="shared-empty">공동 표현을 불러오는 중입니다...</div>';
+  renderMemoryTab();
 
-  if (list) {
-    list.innerHTML = `
-      <div class="shared-empty">
-        공동 표현을 불러오는 중입니다...
-      </div>
-    `;
-  }
-
-  const { data, error } = await db
-    .from('shared_expressions')
-    .select('*')
-    .eq('event_key', currentEventId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Supabase 불러오기 오류:', error);
-
-    if (list) {
-      list.innerHTML = `
-        <div class="shared-empty">
-          데이터를 불러오지 못했습니다.
-        </div>
-      `;
-    }
-
+  if (!Store) {
+    sharedLoadState = 'error';
+    sharedLoadError = '저장 모듈(shared-store.js)을 불러오지 못했습니다.';
+    renderSharedList();
+    renderMemoryTab();
     return;
   }
 
-  sharedNarratives = (data || []).map(item => ({
-    id: item.id,
-    user: item.author_name || '익명',
-    text: item.content || '',
-    reason: item.reason || '',
-    eventId: item.event_key,
-    lang: item.country_code || 'unknown',
-    date: formatSharedDate(item.created_at),
-    translationOpen: false
-  }));
+  const [res, emp] = await Promise.all([
+    Store.loadExpressions(eventId),
+    Store.fetchEmpathyCounts(eventId)
+  ]);
+  if (eventId !== currentEventId) return;   // 불러오는 사이 다른 사건으로 이동한 경우
 
+  if (res.error) {
+    console.error('Supabase 불러오기 오류:', res.error);
+    sharedLoadState = 'error';
+    sharedLoadError = res.error;
+    sharedNarratives = [];
+  } else {
+    sharedLoadState = 'ready';
+    sharedLoadError = '';
+    sharedLimited = !!res.limited;
+    sharedNarratives = res.data.map(item => Object.assign(item, {
+      date: formatSharedDate(item.createdAt),
+      translationOpen: false
+    }));
+  }
+  empathyAvailable = emp.available;
+  empathyCounts = emp.counts || {};
+
+  recomputeExpressionAnalysis();
+  rebuildDraftContext();
   renderSharedList();
+  renderMemoryTab();
+  updateDraftPanel();
+}
+
+function recomputeExpressionAnalysis() {
+  const event = currentEvent();
+  if (!Analyzer || !event) { expressionAnalysis = null; return; }
+  try {
+    expressionAnalysis = Analyzer.analyzeExpressions(sharedNarratives, { narratives: eventNarratives(event) });
+  } catch (e) {
+    console.error('공동 표현 분석 오류:', e);
+    expressionAnalysis = null;
+  }
 }
 
 function formatSharedDate(dateString) {
   if (!dateString) return '';
 
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
 
   return date.toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -724,11 +1343,11 @@ function formatSharedDate(dateString) {
   });
 }
 
-
 document.getElementById('sharedLanguageTabs')?.addEventListener('click', event => {
   const button = event.target.closest('[data-shared-language]');
   if (!button) return;
   sharedLanguageFilter = button.dataset.sharedLanguage;
+  sharedVisibleCount = 20;
   document.querySelectorAll('[data-shared-language]').forEach(tab => {
     const active = tab === button;
     tab.classList.toggle('is-active', active);
@@ -737,22 +1356,39 @@ document.getElementById('sharedLanguageTabs')?.addEventListener('click', event =
   renderSharedList();
 });
 
+function styleLabel(id) {
+  const s = Guide.STYLES.find(x => x.id === id);
+  return s ? s.label : '';
+}
+
+function reasonLabel(id) {
+  const r = Guide.REASONS.find(x => x.id === id);
+  return r ? r.label : '';
+}
+
 function renderSharedList() {
   const list = document.getElementById('sharedList');
   if (!list) return;
 
-  const items = sharedNarratives
-    .map((item, idx) => ({ item, idx }))
-    .filter(pair => pair.item.eventId === currentEventId &&
-      (sharedLanguageFilter === 'all' || pair.item.lang?.toLowerCase() === sharedLanguageFilter));
+  if (sharedLoadState === 'error') {
+    list.innerHTML = `<div class="shared-empty">데이터를 불러오지 못했습니다. ${escapeHtml(sharedLoadError)}</div>`;
+    return;
+  }
+
+  const items = sharedNarratives.filter(item => item.eventId === currentEventId &&
+    (sharedLanguageFilter === 'all' || item.lang?.toLowerCase() === sharedLanguageFilter));
 
   if (items.length === 0) {
     list.innerHTML = `<div class="shared-empty">${sharedLanguageFilter === 'all' ? '아직 등록된 제안이 없습니다. 첫 번째 제안을 작성해 보세요!' : '이 언어로 등록된 제안이 없습니다.'}</div>`;
     return;
   }
 
-  list.innerHTML = items.map(({ item, idx }) => {
+  const empathized = Store ? Store.empathizedSet() : new Set();
+  const visible = items.slice(0, sharedVisibleCount);
+
+  list.innerHTML = visible.map(item => {
     const badge = getLangBadge(item.lang || 'unknown');
+    const id = escapeAttr(String(item.id));
 
     let translationHtml = '';
     if (item.translationOpen) {
@@ -761,85 +1397,101 @@ function renderSharedList() {
         const translatedRows = Object.entries(trans).map(([lang, txt]) => {
           const b = getLangBadge(lang);
           return `
-            <div style="margin-top: 0.6rem;">
-              <span class="narrative-card__keyword" style="font-size: 0.7rem;">${b.flag} ${b.label}</span>
-              <div style="margin-top: 0.4rem; font-size: 0.88rem; color: var(--ink-soft); line-height: 1.7;">
-                ${escapeHtml(txt)}
-              </div>
+            <div class="shared-item__translation-row">
+              <span class="narrative-card__keyword">${b.flag} ${b.label}</span>
+              <div class="shared-item__translation-text">${escapeHtml(txt)}</div>
             </div>
           `;
         }).join('');
 
         translationHtml = `
           <div class="shared-item__reason">
-            <strong>참고 번역:</strong>
+            <strong>참고 번역 예시:</strong>
             ${translatedRows}
-            <div style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--ink-mute);">
-              ※ 본 번역은 학습용 예시 매핑이며, 실제 자동 번역 API를 대체할 자리입니다.
+            <div class="shared-item__translation-note">
+              ※ 위 문장은 이 사건에 대해 미리 작성해 둔 예시문의 번역입니다. 이 제안을 번역한 것이 아니며, 자동 번역 기능이 아닙니다.
             </div>
           </div>
         `;
       }
     }
 
-    const toggleText = item.translationOpen ? '번역 닫기' : '번역 보기';
+    const toggleText = item.translationOpen ? '참고 번역 예시 닫기' : '참고 번역 예시 보기';
+    const concepts = (item.selectedConcepts || []).length
+      ? `<div class="shared-item__concepts"><span class="shared-item__label">담고 싶은 요소</span>${item.selectedConcepts.map(c => `<span class="narrative-card__keyword">${escapeHtml(c)}</span>`).join('')}</div>`
+      : '';
+    const reasonTags = (item.reasonTags || []).map(reasonLabel).filter(Boolean);
+    const reasonHtml = (item.reason || reasonTags.length) ? `
+          <div class="shared-item__reason">
+            <strong>작성 이유:</strong>
+            ${reasonTags.length ? `<span class="shared-item__reason-tags">${reasonTags.map(escapeHtml).join(' · ')}</span>` : ''}
+            ${item.reason ? `<span>${escapeHtml(item.reason)}</span>` : ''}
+          </div>` : '';
+    const count = empathyCounts[String(item.id)] || 0;
+    const mine = empathized.has(String(item.id));
+    const empathyHtml = empathyAvailable ? `
+        <button type="button" class="shared-item__action${mine ? ' is-done' : ''}" data-empathy-id="${id}" ${mine ? 'disabled aria-pressed="true"' : 'aria-pressed="false"'}>
+          ${mine ? '공감했어요' : '공동 표현으로 공감해요'} · <strong>${count}</strong>
+        </button>` : '';
 
     return `
-      <div class="shared-item">
+      <div class="shared-item" data-expression-id="${id}">
         <div class="shared-item__header">
           <div class="shared-item__user">
             ${escapeHtml(item.user)}
-            <span class="narrative-card__keyword" style="font-size: 0.72rem;">
-              ${badge.flag} ${badge.label}
-            </span>
+            <span class="narrative-card__keyword">${badge.flag} ${badge.label}</span>
+            ${item.style ? `<span class="shared-item__style">${escapeHtml(styleLabel(item.style))}</span>` : ''}
           </div>
-          <div class="shared-item__date">${item.date}</div>
+          <div class="shared-item__date">${escapeHtml(item.date || '')}</div>
         </div>
 
         <div class="shared-item__text">"${escapeHtml(item.text)}"</div>
+        ${item.before ? `<div class="shared-item__before"><span class="shared-item__label">탐구 전</span> “${escapeHtml(item.before)}”</div>` : ''}
+        ${concepts}
+        ${reasonHtml}
 
-        ${item.reason ? `
-          <div class="shared-item__reason">
-            <strong>작성 이유:</strong> ${escapeHtml(item.reason)}
-          </div>
-        ` : ''}
-
-        <button
-          class="narrative-card__keyword"
-          style="margin-top: 0.9rem; cursor: pointer; border: 1px solid var(--line); background: white;"
-          data-translate-index="${idx}">
-          🌐 ${toggleText}
-        </button>
+        <div class="shared-item__actions">
+          ${empathyHtml}
+          <button type="button" class="shared-item__action" data-translate-id="${id}">${toggleText}</button>
+        </div>
 
         ${translationHtml}
       </div>
     `;
-  }).join('');
+  }).join('') + (items.length > visible.length
+    ? `<button type="button" class="btn btn--small shared-more" data-shared-more>제안 더 보기 (${items.length - visible.length}건 남음)</button>`
+    : '') + (sharedLimited ? `<p class="nlp-meta">최신 ${Store ? Store.LOAD_LIMIT : 500}건까지 불러와 분석합니다.</p>` : '');
+}
 
-  list.querySelectorAll('[data-translate-index]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      toggleTranslation(parseInt(btn.dataset.translateIndex, 10));
-    });
-  });
+async function handleEmpathy(id, button) {
+  if (!Store) return;
+  button.disabled = true;
+  const res = await Store.addEmpathy(id);
+  if (res.ok) {
+    empathyCounts[String(id)] = (empathyCounts[String(id)] || 0) + 1;
+  } else if (res.unavailable) {
+    empathyAvailable = false;
+  } else if (!res.duplicate) {
+    button.disabled = false;
+    setSubmitStatus(`공감을 저장하지 못했습니다. ${res.error || ''}`, 'error');
+    return;
+  }
+  renderSharedList();
+  if (document.querySelector('[data-tab-content="memory"].active')) renderMemoryTab();
 }
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str == null ? '' : String(str);
   return div.innerHTML;
 }
 
 function detectLanguage(text) {
+  if (Analyzer) return Analyzer.detectLanguage(text);
   if (!text || !text.trim()) return 'unknown';
-
-  const hangulRegex = /[가-힣]/;
-  const kanaRegex = /[\u3040-\u309F\u30A0-\u30FF]/;
-  const latinRegex = /[A-Za-z]/;
-
-  if (hangulRegex.test(text)) return 'ko';
-  if (kanaRegex.test(text)) return 'ja';
-  if (latinRegex.test(text)) return 'en';
-
+  if (/[가-힣]/.test(text)) return 'ko';
+  if (/[぀-ゟ゠-ヿ]/.test(text)) return 'ja';
+  if (/[A-Za-z]/.test(text)) return 'en';
   return 'unknown';
 }
 
@@ -853,6 +1505,8 @@ function getLangBadge(code) {
   return map[code] || map['unknown'];
 }
 
+/* 참고 번역 예시: 사건별로 미리 작성해 둔 예시문의 번역입니다.
+   사용자가 입력한 문장을 번역하지 않으며, 번역 API를 사용하지 않습니다. */
 const translationSamples = {
   'imjin': {
     ko: {
@@ -940,8 +1594,8 @@ const translationSamples = {
   }
 };
 
-function toggleTranslation(index) {
-  const item = sharedNarratives[index];
+function toggleTranslation(id) {
+  const item = sharedNarratives.find(x => String(x.id) === String(id));
   if (!item) return;
 
   item.translationOpen = !item.translationOpen;
@@ -964,113 +1618,334 @@ function buildTranslation(item) {
   return result;
 }
 
-const emotionLex = {
-  negative: {
-    ko: ['침략', '치욕', '굴종', '비극', '좌절', '불법', '강제', '왜곡', '차별'],
-    ja: ['侵略', '屈辱', '挫折', '不法', '強制', '悲劇', '差別'],
-    en: ['invasion', 'humiliation', 'illegal', 'forced', 'tragedy', 'aggression', 'discrimination']
-  },
-  neutral: {
-    ko: ['전쟁', '출병', '진출', '교류', '관계', '제도', '시기', '이주', '원폭'],
-    ja: ['戦争', '出兵', '進出', '交流', '関係', '制度', '移住', '原爆'],
-    en: ['war', 'campaign', 'exchange', 'relation', 'system', 'period', 'migration', 'atomic']
-  },
-  positive: {
-    ko: ['공동', '평화', '협력', '화해', '대화', '이해', '공존', '상호'],
-    ja: ['共同', '平和', '協力', '和解', '対話', '理解'],
-    en: ['shared', 'peace', 'cooperation', 'reconciliation', 'dialogue', 'mutual']
+/* ------------------------------------------------------------
+   공동 기억 지도 (Shared Memory Consensus)
+   · shared-memory-analyzer.js 결과를 화면에 그립니다.
+   ------------------------------------------------------------ */
+
+function renderMemoryTab() {
+  const box = document.getElementById('memoryResult');
+  if (!box) return;
+
+  if (!Analyzer) {
+    box.innerHTML = '<div class="shared-empty">공동 표현 분석 모듈(shared-memory-analyzer.js)을 불러오지 못했습니다.</div>';
+    return;
   }
-};
+  if (sharedLoadState === 'loading') {
+    box.innerHTML = '<div class="shared-empty">공동 표현을 불러오는 중입니다...</div>';
+    return;
+  }
+  if (sharedLoadState === 'error') {
+    box.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못해 분석할 수 없습니다. ${escapeHtml(sharedLoadError)}</div>`;
+    return;
+  }
+  const a = expressionAnalysis;
+  if (!a || a.total === 0) {
+    box.innerHTML = `
+      <div class="shared-empty">
+        아직 이 사건에 등록된 공동 표현이 없습니다.<br />첫 번째 제안이 공동 기억 지도의 출발점이 됩니다.
+        <div><button type="button" class="btn btn--small" data-goto-tab="shared">공동 표현 작성하러 가기</button></div>
+      </div>`;
+    return;
+  }
 
-function analyzeEmotion(text, lang) {
-  const counts = { negative: 0, neutral: 0, positive: 0 };
-  if (lang === 'unknown') return counts;
+  if (selectedClusterId && !a.clusters.some(c => c.id === selectedClusterId)) selectedClusterId = null;
 
-  ['negative', 'neutral', 'positive'].forEach(category => {
-    const words = emotionLex[category][lang] || [];
-    words.forEach(word => {
-      let count;
-      if (lang === 'en') {
-        const re = new RegExp('\\b' + word + '\\b', 'gi');
-        count = (text.match(re) || []).length;
-      } else {
-        count = text.split(word).length - 1;
-      }
-      counts[category] += count;
-    });
-  });
+  box.innerHTML = `
+    ${renderMemoryOverview(a)}
+    ${renderMemoryMapSection(a)}
+    ${renderMemoryClusters(a)}
+    ${renderMemoryReframe(a)}
+    ${renderMemoryFrequency(a)}
+    ${renderMemoryFraming(a)}
+    ${renderMemoryBeforeAfter()}
+    ${renderMemoryEmpathy(a)}
+    ${renderMemoryMethod(a)}`;
 
-  return counts;
+  drawMemoryMap();
 }
 
-function runMultilingualAnalysis() {
-  const items = sharedNarratives.filter(s => s.eventId === currentEventId);
+function drawMemoryMap() {
+  const container = document.getElementById('memoryMap');
+  if (!container || !MemoryMap || !expressionAnalysis) return;
+  MemoryMap.render(container, expressionAnalysis, { selectedId: selectedClusterId, onSelect: selectCluster });
+}
 
-  if (items.length === 0) {
-    return {
-      empty: true,
-      message: '아직 등록된 공동 표현 제안이 없습니다. "공동 표현 작성" 탭에서 먼저 한·일·영 어떤 언어로든 표현을 등록해 주세요.'
-    };
-  }
-
-  const byLang = { ko: [], ja: [], en: [], unknown: [] };
-
-  items.forEach(it => {
-    const arr = byLang[it.lang] || byLang.unknown;
-    arr.push(it);
-  });
-
-  const stats = {};
-
-  ['ko', 'ja', 'en'].forEach(lang => {
-    const arr = byLang[lang];
-
-    if (arr.length === 0) {
-      stats[lang] = null;
-      return;
+function selectCluster(id) {
+  selectedClusterId = selectedClusterId === id ? null : id;
+  drawMemoryMap();
+  document.querySelectorAll('.cluster-card').forEach(card => {
+    const on = card.dataset.clusterId === selectedClusterId;
+    card.classList.toggle('is-selected', on);
+    if (on) {
+      const details = card.querySelector('details');
+      if (details) details.open = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-
-    const avgLen = Math.round(
-      arr.reduce((sum, x) => sum + x.text.length, 0) / arr.length
-    );
-
-    const emotion = { negative: 0, neutral: 0, positive: 0 };
-
-    arr.forEach(x => {
-      const e = analyzeEmotion(x.text, lang);
-      emotion.negative += e.negative;
-      emotion.neutral += e.neutral;
-      emotion.positive += e.positive;
-    });
-
-    stats[lang] = { count: arr.length, avgLen, emotion };
   });
-
-  const event = eventsData.find(e => e.id === currentEventId);
-  const allKeywords = [
-    ...event.korea.keywords,
-    ...event.japan.keywords,
-    ...event.china.keywords
-  ];
-
-  const commonHits = [];
-
-  allKeywords.forEach(kw => {
-    const hits = items.filter(it => it.text.includes(kw)).length;
-    if (hits > 0) commonHits.push({ keyword: kw, count: hits });
-  });
-
-  commonHits.sort((a, b) => b.count - a.count);
-
-  return {
-    empty: false,
-    totalCount: items.length,
-    stats,
-    commonHits: commonHits.slice(0, 6)
-  };
 }
+
+function memorySection(icon, title, body, extraClass) {
+  return `
+    <section class="ai-result__section memory-section${extraClass ? ' ' + extraClass : ''}">
+      <div class="ai-result__heading"><span>${icon}</span><span>${title}</span></div>
+      ${body}
+    </section>`;
+}
+
+function renderMemoryOverview(a) {
+  const langs = ['ko', 'ja', 'en', 'unknown'].filter(l => a.byLanguage[l] > 0)
+    .map(l => `${getLangBadge(l).label} ${a.byLanguage[l]}`).join(' · ');
+  const few = a.total < 3
+    ? '<p class="nlp-desc"><small>제안이 아직 적어 표현군이 뚜렷하게 나타나지 않을 수 있습니다. 제안이 모일수록 경향이 더 분명해집니다.</small></p>'
+    : '';
+  return `
+    <div class="memory-stats">
+      <div class="memory-stat"><strong>${a.total}</strong><span>전체 제안</span></div>
+      <div class="memory-stat"><strong>${a.clusters.length}</strong><span>표현군</span></div>
+      <div class="memory-stat"><strong>${a.meta.clustered}</strong><span>표현군에 속한 제안</span></div>
+      <div class="memory-stat"><strong>${formatNum(a.similarity.mean)}</strong><span>제안 간 평균 텍스트 유사도</span></div>
+    </div>
+    <p class="nlp-desc memory-langs">언어별 제안 수 — ${langs}</p>
+    ${few}`;
+}
+
+function renderMemoryMapSection(a) {
+  if (!a.clusters.length) {
+    return memorySection('◌', 'Shared Memory Map', `
+      <p class="nlp-desc">아직 서로 비슷한 제안끼리 묶인 표현군이 없습니다. 비슷한 표현이 2건 이상 모이면 지도에 원으로 나타납니다.</p>`);
+  }
+  return memorySection('◌', 'Shared Memory Map', `
+    <p class="nlp-desc">원 하나가 하나의 표현군입니다. <strong>원의 크기</strong>는 제안 수, <strong>선</strong>은 표현군 사이의 텍스트 유사도(굵을수록 가까움)를 나타냅니다. 원을 누르면 해당 표현군의 제안을 볼 수 있습니다.<br />
+      <small>원의 위치는 보기 좋게 배치한 것으로, 거리 자체에는 의미가 없습니다. 짙은 원은 현재 참여자 제안에서 가장 큰 표현군입니다.</small></p>
+    <div class="memory-map" id="memoryMap"></div>
+    ${a.unclustered.length ? `<p class="nlp-meta">아직 다른 제안과 묶이지 않은 개별 제안 ${a.unclustered.length}건은 지도에 표시하지 않고 아래 목록에 따로 보여줍니다.</p>` : ''}`);
+}
+
+function expressionQuote(item, extra) {
+  return `
+    <li class="cluster-member">
+      <span class="cluster-member__text">“${escapeHtml(item.text)}”</span>
+      <span class="nlp-meta">— ${escapeHtml(item.user || '익명')} · ${getLangBadge(item.lang).label}${extra || ''}</span>
+    </li>`;
+}
+
+function renderMemoryClusters(a) {
+  const cards = a.clusters.map((c, i) => {
+    const rep = a.items[c.representative];
+    const langs = Object.keys(c.languages).map(l => `${getLangBadge(l).label} ${c.languages[l]}`).join(' · ');
+    const conceptChips = c.concepts.slice(0, 4).map(x => `<span class="narrative-card__keyword" title="${x.count}건에 등장">${escapeHtml(x.label)}</span>`).join('');
+    const members = c.members.map(idx => expressionQuote(a.items[idx])).join('');
+    return `
+      <article class="cluster-card${i === 0 ? ' is-largest' : ''}${c.id === selectedClusterId ? ' is-selected' : ''}" data-cluster-id="${c.id}">
+        <div class="cluster-card__top">
+          <span class="cluster-card__rank">표현군 ${String(i + 1).padStart(2, '0')}</span>
+          ${i === 0 ? '<span class="cluster-card__badge">현재 참여자 제안에서 가장 큰 표현군</span>' : ''}
+        </div>
+        <h4 class="cluster-card__title">${escapeHtml(c.label)}</h4>
+        <div class="cluster-card__size"><strong>${c.size}건</strong> / 전체 제안의 ${formatPercent(c.share)}</div>
+        <span class="nlp-bar"><span class="nlp-bar__fill" style="width:${Math.round(c.share * 100)}%"></span></span>
+        <div class="cluster-card__block">
+          <span class="narrative-card__label">핵심 표현</span>
+          <div class="nlp-chips">${c.keywords.map(k => `<span class="nlp-chip nlp-chip--static">${escapeHtml(k.term)}<small>${k.count}건</small></span>`).join('') || '<span class="nlp-meta">공통 어휘 없음</span>'}</div>
+          ${conceptChips ? `<div class="nlp-chips cluster-card__concepts">${conceptChips}</div>` : ''}
+        </div>
+        <blockquote class="cluster-card__quote">
+          “${escapeHtml(rep.text)}”
+          <cite>— ${escapeHtml(rep.user || '익명')} · 표현군의 다른 제안들과 가장 비슷한 제안 (우수작·정답이 아님)</cite>
+        </blockquote>
+        <div class="nlp-meta">${langs} · 표현군 안 평균 텍스트 유사도 ${formatNum(c.cohesion)}</div>
+        <details class="cluster-card__members">
+          <summary>이 표현군의 제안 보기 (${c.size})</summary>
+          <ul>${members}</ul>
+        </details>
+      </article>`;
+  }).join('');
+
+  const singles = a.unclustered.length ? `
+    <details class="cluster-singles">
+      <summary>아직 묶이지 않은 개별 제안 ${a.unclustered.length}건 보기</summary>
+      <ul>${a.unclustered.map(idx => expressionQuote(a.items[idx])).join('')}</ul>
+    </details>` : '';
+
+  return memorySection('◍', '공동 표현군 (Shared Memory Cluster)', `
+    <p class="nlp-desc">서로 비슷한 제안을 자동으로 묶은 결과입니다. 표현군 이름은 절반 이상의 제안에 나타난 개념 또는 대표 키워드로 자동 생성됩니다.<br />
+      <small>가장 큰 표현군은 “현재 가장 많은 참여자가 비슷하게 쓴 방식”일 뿐, 가장 올바르거나 객관적인 표현이라는 뜻이 아닙니다.</small></p>
+    ${cards ? `<div class="cluster-grid">${cards}</div>` : '<p class="nlp-meta">아직 표현군이 없습니다.</p>'}
+    ${singles}`);
+}
+
+function originMarks(presentIn) {
+  return `<span class="origin-dots" title="${presentIn.length ? presentIn.map(nlpCountryName).join('·') + ' 서술에도 등장' : '국가별 서술에는 없던 표현'}">${
+    NLP_COUNTRIES.map(c => `<i class="dot dot--${c.key}${presentIn.indexOf(c.key) >= 0 ? '' : ' is-off'}"></i>`).join('')}</span>`;
+}
+
+function renderMemoryReframe(a) {
+  const link = a.narrativeLink;
+  if (!link || !eventNlp) return '';
+
+  const national = NLP_COUNTRIES.map(c => {
+    const terms = (eventNlp.distinctive[c.key] || []).slice(0, 3).map(d => d.term);
+    return `
+      <div class="reframe__col nlp-col nlp-col--${c.key}">
+        <div class="nlp-col__head">${c.flag} ${c.name} 서술에서 두드러진 표현</div>
+        <div class="reframe__terms">${terms.map(escapeHtml).join(' · ') || '<span class="nlp-meta">없음</span>'}</div>
+      </div>`;
+  }).join('');
+  const commonTerms = eventNlp.common.filter(e => !e.isPhrase).slice(0, 4).map(e => e.term);
+
+  const participantTerms = link.terms.slice(0, 10).map(t => `
+    <li class="reframe__item">
+      <span class="reframe__term">${escapeHtml(t.term)}</span>
+      <span class="nlp-meta">${t.count}건</span>
+      ${originMarks(t.presentIn)}
+      ${t.origin === 'new' ? '<span class="nlp-badge">새로 등장</span>' : ''}
+    </li>`).join('');
+  const participantConcepts = link.concepts.slice(0, 8).map(t => `
+    <li class="reframe__item">
+      <span class="reframe__term">${escapeHtml(t.label)}</span>
+      <span class="nlp-meta">${t.count}건</span>
+      ${originMarks(t.presentIn)}
+      ${t.origin === 'new' ? '<span class="nlp-badge">새로 등장</span>' : ''}
+    </li>`).join('');
+
+  const s = link.summary;
+  const avg = NLP_COUNTRIES.map(c => simBar(c.key, c.name, link.averageSimilarity[c.key])).join('');
+
+  return memorySection('⇣', '국가별 서술 → 참여자의 공동 표현', `
+    <p class="nlp-desc reframe__question">“서로 다른 국가별 서술을 읽은 뒤, 참여자들은 어떤 표현을 공통적으로 선택했는가?”</p>
+    <div class="nlp-grid">${national}</div>
+    ${commonTerms.length ? `<p class="nlp-meta reframe__common">세 서술 공통: ${commonTerms.map(escapeHtml).join(' · ')}</p>` : ''}
+    <div class="reframe__arrow" aria-hidden="true">↓</div>
+    <div class="reframe__participants">
+      <div>
+        <div class="nlp-col__head">참여자 제안에 자주 쓰인 어휘</div>
+        <ul class="reframe__list">${participantTerms || '<li class="nlp-meta">없음</li>'}</ul>
+      </div>
+      <div>
+        <div class="nlp-col__head">참여자 제안에 반복된 개념 <small class="nlp-meta">(다국어 통합)</small></div>
+        <ul class="reframe__list">${participantConcepts || '<li class="nlp-meta">개념 사전과 일치하는 표현이 아직 없습니다.</li>'}</ul>
+      </div>
+    </div>
+    <p class="nlp-desc">색 점은 그 표현이 어느 국가 서술에도 나왔는지를 뜻합니다 (${NLP_COUNTRIES.map(c => `<i class="dot dot--${c.key}"></i>${c.name}`).join(' ')}).
+      참여자 주요 어휘 ${link.terms.length}개 가운데 <strong>세 서술 공통</strong> ${s.common}개 · <strong>일부 서술에만 있던 어휘</strong> ${s.partial}개 · <strong>서술에 없던 새 어휘</strong> ${s.new}개입니다.</p>
+    <div class="nlp-desc nlp-desc--sub">참여자 제안과 각 국가 서술의 평균 텍스트 유사도</div>
+    <div class="reframe__sims">${avg}</div>
+    <p class="nlp-meta">어휘·개념이 얼마나 겹치는지를 나타낼 뿐, 어느 국가의 관점이 옳다거나 참여자가 특정 국가 편이라는 뜻이 아닙니다.</p>`);
+}
+
+function renderMemoryFrequency(a) {
+  const max = a.topTerms.length ? a.topTerms[0].count : 1;
+  const termRows = a.topTerms.map(t => `
+    <li class="nlp-row">
+      <span class="nlp-chip nlp-chip--static">${escapeHtml(t.term)}</span>
+      <span class="nlp-bar"><span class="nlp-bar__fill" style="width:${Math.round(t.count / max * 100)}%"></span></span>
+      <span class="nlp-meta">${t.count}건 (${formatPercent(t.share)})</span>
+    </li>`).join('');
+  const cmax = a.topConcepts.length ? a.topConcepts[0].count : 1;
+  const conceptRows = a.topConcepts.map(t => `
+    <li class="nlp-row">
+      <span class="nlp-chip nlp-chip--static">${escapeHtml(t.label)}</span>
+      <span class="nlp-bar"><span class="nlp-bar__fill nlp-bar__fill--soft" style="width:${Math.round(t.count / cmax * 100)}%"></span></span>
+      <span class="nlp-meta">${t.count}건 · ${t.langs.map(l => getLangBadge(l).label).join('·')}</span>
+    </li>`).join('');
+  return memorySection('★', '자주 등장하는 어휘와 반복되는 개념', `
+    <p class="nlp-desc">몇 개의 제안에 등장했는지(문서 빈도)를 셉니다. 한 제안 안에서 여러 번 써도 1건으로 셉니다.</p>
+    <div class="memory-two">
+      <div><div class="nlp-col__head">주요 어휘</div><ul class="nlp-rows">${termRows || '<li class="nlp-meta">없음</li>'}</ul></div>
+      <div><div class="nlp-col__head">반복되는 개념 (개념 사전)</div><ul class="nlp-rows">${conceptRows || '<li class="nlp-meta">없음</li>'}</ul></div>
+    </div>`);
+}
+
+function renderMemoryFraming(a) {
+  const f = a.framing;
+  const total = f.totalHits || 1;
+  const rows = Analyzer.FRAMES.map(fr => `
+    <div class="frame-row">
+      <div class="frame-row__label"><strong>${fr.label}</strong><small>${escapeHtml(fr.desc)}</small></div>
+      <span class="nlp-bar"><span class="nlp-bar__fill frame-fill--${fr.id}" style="width:${Math.round(f.overall[fr.id] / total * 100)}%"></span></span>
+      <span class="nlp-meta">어휘 ${f.overall[fr.id]}회 · 제안 ${f.expressions[fr.id]}건</span>
+    </div>`).join('');
+  const langRows = Object.keys(f.byLanguage).map(l => {
+    const r = f.byLanguage[l];
+    return `<li>${getLangBadge(l).label} (${r.count}건) — ${Analyzer.FRAMES.map(fr => `${fr.short} ${r[fr.id]}`).join(' · ')}</li>`;
+  }).join('');
+  return memorySection('◈', '표현 프레이밍 분석', `
+    <p class="nlp-desc">참여자 제안에 어떤 결의 어휘가 쓰였는지 개념 사전으로 셉니다. 이전의 “긍정·중립·부정 감정 분석”을 역사 서술에 맞게 바꾼 보조 분석입니다.</p>
+    ${rows}
+    <ul class="ai-result__list">${langRows}</ul>
+    <p class="nlp-meta">${f.noHit ? `프레임 어휘가 하나도 없는 제안 ${f.noHit}건은 집계에서 빠집니다. ` : ''}이 분석은 역사적 가치판단이 아니라 표현의 언어적 특징입니다. 사전 기반이라 목록에 없는 표현은 세지 못하고, 부정문·인용·반어 같은 문맥은 구분하지 못합니다.</p>`);
+}
+
+function renderMemoryBeforeAfter() {
+  const event = currentEvent();
+  const withBefore = sharedNarratives.filter(it => it.before);
+  if (!withBefore.length) {
+    return memorySection('↻', '탐구 전 → 탐구 후 표현 변화', `
+      <p class="nlp-desc">탐구 전 표현과 함께 등록된 제안이 아직 없습니다. 페이지 상단의 “탐구 전 한 문장”을 적은 뒤 공동 표현을 등록하면, 서술과 분석을 본 뒤 표현이 어떻게 달라졌는지가 여기에 집계됩니다.</p>`);
+  }
+  const r = Analyzer.aggregateBeforeAfter(withBefore, { narratives: eventNarratives(event) });
+  const chips = list => list.length ? list.map(x => `<span class="nlp-chip nlp-chip--static">${escapeHtml(x.label)}<small>${x.count}</small></span>`).join('') : '<span class="nlp-meta">없음</span>';
+  const shift = NLP_COUNTRIES.map(c => {
+    const s = r.narrativeShift[c.key];
+    return `<li>${c.name} 서술과의 평균 텍스트 유사도 ${formatNum(s.before)} → ${formatNum(s.after)} <span class="nlp-meta">(${s.delta >= 0 ? '+' : ''}${formatNum(s.delta)})</span></li>`;
+  }).join('');
+  return memorySection('↻', '탐구 전 → 탐구 후 표현 변화', `
+    <p class="nlp-desc">탐구 전 표현이 함께 저장된 제안 ${r.count}건을 비교했습니다. 탐구 전·후 문장의 평균 텍스트 유사도는 ${formatNum(r.meanSimilarity)}입니다.</p>
+    <div class="draft-ba"><span>새롭게 등장한 개념</span><div class="nlp-chips">${chips(r.addedConcepts)}</div></div>
+    <div class="draft-ba"><span>새롭게 등장한 어휘</span><div class="nlp-chips">${chips(r.addedTerms)}</div></div>
+    <div class="draft-ba"><span>유지된 개념</span><div class="nlp-chips">${chips(r.keptConcepts)}</div></div>
+    <div class="draft-ba"><span>사라진 개념</span><div class="nlp-chips">${chips(r.removedConcepts)}</div></div>
+    <ul class="ai-result__list">${shift}</ul>
+    <p class="nlp-meta">탐구 전 표현을 적은 참여자만 집계되므로 전체 참여자를 대표하지 않습니다.</p>`);
+}
+
+function renderMemoryEmpathy(a) {
+  if (!empathyAvailable) return '';
+  const r = Analyzer.compareEmpathy(a, empathyCounts);
+  if (!r || !r.top.length) {
+    return memorySection('♡', '공감과 표현군 비교', '<p class="nlp-desc">아직 공감 표시가 없습니다. 제안 목록의 “공동 표현으로 공감해요” 버튼으로 참여할 수 있어요.</p>');
+  }
+  const clusterLabel = id => {
+    const c = a.clusters.find(x => x.id === id);
+    return c ? `표현군 ${String(c.rank).padStart(2, '0')}` : '개별 제안';
+  };
+  const list = r.top.map(x => expressionQuote(x.item, ` · 공감 ${x.count} · ${clusterLabel(x.clusterId)}`)).join('');
+  const verdict = r.largestClusterId
+    ? (r.topInLargest
+      ? '가장 많은 공감을 받은 제안은 현재 가장 큰 표현군에 속해 있습니다.'
+      : '가장 많은 공감을 받은 제안은 현재 가장 큰 표현군에 속해 있지 않습니다. 많이 쓰인 방식과 많이 공감받은 방식이 다를 수 있습니다.')
+    : '아직 표현군이 없어 비교할 수 없습니다.';
+  return memorySection('♡', '공감과 표현군 비교', `
+    <p class="nlp-desc">${verdict}</p>
+    <ul class="cluster-members">${list}</ul>
+    <p class="nlp-meta">공감 수는 참여자의 반응일 뿐 역사적 정답의 순위가 아닙니다. 공감은 브라우저마다 한 제안에 한 번만 표시할 수 있습니다.</p>`);
+}
+
+function renderMemoryMethod(a) {
+  return `
+    <details class="ai-result__section nlp-method">
+      <summary class="ai-result__heading"><span>?</span><span>공동 표현 분석 방법과 한계</span></summary>
+      <ul class="ai-result__list">
+        <li><strong>데이터</strong>: Supabase에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
+        <li><strong>언어 판별·토큰화</strong>: 한글·가나·라틴 문자 비율로 언어를 판별합니다. 한국어는 규칙 기반 조사·어미 제거, 일본어는 한자·가타카나 연속 구간, 영어는 불용어 제거와 간단한 어미 정리를 사용합니다.</li>
+        <li><strong>특징 벡터</strong>: 단어 + 문자 2-gram(예: “국제전쟁”과 “국제적인 전쟁”이 겹치도록) + 다국어 개념 사전(예: 침략·侵略·invasion을 같은 개념으로)을 TF-IDF로 가중합니다. IDF는 이 사건의 공동 표현과 국가별 서술 전체에서 계산합니다.</li>
+        <li><strong>유사도</strong>: 두 벡터의 코사인 유사도(0~1).</li>
+        <li><strong>표현군</strong>: 평균 연결 병합 군집화 — 평균 유사도가 가장 높은 두 묶음을 차례로 합치고, 평균 유사도가 ${a.meta.clusterThreshold} 미만이 되면 멈춥니다. 무작위성이 없어 같은 데이터에서는 항상 같은 결과가 나옵니다. ${a.meta.minClusterSize}건 이상인 묶음만 표현군으로 표시합니다.${a.meta.capped ? ` 제안이 많아 앞쪽 ${a.meta.maxClusterItems}건으로 묶음을 만든 뒤 나머지는 가장 가까운 묶음에 배정했습니다.` : ''}</li>
+        <li><strong>표현군 이름·대표 제안</strong>: 절반 이상의 제안에 나타난 개념(없으면 “군집 안 등장 제안 수 × IDF”가 높은 어휘)으로 이름을 짓고, 다른 제안들과의 평균 유사도가 가장 높은 제안(medoid)을 대표 제안으로 보여줍니다.</li>
+        <li><strong>지도의 연결선</strong>: 표현군 중심 벡터 사이의 코사인 유사도가 ${a.meta.linkThreshold} 이상일 때 그립니다.</li>
+        <li><strong>의미 유사도에 대해</strong>: 딥러닝 문장 임베딩은 사용하지 않습니다. 모델 파일이 수십~수백 MB라 GitHub Pages에서 첫 화면이 크게 느려지고, 외부 API는 키를 브라우저에 노출해야 하기 때문입니다. 대신 문자 n-gram과 개념 사전으로 “표현은 다르지만 같은 뜻”인 경우를 일부 잡아냅니다.</li>
+        <li><strong>한계</strong>: 개념 사전에 없는 동의어·비유·문맥(부정문, 인용)은 반영되지 않습니다. 제안 수가 적으면 표현군이 불안정합니다. 이 분석은 참여자 제안의 경향을 보여줄 뿐, 역사적 정답이나 “가장 객관적인 표현”을 판정하지 않습니다.</li>
+      </ul>
+    </details>`;
+}
+
+/* ------------------------------------------------------------
+   초기화 · 이벤트 연결
+   ------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-event-count]').forEach(el => { el.textContent = String(eventsData.length); });
   renderEventCards();
   navigateTo('home');
 
@@ -1091,16 +1966,64 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('aiResult')?.addEventListener('click', e => {
     const chip = e.target.closest('[data-nlp-term]');
     if (chip) selectNLPTerm(chip.dataset.nlpTerm);
-    const goto = e.target.closest('[data-goto-tab]');
-    if (goto) {
-      switchTab(goto.dataset.gotoTab);
-      document.querySelector('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   });
+
+  // 상세 페이지 전체에서 쓰는 이동 버튼 (탭 이동 / 사료 카드 / 원문 근거)
+  document.querySelector('.page--detail')?.addEventListener('click', e => {
+    const goto = e.target.closest('[data-goto-tab]');
+    if (goto) { gotoTab(goto.dataset.gotoTab); return; }
+    const source = e.target.closest('[data-goto-source]');
+    if (source) { gotoSource(source.dataset.gotoSource); return; }
+    const evidence = e.target.closest('[data-evidence-term]');
+    if (evidence) { showEvidenceFor(evidence.dataset.evidenceTerm); return; }
+    const filter = e.target.closest('[data-sources-filter]');
+    if (filter) { sourcesFilter = filter.dataset.sourcesFilter; renderSourcesTab(); return; }
+    const beforeAction = e.target.closest('[data-before-action]');
+    if (beforeAction) { handleBeforeAction(beforeAction.dataset.beforeAction); return; }
+  });
+
+  document.getElementById('beforeCard')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.id === 'beforeInput') { e.preventDefault(); handleBeforeAction('save'); }
+  });
+
+  // 작성 가이드
+  document.querySelector('.shared-form')?.addEventListener('click', e => {
+    const chip = e.target.closest('[data-guide-key]');
+    if (chip) { toggleGuideCandidate(chip.dataset.guideKey, chip); return; }
+    const style = e.target.closest('[data-guide-style]');
+    if (style) { selectGuideStyle(style.dataset.guideStyle); return; }
+    const template = e.target.closest('[data-guide-template]');
+    if (template) { insertTemplate(template.dataset.guideTemplate); return; }
+  });
+  document.getElementById('guideReasons')?.addEventListener('change', e => {
+    const cb = e.target.closest('[data-guide-reason]');
+    if (!cb) return;
+    if (cb.checked) guideState.reasons.add(cb.value); else guideState.reasons.delete(cb.value);
+  });
+  document.getElementById('userNarrative')?.addEventListener('input', scheduleDraftPanel);
   document.getElementById('submitNarrative')?.addEventListener('click', submitSharedNarrative);
 
-  console.log('🎌 Shared Memory Project 로드 완료');
-  console.log(`📚 등록된 사건: ${eventsData.length}개`);
-});
+  // 공동 표현 목록 (공감 / 참고 번역 예시 / 더 보기)
+  document.getElementById('sharedList')?.addEventListener('click', e => {
+    const empathy = e.target.closest('[data-empathy-id]');
+    if (empathy) { handleEmpathy(empathy.dataset.empathyId, empathy); return; }
+    const translate = e.target.closest('[data-translate-id]');
+    if (translate) { toggleTranslation(translate.dataset.translateId); return; }
+    if (e.target.closest('[data-shared-more]')) { sharedVisibleCount += 20; renderSharedList(); }
+  });
 
-  
+  // 화면 너비가 바뀌면 지도를 다시 그립니다 (모바일 회전 등)
+  let resizeTimer = null;
+  let lastWidth = window.innerWidth;
+  window.addEventListener('resize', () => {
+    if (window.innerWidth === lastWidth) return;
+    lastWidth = window.innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (document.querySelector('[data-tab-content="memory"].active')) drawMemoryMap();
+    }, 200);
+  });
+
+  console.log('🎌 Shared Memory Project 로드 완료');
+  console.log(`📚 등록된 사건: ${eventsData.length}개 · 등록된 자료: ${SOURCES.length}개`);
+});
