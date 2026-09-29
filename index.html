@@ -6,9 +6,15 @@
   파일 구성:
     - index.html : 페이지 구조(HTML)
     - style.css  : 디자인/레이아웃(CSS)
-    - events-data.js : 역사 사건 데이터(국가별 서술 원문)
-    - nlp-analyzer.js: 국가별 서술 비교 분석 모듈(TF-IDF·유사도)
-    - script.js  : 화면 동작(JavaScript)
+    - events-data.js           : 역사 사건 데이터(국가별 서술 원문·키워드 묶음·참고 예시)
+    - sources-data.js          : 관련 사료·자료 메타데이터(사람이 작성·검토)
+    - concept-lexicon.js       : 다국어 개념 사전(개념·표현 프레임)
+    - contribution-guide.js    : 공동 표현 작성 가이드 문구(표현 방식·문장 틀·이유 항목)
+    - nlp-analyzer.js          : 국가별 서술 비교 분석 모듈(TF-IDF·유사도)
+    - shared-memory-analyzer.js: 참여자 공동 표현 분석(유사도·군집·탐구 전/후·강조점)
+    - memory-map.js            : 공동 기억 지도(SVG) 시각화
+    - shared-store.js          : Supabase 읽기·쓰기(하위 호환 처리 포함)
+    - script.js                : 화면 렌더링과 이벤트 처리
 
   이 파일은 SPA(Single Page Application) 구조입니다.
   실제로는 페이지 이동이 아니라, 같은 HTML 안의 여러 <section>을
@@ -108,12 +114,12 @@
           <div class="intro__card">
             <div class="intro__num">02</div>
             <h3>무엇을 다루는가</h3>
-            <p>임진왜란부터 독도 문제까지, 동북아 역사 인식 갈등의 핵심 사건 5가지를 국가별 서술과 함께 살펴봅니다.</p>
+            <p>임진왜란·문화 교류·조공 관계·근대화·재일조선인·히로시마 원폭까지, 동북아 역사 서술이 갈리는 사건 <span data-event-count>6</span>가지를 국가별 서술과 관련 사료와 함께 살펴봅니다.</p>
           </div>
           <div class="intro__card">
             <div class="intro__num">03</div>
             <h3>어떻게 나아가는가</h3>
-            <p>AI 분석으로 공통점과 차이점을 도출하고, 사용자가 직접 '공동 표현'을 제안하며 미래의 서술을 함께 만들어 봅니다.</p>
+            <p>텍스트 분석(NLP)으로 서술의 공통 표현과 차이를 살펴본 뒤, 참여자가 직접 '공동 표현'을 제안합니다. 모인 제안은 다시 분석되어 공동 기억 지도로 나타납니다.</p>
           </div>
         </div>
       </div>
@@ -126,7 +132,7 @@
       <div class="page__header">
         <p class="page__eyebrow">STEP 01</p>
         <h2 class="page__title">탐구할 역사 사건 선택</h2>
-        <p class="page__desc">아래 5개의 사건은 한·중·일 역사 인식 차이가 가장 뚜렷하게 드러나는 주제입니다.<br />카드를 클릭하면 국가별 서술을 비교할 수 있습니다.</p>
+        <p class="page__desc">아래 <span data-event-count>6</span>개의 사건은 한·중·일 역사 서술의 차이가 뚜렷하게 드러나는 주제입니다.<br />카드를 클릭하면 국가별 서술을 비교할 수 있습니다.</p>
       </div>
 
       <!-- 사건 카드 컨테이너: script.js에서 자바스크립트로 동적 생성 -->
@@ -153,12 +159,19 @@
         <!-- JS가 채워줍니다 -->
       </div>
 
-      <!-- 탭 메뉴: 비교 / AI 분석 / 키워드 / 공동 표현 -->
+      <!-- 탐구 전 한 문장 (서술을 읽기 전에 작성 → 공동 표현과 비교) -->
+      <div class="before-card" id="beforeCard">
+        <!-- JS가 채워줍니다 -->
+      </div>
+
+      <!-- 탭 메뉴: 서술 비교 → NLP 분석 → 키워드 → 사료 → 공동 표현 → 공동 기억 지도 -->
       <div class="tabs">
         <button class="tab active" data-tab="compare">국가별 서술</button>
-        <button class="tab" data-tab="ai">AI/NLP 비교 분석</button>
+        <button class="tab" data-tab="ai">NLP 비교 분석</button>
         <button class="tab" data-tab="keywords">키워드 비교</button>
+        <button class="tab" data-tab="sources">관련 사료</button>
         <button class="tab" data-tab="shared">공동 표현 작성</button>
+        <button class="tab" data-tab="memory">공동 기억 지도</button>
       </div>
 
       <!-- 탭 1: 국가별 서술 비교 -->
@@ -176,13 +189,13 @@
         </div>
       </div>
 
-      <!-- 탭 2: AI/NLP 비교 분석 (nlp-analyzer.js가 서술 텍스트로부터 직접 계산) -->
+      <!-- 탭 2: NLP 비교 분석 (nlp-analyzer.js가 서술 텍스트로부터 직접 계산) -->
       <div class="tab-content" data-tab-content="ai">
         <div class="ai-box">
           <div class="ai-box__intro">
-            <h3 class="section-h">AI/NLP 기반 서술 비교 분석</h3>
-            <p>세 국가 서술의 핵심 키워드·공통 표현·특징적 표현·텍스트 유사도를 계산합니다.<br />
-              <small>※ 외부 AI API 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다.</small>
+            <h3 class="section-h">NLP 기반 서술 비교 분석</h3>
+            <p>세 국가 서술의 핵심 키워드·공통 표현·특징적 표현·텍스트 유사도·서술 강조점을 계산합니다.<br />
+              <small>※ 외부 AI API나 학습된 언어 모델 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다. 어느 서술이 옳은지는 판정하지 않습니다.</small>
             </p>
             <button class="btn btn--ai" id="aiAnalyzeBtn">
               <span class="btn__icon">⌬</span>
@@ -203,7 +216,8 @@
           <h3 class="section-h">국가별 핵심 키워드 사용 빈도</h3>
           <p class="keywords-box__desc">
             같은 사건을 설명할 때 각 국가가 어떤 단어를 더 자주 사용하는지 살펴보세요.<br />
-            단어 선택은 곧 시선의 선택이며, 역사 인식의 차이를 가장 직접적으로 드러냅니다.
+            단어 선택은 곧 시선의 선택이며, 역사 인식의 차이를 가장 직접적으로 드러냅니다.<br />
+            <small>※ 숫자는 각 국가 서술(제목+본문)에서 해당 표현 묶음이 실제로 등장한 횟수를 자동으로 센 값입니다. 서술이 바뀌면 차트도 함께 바뀝니다.</small>
           </p>
           <div class="keywords-chart" id="keywordsChart">
             <!-- JS가 막대그래프를 그려줍니다 -->
@@ -211,33 +225,79 @@
         </div>
       </div>
 
-      <!-- 탭 4: 공동 표현 작성 -->
+      <!-- 탭 4: 관련 사료 · 자료 (sources-data.js) -->
+      <div class="tab-content" data-tab-content="sources">
+        <div class="sources-box">
+          <h3 class="section-h">관련 사료 · 자료 보기</h3>
+          <p class="keywords-box__desc">
+            각 자료가 <strong>누가, 언제, 어떤 위치에서</strong> 남긴 기록인지 함께 확인해 보세요.<br />
+            <small>※ 사료는 역사적 주장을 자동으로 증명하는 정답 자료가 아니라, 작성자의 관점과 맥락을 가진 기록입니다. “검토 전” 표시가 있는 항목은 편집자가 서지 정보와 링크를 아직 확인하지 않은 항목입니다.</small>
+          </p>
+          <div class="sources-filter" id="sourcesFilter" role="tablist" aria-label="자료 필터"></div>
+          <div class="sources-grid" id="sourcesGrid">
+            <!-- JS가 자료 카드를 채워줍니다 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 5: 공동 표현 작성 (Guided Contribution) -->
       <div class="tab-content" data-tab-content="shared">
         <div class="shared-box">
           <h3 class="section-h">공동 역사 서술 제안</h3>
           <p class="shared-box__desc">
-            세 국가의 서술을 모두 읽었다면, 이제 당신이 제안할 차례입니다.<br />
-            중립적이고 사실에 기반한 '공동의 표현'을 작성해 보세요.
+            세 국가의 서술을 읽었다면, 이제 당신이 제안할 차례입니다.<br />
+            사실을 지우거나 약화시키지 않으면서, 서로 다른 관점을 함께 이해할 수 있는 '공동의 표현'을 작성해 보세요.
           </p>
 
-          <!-- 입력 폼 -->
-          <div class="shared-form">
-            <label class="shared-form__label">
-              <span class="shared-form__num">①</span> 작성자(닉네임)
-            </label>
-            <input type="text" id="userName" class="shared-form__input" placeholder="예: 김역사" />
+          <div class="guide-intro">
+            <strong>처음 참여하시나요?</strong> 아래 4단계를 차례로 따라가면 3분 안에 작성할 수 있어요.
+            정답이 정해진 활동이 아니며, 모든 선택은 참고용입니다.
+          </div>
 
-            <label class="shared-form__label">
-              <span class="shared-form__num">②</span> 제안하는 공동 표현
-            </label>
-            <textarea id="userNarrative" class="shared-form__textarea" rows="4" placeholder="공동의 역사 표현을 입력하세요 / 共同の歴史表現を入力してください / Enter a shared historical narrative"></textarea>
+          <div class="shared-layout">
+            <!-- 입력 폼 -->
+            <div class="shared-form">
+              <label class="shared-form__label" for="userName">
+                <span class="shared-form__num">①</span> 작성자(닉네임)
+              </label>
+              <input type="text" id="userName" class="shared-form__input" maxlength="40" autocomplete="nickname" placeholder="예: 김역사" />
 
-            <label class="shared-form__label">
-              <span class="shared-form__num">③</span> 그렇게 표현한 이유
-            </label>
-            <textarea id="userReason" class="shared-form__textarea" rows="3" placeholder="예: 특정 국가의 시각을 강조하지 않고, 전쟁의 국제적 성격과 공통의 피해에 초점을 맞추기 위해..."></textarea>
+              <div class="guide-step">
+                <div class="shared-form__label"><span class="shared-form__num">STEP 1</span> 표현에 담고 싶은 핵심 요소 <small class="guide-step__opt">여러 개 선택 가능</small></div>
+                <p class="guide-step__desc">이 사건의 국가별 서술과 NLP 분석 결과에서 뽑은 요소입니다. 담고 싶은 것을 골라 보세요.</p>
+                <div id="guideConcepts" class="guide-concepts"><!-- JS --></div>
+              </div>
 
-            <button class="btn btn--primary" id="submitNarrative">제안 등록하기</button>
+              <div class="guide-step">
+                <div class="shared-form__label"><span class="shared-form__num">STEP 2</span> 어떤 방식으로 표현하고 싶나요? <small class="guide-step__opt">하나 선택</small></div>
+                <div id="guideStyles" class="guide-styles" role="radiogroup" aria-label="표현 방식"><!-- JS --></div>
+                <p id="guideStyleHint" class="guide-step__hint" aria-live="polite"></p>
+              </div>
+
+              <div class="guide-step">
+                <label class="shared-form__label" for="userNarrative">
+                  <span class="shared-form__num">STEP 3</span> 문장 작성 — 제안하는 공동 표현
+                </label>
+                <div id="guideTemplates" class="guide-templates"><!-- JS --></div>
+                <textarea id="userNarrative" class="shared-form__textarea" rows="4" maxlength="1000" placeholder="공동의 역사 표현을 입력하세요 / 共同の歴史表現を入力してください / Enter a shared historical narrative"></textarea>
+              </div>
+
+              <div class="guide-step">
+                <label class="shared-form__label" for="userReason">
+                  <span class="shared-form__num">STEP 4</span> 그렇게 표현한 이유
+                </label>
+                <div id="guideReasons" class="guide-reasons"><!-- JS --></div>
+                <textarea id="userReason" class="shared-form__textarea" rows="3" maxlength="1000" placeholder="예: 특정 국가의 시각만 강조하지 않으면서도, 침략과 피해라는 사실은 분명히 남기고 싶어서..."></textarea>
+              </div>
+
+              <button class="btn btn--primary" id="submitNarrative">제안 등록하기</button>
+              <p class="shared-form__status" id="submitStatus" role="status" aria-live="polite"></p>
+            </div>
+
+            <!-- 작성 중 실시간 표현 분석 -->
+            <aside class="draft-panel" id="draftPanel" aria-live="polite">
+              <!-- JS가 채워줍니다 -->
+            </aside>
           </div>
 
           <!-- 등록된 제안 목록 -->
@@ -252,6 +312,20 @@
             <div id="sharedList">
               <!-- Supabase에서 불러온 제안을 언어별로 표시합니다 -->
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 6: 공동 기억 지도 (shared-memory-analyzer.js + memory-map.js) -->
+      <div class="tab-content" data-tab-content="memory">
+        <div class="memory-box">
+          <h3 class="section-h">Shared Memory — 공동 기억 지도</h3>
+          <p class="keywords-box__desc">
+            참여자들이 등록한 공동 표현을 서로 비슷한 것끼리 묶어, 어떤 표현의 경향이 나타나는지 보여줍니다.<br />
+            <small>※ 역사적 정답이나 “가장 올바른 표현”을 판정하는 기능이 아닙니다. 모든 수치는 Supabase에 저장된 실제 제안 텍스트에서 매번 계산됩니다.</small>
+          </p>
+          <div id="memoryResult">
+            <!-- JS가 채워줍니다 -->
           </div>
         </div>
       </div>
@@ -296,9 +370,15 @@
 
   <!-- 자바스크립트 파일 로드 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="./supabase-config.js"></script>
-<script src="./events-data.js"></script>
-<script src="./nlp-analyzer.js"></script>
-<script src="./script.js"></script>
+  <script src="./supabase-config.js"></script>
+  <script src="./events-data.js"></script>
+  <script src="./sources-data.js"></script>
+  <script src="./concept-lexicon.js"></script>
+  <script src="./contribution-guide.js"></script>
+  <script src="./nlp-analyzer.js"></script>
+  <script src="./shared-memory-analyzer.js"></script>
+  <script src="./memory-map.js"></script>
+  <script src="./shared-store.js"></script>
+  <script src="./script.js"></script>
 </body>
 </html>
