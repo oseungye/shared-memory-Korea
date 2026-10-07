@@ -2013,9 +2013,9 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
 
 .hero__steps {
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.4rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 2rem;
   margin-top: 2.2rem;
   padding-top: 1.2rem;
   border-top: 1px solid var(--line);
@@ -2023,7 +2023,15 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
   color: var(--ink-soft);
   animation: slideUp 0.8s ease 1s both;
 }
-.hero__steps li { display: inline-flex; align-items: center; gap: 0.45rem; }
+.hero__steps li { display: flex; align-items: baseline; gap: 0.6rem; line-height: 1.6; }
+.hero__steps strong {
+  display: block;
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--ink);
+}
+.hero__steps li span:not(.hero__step-num) { display: block; font-size: 0.88rem; }
 .hero__step-num {
   font-family: 'Cormorant Garamond', serif;
   font-weight: 600;
@@ -2033,11 +2041,17 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
 }
 
 .hero__count {
-  margin-top: 0.9rem;
-  font-size: 0.92rem;
+  margin-top: 1rem;
+  font-size: 1.02rem;
   color: var(--ink-soft);
 }
-.hero__count strong { color: var(--accent); font-weight: 700; }
+.hero__count strong {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 0.05rem;
+}
 
 /* ---------- 19-2. 연령대 · 학습 경험 선택 칩 ---------- */
 .age-picker {
@@ -2050,11 +2064,21 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
   max-width: 620px;
   animation: fadeIn 0.3s ease;
 }
+.age-picker__title {
+  font-size: 1.15rem;
+  margin-bottom: 0.3rem;
+}
 .age-picker__question {
-  font-family: 'Noto Serif KR', serif;
-  font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 0.7rem;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.8rem;
+  line-height: 1.6;
+}
+.age-picker__next { margin-top: 1rem; }
+.age-picker__next-btn {
+  min-height: 48px;
+  padding: 0.7rem 1.6rem;
+  font-size: 0.98rem;
 }
 .age-picker__options {
   display: flex;
@@ -2203,6 +2227,18 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
 .gen-row__key { font-size: 0.75rem; color: var(--ink-mute); }
 .gen-row__muted { font-size: 0.85rem; color: var(--ink-mute); }
 
+/* 첫 화면 소개 카드 아래 '탐구 의의' 링크 (상단 메뉴에서 옮김) */
+.intro__more {
+  margin-top: 1.5rem;
+  text-align: right;
+  font-size: 0.9rem;
+}
+.intro__more a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+
+/* 상단 메뉴: 넓은 화면은 전체 이름, 좁은 화면은 짧은 이름 */
+.nav__menu a { white-space: nowrap; }
+.nav__short { display: none; }
+
 /* ---------- 19-5. 반응형 ---------- */
 @media (max-width: 1024px) {
   .gen-row { grid-template-columns: 6rem 1fr 1fr; }
@@ -2210,8 +2246,12 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
 }
 
 @media (max-width: 640px) {
+  .nav__full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .nav__short { display: inline; }
   .hero__cta { flex-direction: column; align-items: flex-start; }
-  .hero__steps { flex-direction: column; gap: 0.35rem; margin-top: 1.6rem; }
+  .hero__steps { grid-template-columns: 1fr; gap: 0.7rem; margin-top: 1.6rem; }
+  .age-picker__next-btn { width: 100%; justify-content: center; }
+  .intro__more { text-align: left; }
   .age-picker { padding: 1rem; }
   .age-picker__options .age-chip { flex: 1 1 calc(33.333% - 0.5rem); padding: 0.5rem 0.4rem; white-space: nowrap; }
   .age-picker__options--compact .age-chip { flex: 1 1 calc(50% - 0.5rem); }

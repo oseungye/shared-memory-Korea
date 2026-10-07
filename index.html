@@ -27,7 +27,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shared Memory Project — 동북아 역사 공동 기억 프로젝트</title>
-  <meta name="description" content="한국·일본·중국의 역사 서술을 비교하고, 공동 표현 가능성을 탐구하는 디지털 인문학 플랫폼" />
+  <meta name="description" content="한국·일본·중국의 서로 다른 역사 서술을 살펴보고, 이 역사를 어떻게 기억하는지 한 문장으로 남기는 익명 참여 프로젝트" />
 
   <!-- 한글 + 영문 모두 어울리는 서체 (Google Fonts) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -54,9 +54,10 @@
 
       <!-- 네비게이션 메뉴: data-page 속성으로 어떤 페이지로 갈지 표시 -->
       <nav class="nav__menu">
-        <a href="#" data-page="home">소개</a>
-        <a href="#" data-page="events">사건 선택</a>
-        <a href="#" data-page="about">탐구 의의</a>
+        <!-- 좁은 화면에서는 짧은 이름(nav__short)만 보입니다 -->
+        <a href="#" data-page="home"><span class="nav__full">프로젝트 소개</span><span class="nav__short" aria-hidden="true">소개</span></a>
+        <a href="#" data-page="events" data-view="participate"><span class="nav__full">지금 참여하기</span><span class="nav__short" aria-hidden="true">참여하기</span></a>
+        <a href="#" data-page="events" data-view="memory"><span class="nav__full">Shared Memory 보기</span><span class="nav__short" aria-hidden="true">결과 보기</span></a>
       </nav>
     </div>
   </header>
@@ -86,48 +87,51 @@
           <!-- 메인 카피: 한자/한글 조합으로 동북아 느낌 -->
           <p class="hero__eyebrow">記憶 · 記憶 · 记忆</p>
           <h1 class="hero__title">
-            <span class="hero__title-line">같은 역사를,</span>
-            <span class="hero__title-line">우리는 정말 같은 방식으로</span>
-            <span class="hero__title-line hero__title-line--accent">기억하고 있을까요?</span>
+            <span class="hero__title-line">당신은 이 역사를</span>
+            <span class="hero__title-line hero__title-line--accent">어떻게 기억하고 있나요?</span>
           </h1>
           <p class="hero__subtitle">
-            한국·일본·중국의 역사 서술을 비교하고,<br />
-            당신이 생각하는 ‘공동의 역사 표현’을 직접 남겨보세요.
+            한국·일본·중국의 서로 다른 역사 서술을 살펴보고,<br />
+            당신의 생각을 한 문장으로 남겨주세요.<br />
+            모인 답변은 세대별·표현별로 분석되어 하나의 Shared Memory가 됩니다.
           </p>
 
-          <!-- 시작하기 버튼: 연령대(선택)를 고른 뒤 사건 선택 페이지로 이동 -->
+          <!-- 참여 버튼: 연령대(선택)를 고른 뒤 역사 선택으로 이동 -->
           <div class="hero__cta">
             <button class="btn btn--primary" id="startButton" type="button" aria-controls="agePicker" aria-expanded="false">
-              <span>5분 탐구 시작하기</span>
+              <span>5분 역사 인식 조사 참여하기</span>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
             <ul class="hero__meta" aria-label="참여 조건">
               <li>약 5분</li>
-              <li>익명 참여</li>
-              <li>로그인 필요 없음</li>
+              <li>익명</li>
+              <li>로그인 없음</li>
             </ul>
           </div>
 
-          <!-- 연령대 선택 (시작 버튼을 누르면 펼쳐짐 · 익명 통계용 · 응답하지 않아도 됨) -->
-          <div class="age-picker" id="agePicker" hidden>
-            <p class="age-picker__question" id="agePickerQuestion">통계 분석을 위해 연령대만 선택해주세요.</p>
+          <!-- 실제 Supabase 집계 기반 참여자 수 (집계 함수가 없거나 0명이면 숨김) -->
+          <p class="hero__count" id="participantCount" hidden aria-live="polite"></p>
+
+          <!-- 참여 시작 영역: 연령대 선택 → 다음(역사 선택) -->
+          <div class="age-picker" id="agePicker" role="region" aria-labelledby="agePickerTitle" hidden>
+            <h2 class="age-picker__title" id="agePickerTitle">Shared Memory 참여하기</h2>
+            <p class="age-picker__question" id="agePickerQuestion">먼저 연령대만 알려주세요.<br />이름이나 연락처는 수집하지 않습니다.</p>
             <div class="age-picker__options" role="group" aria-labelledby="agePickerQuestion" data-age-options="start"><!-- JS --></div>
-            <p class="age-picker__note">연령대 정보는 세대별 역사 인식 차이를 분석하기 위한 익명 통계에만 활용됩니다.<br />
-              참여 내용은 익명으로 프로젝트 개선과 통계 분석에 활용되며, 이름·연락처·생년월일 등 개인정보는 수집하지 않습니다.</p>
+            <div class="age-picker__next" id="agePickerNext" hidden>
+              <button type="button" class="btn btn--small age-picker__next-btn" id="agePickerNextBtn">다음 → 역사 선택</button>
+            </div>
+            <p class="age-picker__note">연령대는 세대별로 역사를 어떻게 기억하는지 살펴보는 익명 통계에만 쓰입니다.</p>
           </div>
 
           <!-- 참여 방법 한눈에 보기 -->
           <ol class="hero__steps" aria-label="참여 방법">
-            <li><span class="hero__step-num">1</span>사건 선택</li>
-            <li><span class="hero__step-num">2</span>세 나라의 서술 비교</li>
-            <li><span class="hero__step-num">3</span>나의 공동 표현 작성</li>
-            <li><span class="hero__step-num">4</span>다른 사람들의 공동 기억 확인</li>
+            <li><span class="hero__step-num">1</span><div><strong>연령대 선택</strong><span>익명 통계를 위해 연령대만 선택해요.</span></div></li>
+            <li><span class="hero__step-num">2</span><div><strong>역사 하나 보기</strong><span>하나의 사건을 골라 세 나라의 표현을 살펴봐요.</span></div></li>
+            <li><span class="hero__step-num">3</span><div><strong>내 생각 남기기</strong><span>이 역사를 어떻게 표현하고 싶은지 한 문장으로 적어요.</span></div></li>
+            <li><span class="hero__step-num">4</span><div><strong>결과 확인</strong><span>다른 사람들과 세대는 어떻게 기억했는지 확인해요.</span></div></li>
           </ol>
-
-          <!-- 실제 Supabase 집계 기반 참여자 수 (집계 함수가 없거나 0명이면 숨김) -->
-          <p class="hero__count" id="participantCount" hidden aria-live="polite"></p>
         </div>
       </div>
 
@@ -136,20 +140,21 @@
         <div class="intro__grid">
           <div class="intro__card">
             <div class="intro__num">01</div>
-            <h3>왜 비교하는가</h3>
-            <p>같은 사건이 한국에서는 '왜란', 일본에서는 '出兵', 중국에서는 '抗倭援朝'로 불립니다. 단어 하나에 담긴 시선의 차이를 분석합니다.</p>
+            <h3>왜 나라마다 다를까요</h3>
+            <p>같은 사건이 한국에서는 '왜란', 일본에서는 '出兵', 중국에서는 '抗倭援朝'로 불립니다. 이름 하나에도 그 나라가 역사를 바라보는 시선이 담겨 있습니다.</p>
           </div>
           <div class="intro__card">
             <div class="intro__num">02</div>
-            <h3>무엇을 다루는가</h3>
-            <p>임진왜란·문화 교류·조공 관계·근대화·재일조선인·히로시마 원폭까지, 동북아 역사 서술이 갈리는 사건 <span data-event-count>6</span>가지를 국가별 서술과 관련 사료와 함께 살펴봅니다.</p>
+            <h3>어떤 역사를 보나요</h3>
+            <p>임진왜란·문화 교류·조공 관계·근대화·재일조선인·히로시마 원폭까지, 세 나라의 설명이 서로 다른 사건 <span data-event-count>6</span>가지 가운데 하나를 골라 살펴봅니다.</p>
           </div>
           <div class="intro__card">
             <div class="intro__num">03</div>
-            <h3>어떻게 나아가는가</h3>
-            <p>서술의 공통 표현과 차이를 텍스트 분석으로 살펴본 뒤, 참여자가 직접 '공동 표현'을 제안합니다. 모인 제안은 다시 분석되어 공동 기억 지도로 나타납니다.</p>
+            <h3>내 답변은 어떻게 쓰이나요</h3>
+            <p>남겨 주신 한 문장은 다른 참여자들의 답변과 함께 분석되어, 사람들과 세대가 이 역사를 어떻게 기억하는지 보여줍니다. 이름이나 연락처는 수집하지 않습니다.</p>
           </div>
         </div>
+        <p class="intro__more"><a href="#" data-page="about">이 프로젝트가 가지는 의미 보기 →</a></p>
       </div>
     </section>
 
@@ -158,9 +163,9 @@
          ============================================================ -->
     <section class="page page--events" data-page-name="events">
       <div class="page__header">
-        <p class="page__eyebrow">STEP 01</p>
-        <h2 class="page__title">탐구할 역사 사건 선택</h2>
-        <p class="page__desc">아래 <span data-event-count>6</span>개의 사건은 한·중·일 역사 서술의 차이가 뚜렷하게 드러나는 주제입니다.<br />카드를 클릭하면 국가별 서술을 비교할 수 있습니다.</p>
+        <p class="page__eyebrow" id="eventsEyebrow">STEP 02</p>
+        <h2 class="page__title" id="eventsTitle">어떤 역사에 대한 생각을 남겨볼까요?</h2>
+        <p class="page__desc" id="eventsDesc">하나를 선택해주세요.<br />세 나라의 표현을 살펴본 뒤 당신의 생각을 한 문장으로 남길 수 있습니다.</p>
       </div>
 
       <!-- 사건 카드 컨테이너: script.js에서 자바스크립트로 동적 생성 -->
