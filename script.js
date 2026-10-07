@@ -162,6 +162,8 @@ function openEventDetail(eventId) {
   updateDraftPanel();
   loadSharedNarratives();
   navigateTo('detail');
+  // "Shared Memory 보기"로 들어왔다면 결과(공동 기억 지도) 탭을 먼저 보여줍니다. 다른 탭은 그대로 이동 가능.
+  if (eventsMode === 'memory') switchTab('memory');
 }
 
 function computeEventNlp(event) {
@@ -2318,22 +2320,65 @@ function handleAgeChoice(value, context) {
   setAgeGroup(value);
   renderAgeOptions();
   if (context === 'start') {
-    navigateTo('events');
-    const picker = document.getElementById('agePicker');
-    if (picker) picker.hidden = true;
-    document.getElementById('startButton')?.setAttribute('aria-expanded', 'false');
+    // 고른 뒤 바로 넘기지 않고 "다음 → 역사 선택" 버튼을 보여줍니다 (선택을 확인하고 넘어가도록).
+    const next = document.getElementById('agePickerNext');
+    if (next) next.hidden = false;
+    const chosen = document.querySelector('#agePicker [data-age-value].is-selected');
+    (document.getElementById('agePickerNextBtn') || chosen)?.focus({ preventScroll: true });
+    next?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
+function closeAgePicker() {
+  const picker = document.getElementById('agePicker');
+  if (picker) picker.hidden = true;
+  document.getElementById('startButton')?.setAttribute('aria-expanded', 'false');
+}
+
+function gotoEvents(mode) {
+  eventsMode = mode === 'memory' ? 'memory' : 'participate';
+  renderEventsHeader();
+  navigateTo('events');
+}
+
+/* "참여하기": 연령대를 아직 고르지 않았다면 첫 화면의 참여 시작 영역을 먼저 엽니다. */
 function startExploration() {
   const picker = document.getElementById('agePicker');
   const button = document.getElementById('startButton');
-  // 이미 연령대를 골랐거나(응답하지 않음 포함) 선택 UI를 쓸 수 없으면 바로 시작합니다.
-  if (getAgeGroup() || !Gen || !picker) { navigateTo('events'); return; }
+  // 이미 연령대를 골랐거나(응답하지 않음 포함) 선택 UI를 쓸 수 없으면 바로 역사 선택으로 갑니다.
+  if (getAgeGroup() || !Gen || !picker) { gotoEvents('participate'); return; }
+  const fromOtherPage = !document.querySelector('.page--home.active');
+  if (fromOtherPage) navigateTo('home');
   picker.hidden = false;
+  document.getElementById('agePickerNext')?.setAttribute('hidden', '');
   button?.setAttribute('aria-expanded', 'true');
-  picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  setTimeout(() => picker.querySelector('[data-age-value]')?.focus({ preventScroll: true }), 250);
+  setTimeout(() => {
+    picker.scrollIntoView({ behavior: 'smooth', block: fromOtherPage ? 'center' : 'nearest' });
+    picker.querySelector('[data-age-value]')?.focus({ preventScroll: true });
+  }, fromOtherPage ? 400 : 50);
+}
+
+/* 사건 선택 페이지는 두 가지 목적으로 씁니다: 참여하기(기본) / 결과(Shared Memory) 보기 */
+let eventsMode = 'participate';
+const EVENTS_COPY = {
+  participate: {
+    eyebrow: 'STEP 02',
+    title: '어떤 역사에 대한 생각을 남겨볼까요?',
+    desc: '하나를 선택해주세요.<br />세 나라의 표현을 살펴본 뒤 당신의 생각을 한 문장으로 남길 수 있습니다.'
+  },
+  memory: {
+    eyebrow: 'SHARED MEMORY',
+    title: '어떤 역사의 Shared Memory를 볼까요?',
+    desc: '하나를 선택하면 다른 참여자들이 남긴 답변과<br />세대별로 어떻게 기억했는지를 바로 볼 수 있습니다.'
+  }
+};
+
+function renderEventsHeader() {
+  const copy = EVENTS_COPY[eventsMode];
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('eventsEyebrow', copy.eyebrow);
+  set('eventsTitle', copy.title);
+  set('eventsDesc', copy.desc);
 }
 
 /** 첫 화면의 참여자 수 — Supabase 집계 함수 결과만 사용합니다 (하드코딩 없음). */
@@ -2342,7 +2387,7 @@ async function loadParticipantCount() {
   if (!el || !Store || !Store.fetchParticipationSummary) return;
   const r = await Store.fetchParticipationSummary();
   if (!r.available || !r.participants) { el.hidden = true; return; }
-  el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}명</strong>이 Shared Memory에 참여했습니다.`;
+  el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}</strong>명이 Shared Memory에 참여했습니다.`;
   el.hidden = false;
 }
 
@@ -2368,8 +2413,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-page]').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
+      // 상단 메뉴: "지금 참여하기"는 참여 시작 영역부터, "Shared Memory 보기"는 결과 보기용 사건 선택으로
+      if (el.dataset.view === 'participate') { startExploration(); return; }
+      if (el.dataset.view === 'memory') { gotoEvents('memory'); return; }
       navigateTo(el.dataset.page);
     });
+  });
+  document.getElementById('agePickerNextBtn')?.addEventListener('click', () => {
+    closeAgePicker();
+    gotoEvents('participate');
   });
 
   document.querySelectorAll('.tab').forEach(tab => {
