@@ -20,7 +20,12 @@ let draftContext = null;              // 작성 중 실시간 분석용 문맥
 let empathyCounts = {};
 let empathyAvailable = false;
 
+let memoryAgeFilter = 'all';          // 공동 기억 지도 연령대 필터
+let ageParticipantCounts = null;      // 서버 집계: 연령대별 참여자 수 (집계 함수가 없으면 null)
+let memoryCache = {};                 // 연령대별로 다시 계산한 분석 결과 (불러올 때마다 초기화)
+
 const Analyzer = window.SharedMemoryAnalyzer || null;
+const Gen = window.GenerationAnalysis || null;
 const Guide = window.ContributionGuide || { STYLES: [], TEMPLATES: [], REASONS: [] };
 const Store = window.SharedStore || null;
 const MemoryMap = window.SharedMemoryMap || null;
@@ -139,9 +144,17 @@ function openEventDetail(eventId) {
   empathyCounts = {};
   sharedVisibleCount = 20;
   sourcesFilter = 'all';
+  memoryAgeFilter = 'all';
+  memoryCache = {};
+  ageParticipantCounts = null;
+  priorEditing = false;
+  loadFlow();
+  const next = document.getElementById('submitNext');
+  if (next) next.hidden = true;
 
   switchTab('compare');
   renderBeforeCard();
+  renderFlowProgress();
   renderKeywordChart(event);
   renderSourcesTab();
   resetGuide(event);
@@ -168,8 +181,138 @@ function switchTab(tabName) {
   document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('active');
   document.querySelector(`[data-tab-content="${tabName}"]`)?.classList.add('active');
 
+  // 연구용 최소 milestone (클릭 로그는 남기지 않습니다)
+  if (tabName === 'ai') markFlow({ viewedNlp: true });
+  if (tabName === 'sources') markFlow({ viewedSources: true });
+  if (tabName === 'memory' && flow && flow.submitted) markFlow({ viewedResult: true });
+  if (tabName === 'compare') watchCompareView(); else stopCompareTimer();
+
   // 지도는 보이는 상태에서 너비를 재야 하므로 탭을 열 때 다시 그립니다.
   if (tabName === 'memory') renderMemoryTab();
+}
+
+/* ------------------------------------------------------------
+   권장 탐구 흐름 (진행 표시)
+   · 탭 이동을 막거나 잠그지 않습니다. "지금 어디쯤인지 / 다음에 무엇을 하면 되는지"만 보여줍니다.
+   · 공동 표현을 등록할 때 연구에 필요한 최소 milestone만 함께 저장합니다.
+   ------------------------------------------------------------ */
+
+const FLOW_STEPS = [
+  { id: 'select', label: '사건 선택' },
+  { id: 'before', label: '처음 생각', hint: '아래에 이 사건에 대한 지금의 생각을 한 문장으로 남겨 보세요. 건너뛰어도 됩니다.' },
+  { id: 'compare', label: '서술 탐구', hint: '‘국가별 서술’에서 세 나라의 서술을 차례로 읽어 보세요.' },
+  { id: 'shared', label: '공동 표현', hint: '‘공동 표현 작성’에서 나의 공동 표현을 남겨 보세요.' },
+  { id: 'result', label: '결과 확인', hint: '‘공동 기억 지도’에서 다른 사람들의 표현과 비교해 보세요.' }
+];
+const COMPARE_DWELL_MS = 5000;        // 국가별 서술이 화면에 이만큼 보이면 "서술 확인"으로 기록
+
+let flow = null;
+
+function defaultFlow() {
+  return { viewedCompare: false, viewedNlp: false, viewedSources: false, submitted: false, viewedResult: false };
+}
+function flowKey() { return `sm_flow_${currentEventId}`; }
+
+function loadFlow() {
+  flow = defaultFlow();
+  try {
+    const saved = Store ? JSON.parse(Store.storageGet(flowKey()) || '{}') : {};
+    Object.keys(flow).forEach(k => { if (typeof saved[k] === 'boolean') flow[k] = saved[k]; });
+  } catch (e) { /* 저장된 값이 없거나 손상됨: 처음부터 */ }
+}
+
+function markFlow(patch) {
+  if (!flow || !currentEventId) return;
+  const changed = Object.keys(patch).some(k => flow[k] !== patch[k]);
+  if (!changed) return;
+  Object.assign(flow, patch);
+  if (Store) Store.storageSet(flowKey(), JSON.stringify(flow));
+  renderFlowProgress();
+}
+
+function flowStepDone(id) {
+  if (!flow) return false;
+  if (id === 'select') return true;
+  if (id === 'before') return !!getBefore() || isBeforeSkipped() || !!getPriorLearning();
+  if (id === 'compare') return flow.viewedCompare;
+  if (id === 'shared') return flow.submitted;
+  if (id === 'result') return flow.submitted && flow.viewedResult;
+  return false;
+}
+
+function renderFlowProgress() {
+  const box = document.getElementById('flowProgress');
+  if (!box || !flow) return;
+  const current = FLOW_STEPS.find(s => !flowStepDone(s.id));
+  const items = FLOW_STEPS.map((step, i) => {
+    const done = flowStepDone(step.id);
+    const isCurrent = current && current.id === step.id;
+    const state = done ? '완료' : (isCurrent ? '지금 단계' : '');
+    return `
+      <li class="flow-progress__step${done ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}">
+        <button type="button" data-flow-step="${step.id}"${isCurrent ? ' aria-current="step"' : ''}>
+          <span class="flow-progress__num" aria-hidden="true">${done ? '✓' : i + 1}</span>
+          <span class="flow-progress__label">${step.label}</span>
+          ${state ? `<span class="sr-only"> — ${state}</span>` : ''}
+        </button>
+      </li>`;
+  }).join('');
+  const next = current
+    ? `<span class="flow-progress__next-label">다음</span> ${current.hint}
+       <button type="button" class="before-card__link" data-flow-step="${current.id}">바로 가기</button>`
+    : '탐구를 모두 마쳤습니다. 다른 탭을 자유롭게 둘러보거나, 다른 사건도 살펴보세요.';
+  box.innerHTML = `
+    <ol class="flow-progress__list">${items}</ol>
+    <p class="flow-progress__next">${next}</p>`;
+}
+
+function gotoFlowStep(id) {
+  if (id === 'select') { navigateTo('events'); return; }
+  if (id === 'before') {
+    const card = document.getElementById('beforeCard');
+    if (card && !getBefore() && isBeforeSkipped()) { beforeEditing = true; renderBeforeCard(); }
+    card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('beforeInput')?.focus({ preventScroll: true }), 300);
+    return;
+  }
+  gotoTab({ compare: 'compare', shared: 'shared', result: 'memory' }[id] || 'compare');
+}
+
+/* 국가별 서술이 실제로 화면에 일정 시간 보였는지 확인합니다 (단순 탭 열기와 구분). */
+let compareObserver = null;
+let compareTimer = null;
+let compareVisible = false;
+
+function stopCompareTimer() { clearTimeout(compareTimer); compareTimer = null; }
+
+function startCompareTimer() {
+  if (compareTimer || !flow || flow.viewedCompare) return;
+  const eventId = currentEventId;
+  compareTimer = setTimeout(() => {
+    compareTimer = null;
+    if (eventId === currentEventId && compareVisible && document.querySelector('[data-tab-content="compare"].active')) {
+      markFlow({ viewedCompare: true });
+    }
+  }, COMPARE_DWELL_MS);
+}
+
+function watchCompareView() {
+  const grid = document.getElementById('narrativesGrid');
+  if (!grid) return;
+  if (!('IntersectionObserver' in window)) { markFlow({ viewedCompare: true }); return; }
+  if (!compareObserver) {
+    compareObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        // 서술 카드가 화면의 상당 부분(카드 높이의 절반 또는 화면 높이의 35%)을 차지할 때만 "보는 중"으로 봅니다.
+        const need = Math.min(entry.boundingClientRect.height * 0.5, window.innerHeight * 0.35);
+        compareVisible = entry.isIntersecting && entry.intersectionRect.height >= need;
+        if (compareVisible && document.querySelector('.page--detail.active')) startCompareTimer();
+        else stopCompareTimer();
+      });
+    }, { threshold: Array.from({ length: 21 }, (_, i) => i / 20) });
+    compareObserver.observe(grid);
+  }
+  if (compareVisible) startCompareTimer();
 }
 
 function gotoTab(tabName) {
@@ -190,6 +333,41 @@ function getBefore() { return (Store && Store.storageGet(beforeKey())) || ''; }
 function setBefore(value) { if (Store) Store.storageSet(beforeKey(), value); }
 function isBeforeSkipped() { return !!(Store && Store.storageGet(beforeKey('skip_'))); }
 
+/* 이 사건을 이전에 배우거나 접한 경험 (사건마다 한 번, 이 브라우저에만 임시 저장 → 등록 시 prior_learning) */
+let priorEditing = false;
+function getPriorLearning() {
+  const v = Store ? Store.storageGet(beforeKey('prior_')) : null;
+  return Gen ? Gen.normalizePriorLearning(v) : null;
+}
+function setPriorLearning(value) { if (Store) Store.storageSet(beforeKey('prior_'), value); }
+
+function renderPriorQuestion() {
+  if (!Gen) return '';
+  const value = getPriorLearning();
+  if (value && !priorEditing) {
+    return `
+      <div class="before-card__prior is-answered">
+        <span class="before-card__prior-q">이 사건을 이전에 배우거나 접한 경험</span>
+        <span class="before-card__text">${escapeHtml(Gen.priorLabel(value))}</span>
+        <button type="button" class="before-card__link" data-prior-action="edit">변경</button>
+      </div>`;
+  }
+  return `
+    <div class="before-card__prior">
+      <span class="before-card__prior-q" id="priorQuestion">이 사건을 이전에 배워보거나 자세히 접한 적이 있나요? <small>(선택)</small></span>
+      <div class="age-picker__options age-picker__options--compact" role="group" aria-labelledby="priorQuestion">
+        ${Gen.PRIOR_LEARNING.map(p => `<button type="button" class="age-chip${value === p.id ? ' is-selected' : ''}" aria-pressed="${value === p.id}" data-prior-value="${p.id}">${escapeHtml(p.label)}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function handlePriorAnswer(value) {
+  setPriorLearning(value);
+  priorEditing = false;
+  renderBeforeCard();
+  renderFlowProgress();
+}
+
 function renderBeforeCard() {
   const box = document.getElementById('beforeCard');
   if (!box) return;
@@ -200,14 +378,16 @@ function renderBeforeCard() {
     box.innerHTML = `
       <span class="before-card__label">탐구 전 나의 한 문장</span>
       <span class="before-card__text">“${escapeHtml(saved)}”</span>
-      <button type="button" class="before-card__link" data-before-action="edit">수정</button>`;
+      <button type="button" class="before-card__link" data-before-action="edit">수정</button>
+      ${renderPriorQuestion()}`;
     return;
   }
   if (isBeforeSkipped() && !beforeEditing) {
     box.className = 'before-card is-collapsed';
     box.innerHTML = `
       <span class="before-card__hint">서술을 읽기 전의 생각을 한 문장으로 남겨 두면, 나중에 공동 표현과 비교해 생각의 변화를 볼 수 있어요.</span>
-      <button type="button" class="before-card__link" data-before-action="edit">지금 적기</button>`;
+      <button type="button" class="before-card__link" data-before-action="edit">지금 적기</button>
+      ${renderPriorQuestion()}`;
     return;
   }
   box.className = 'before-card';
@@ -221,7 +401,8 @@ function renderBeforeCard() {
       <button type="button" class="btn btn--small" data-before-action="save">저장</button>
       <button type="button" class="before-card__link" data-before-action="skip">건너뛰기</button>
     </div>
-    <p class="before-card__note">이 브라우저에만 임시로 저장되며, 공동 표현을 등록할 때 함께 저장되어 탐구 전·후 변화 분석에 쓰입니다.</p>`;
+    <p class="before-card__note">이 브라우저에만 임시로 저장되며, 공동 표현을 등록할 때 함께 저장되어 탐구 전·후 변화 분석에 쓰입니다.</p>
+    ${renderPriorQuestion()}`;
 }
 
 function handleBeforeAction(action) {
@@ -242,6 +423,7 @@ function handleBeforeAction(action) {
     beforeEditing = false;
   }
   renderBeforeCard();
+  renderFlowProgress();
   updateDraftPanel();
 }
 
@@ -1196,13 +1378,14 @@ async function submitSharedNarrative() {
   const narrativeInput = document.getElementById('userNarrative');
   const reasonInput = document.getElementById('userReason');
 
-  const name = nameInput ? nameInput.value.trim() : '';
+  // 닉네임은 선택 항목입니다. 비워 두면 '익명'으로 저장합니다.
+  const name = (nameInput ? nameInput.value.trim() : '') || '익명';
   const text = narrativeInput ? narrativeInput.value.trim() : '';
   const reason = reasonInput ? reasonInput.value.trim() : '';
 
-  if (!name || !text) {
-    setSubmitStatus('닉네임과 공동 표현은 필수 입력 항목입니다.', 'error');
-    (name ? narrativeInput : nameInput)?.focus();
+  if (!text) {
+    setSubmitStatus('STEP 3의 공동 표현 문장을 입력해 주세요.', 'error');
+    narrativeInput?.focus();
     return;
   }
   if (text.indexOf('______') >= 0) {
@@ -1229,6 +1412,19 @@ async function submitSharedNarrative() {
   setSubmitStatus('');
 
   const eventIdAtSubmit = currentEventId;
+  const f = flow || defaultFlow();
+  const milestones = {
+    viewedCompare: f.viewedCompare,
+    viewedNlp: f.viewedNlp,
+    viewedSources: f.viewedSources,
+    completedFlow: Gen ? Gen.computeCompletedFlow({
+      eventSelected: true,
+      startedExploration: true,           // 사건 상세를 열어 탐구를 시작한 기록
+      beforeWritten: !!getBefore(),
+      viewedCompare: f.viewedCompare,
+      submitted: true
+    }) : false
+  };
   const result = await Store.insertExpression({
     eventKey: eventIdAtSubmit,
     author: name,
@@ -1238,7 +1434,10 @@ async function submitSharedNarrative() {
     style: guideState.style,
     selectedConcepts: [...guideState.selected.values()].map(c => c.label),
     reasonTags: [...guideState.reasons],
-    before: getBefore()
+    before: getBefore(),
+    ageGroup: getAgeGroup(),
+    priorLearning: getPriorLearning(),
+    milestones
   });
 
   if (submitButton) {
@@ -1258,10 +1457,16 @@ async function submitSharedNarrative() {
   guideState.reasons = new Set();
 
   setSubmitStatus(result.legacy
-    ? '공동 표현이 등록되었습니다. (선택한 요소·표현 방식·이유 항목은 데이터베이스 확장 후 함께 저장됩니다)'
-    : '공동 표현이 등록되었습니다. 공동 기억 지도에서 다른 참여자의 표현과 함께 볼 수 있어요.', 'ok');
+    ? '공동 표현이 등록되었습니다. (일부 항목은 데이터베이스 확장 후 함께 저장됩니다)'
+    : '공동 표현이 등록되었습니다. 이제 다른 참여자들의 표현과 함께 볼 수 있어요.', 'ok');
 
-  if (eventIdAtSubmit === currentEventId) await loadSharedNarratives();
+  if (eventIdAtSubmit === currentEventId) {
+    markFlow({ submitted: true, viewedResult: false });
+    const next = document.getElementById('submitNext');
+    if (next) next.hidden = false;
+    await loadSharedNarratives();
+  }
+  loadParticipantCount();
 }
 
 /* ------------------------------------------------------------
@@ -1289,9 +1494,10 @@ async function loadSharedNarratives() {
     return;
   }
 
-  const [res, emp] = await Promise.all([
+  const [res, emp, ages] = await Promise.all([
     Store.loadExpressions(eventId),
-    Store.fetchEmpathyCounts(eventId)
+    Store.fetchEmpathyCounts(eventId),
+    Store.fetchAgeGroupParticipants ? Store.fetchAgeGroupParticipants(eventId) : { available: false, counts: null }
   ]);
   if (eventId !== currentEventId) return;   // 불러오는 사이 다른 사건으로 이동한 경우
 
@@ -1311,6 +1517,8 @@ async function loadSharedNarratives() {
   }
   empathyAvailable = emp.available;
   empathyCounts = emp.counts || {};
+  ageParticipantCounts = ages && ages.available ? ages.counts : null;
+  memoryCache = {};
 
   recomputeExpressionAnalysis();
   rebuildDraftContext();
@@ -1639,8 +1847,7 @@ function renderMemoryTab() {
     box.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못해 분석할 수 없습니다. ${escapeHtml(sharedLoadError)}</div>`;
     return;
   }
-  const a = expressionAnalysis;
-  if (!a || a.total === 0) {
+  if (!expressionAnalysis || expressionAnalysis.total === 0) {
     box.innerHTML = `
       <div class="shared-empty">
         아직 이 사건에 등록된 공동 표현이 없습니다.<br />첫 번째 제안이 공동 기억 지도의 출발점이 됩니다.
@@ -1649,26 +1856,162 @@ function renderMemoryTab() {
     return;
   }
 
+  const filterHtml = renderAgeFilter();
+  const filtered = Gen && memoryAgeFilter !== 'all';
+  if (filtered) {
+    const n = Gen.sampleSize(memoryAgeFilter, Gen.groupCounts(sharedNarratives), ageParticipantCounts);
+    if (!Gen.isSampleSufficient(n)) {
+      box.innerHTML = `${filterHtml}
+        <div class="shared-empty">
+          ${escapeHtml(Gen.ageLabel(memoryAgeFilter))} 참여 ${n}${ageParticipantCounts ? '명' : '건'} — 표본이 적어 세부 분석을 표시하지 않습니다.<br />
+          <small>${Gen.MIN_GROUP_SIZE}명 이상 모이면 이 연령대의 분석이 표시됩니다. 이 제안들은 ‘전체’ 분석에는 포함되어 있습니다.</small>
+        </div>`;
+      return;
+    }
+  }
+
+  const a = currentMemoryAnalysis();
+  if (!a) {
+    box.innerHTML = `${filterHtml}<div class="shared-empty">분석 중 문제가 생겼습니다.</div>`;
+    return;
+  }
   if (selectedClusterId && !a.clusters.some(c => c.id === selectedClusterId)) selectedClusterId = null;
 
   box.innerHTML = `
+    ${filterHtml}
+    ${filtered ? `<p class="nlp-desc age-filter__note">‘${escapeHtml(Gen.ageLabel(memoryAgeFilter))}’ 참여자의 제안 ${a.total}건만으로 아래 분석을 같은 방법으로 다시 계산했습니다.</p>` : ''}
     ${renderMemoryOverview(a)}
     ${renderMemoryMapSection(a)}
     ${renderMemoryClusters(a)}
     ${renderMemoryReframe(a)}
     ${renderMemoryFrequency(a)}
     ${renderMemoryFraming(a)}
-    ${renderMemoryBeforeAfter()}
+    ${filtered ? '' : renderGenerationCompare()}
+    ${renderMemoryBeforeAfter(memoryItems())}
     ${renderMemoryEmpathy(a)}
     ${renderMemoryMethod(a)}`;
 
   drawMemoryMap();
 }
 
+/* ------------------------------------------------------------
+   연령대(세대)별 보기 — 필터링한 제안을 기존 분석 함수에 그대로 넘깁니다.
+   ------------------------------------------------------------ */
+
+function memoryItems() {
+  return Gen ? Gen.filterByAgeGroup(sharedNarratives, memoryAgeFilter) : sharedNarratives;
+}
+
+function currentMemoryAnalysis() {
+  if (!Gen || memoryAgeFilter === 'all') return expressionAnalysis;
+  if (!(memoryAgeFilter in memoryCache)) {
+    try {
+      memoryCache[memoryAgeFilter] = Analyzer.analyzeExpressions(memoryItems(), { narratives: eventNarratives(currentEvent()) });
+    } catch (e) {
+      console.error('연령대별 분석 오류:', e);
+      memoryCache[memoryAgeFilter] = null;
+    }
+  }
+  return memoryCache[memoryAgeFilter];
+}
+
+function renderAgeFilter() {
+  if (!Gen) return '';
+  const counts = Gen.groupCounts(sharedNarratives);
+  const tabs = [['all', '전체', sharedNarratives.length]]
+    .concat(Gen.AGE_GROUPS.map(g => [g.id, g.label, counts[g.id]]));
+  const withAge = Gen.AGE_GROUPS.reduce((sum, g) => sum + counts[g.id], 0);
+  return `
+    <div class="age-filter">
+      <div class="age-filter__label" id="ageFilterLabel">연령대별 보기</div>
+      <div class="shared-language-tabs age-filter__tabs" role="tablist" aria-labelledby="ageFilterLabel">
+        ${tabs.map(([id, label, n]) => `<button type="button" class="shared-language-tabs__tab${memoryAgeFilter === id ? ' is-active' : ''}" role="tab" aria-selected="${memoryAgeFilter === id}" data-age-filter="${id}">${label} <small>${n}</small></button>`).join('')}
+      </div>
+      <p class="nlp-meta">${withAge ? '' : '아직 연령대 정보가 함께 저장된 제안이 없습니다. '}연령대 정보가 없는 기존 제안과 ‘응답하지 않음’을 고른 제안은 ‘전체’에만 포함됩니다. 숫자는 제안 수입니다.</p>
+    </div>`;
+}
+
+function setMemoryAgeFilter(id) {
+  memoryAgeFilter = id;
+  selectedClusterId = null;
+  renderMemoryTab();
+}
+
+function renderGenerationCompare() {
+  if (!Gen) return '';
+  const counts = Gen.groupCounts(sharedNarratives);
+  const anyAge = Gen.AGE_GROUPS.some(g => counts[g.id] > 0);
+  const caveat = '<p class="nlp-meta">연령대별 표현 차이는 참여한 표본에서 관찰된 경향일 뿐, 해당 연령대 전체의 역사 인식을 대표하지 않습니다.</p>';
+  if (!anyAge) {
+    return memorySection('◫', '세대별 표현 차이', `
+      <p class="nlp-desc">연령대 정보가 함께 저장된 제안이 아직 없습니다. 연령대별 참여가 모이면 같은 분석을 연령대마다 다시 계산해 나란히 보여줍니다.</p>${caveat}`);
+  }
+
+  if (!('__generation' in memoryCache)) {
+    try {
+      memoryCache.__generation = Gen.compareAgeGroups(sharedNarratives, {
+        narratives: eventNarratives(currentEvent()),
+        participantCounts: ageParticipantCounts
+      });
+    } catch (e) {
+      console.error('세대별 비교 오류:', e);
+      memoryCache.__generation = null;
+    }
+  }
+  const r = memoryCache.__generation;
+  if (!r) return '';
+
+  const unit = ageParticipantCounts ? '명' : '건';
+  const rows = r.groups.filter(g => g.expressions > 0).map(g => {
+    if (!g.sufficient) {
+      return `
+        <div class="gen-row is-hidden">
+          <div class="gen-row__age">${g.label}<small>${g.sample}${unit}</small></div>
+          <div class="gen-row__muted">표본이 적어 세부 분석을 표시하지 않습니다.</div>
+        </div>`;
+    }
+    const concepts = g.topConcepts.length
+      ? g.topConcepts.map(c => `<span class="narrative-card__keyword">${escapeHtml(c.label)}</span>`).join('')
+      : '<span class="nlp-meta">개념 사전과 일치하는 표현 없음</span>';
+    const frames = g.frameHits
+      ? Analyzer.FRAMES.map(fr => `${fr.short} ${formatPercent(g.frameShare[fr.id])}`).join(' · ')
+      : '프레임 어휘 없음';
+    return `
+      <div class="gen-row">
+        <div class="gen-row__age">${g.label}<small>${g.sample}${unit}</small></div>
+        <div class="gen-row__cell"><span class="gen-row__key">많이 쓰인 개념</span><div class="nlp-chips">${concepts}</div></div>
+        <div class="gen-row__cell"><span class="gen-row__key">표현 프레임</span><span class="nlp-meta">${frames}</span></div>
+        <div class="gen-row__cell"><span class="gen-row__key">서술과의 평균 유사도</span><strong>${formatNum(g.meanNarrativeSimilarity)}</strong></div>
+      </div>`;
+  }).join('');
+
+  const eligibleLabels = r.groups.filter(g => g.sufficient).map(g => g.label);
+  let verdict;
+  if (!r.comparable) {
+    verdict = `세대를 비교하려면 ${r.minSize}명 이상 참여한 연령대가 2개 이상 필요합니다. 현재 조건을 충족한 연령대: ${eligibleLabels.length ? eligibleLabels.join('·') : '없음'}.`;
+  } else {
+    const d = r.differences;
+    const frame = Analyzer.FRAMES.find(fr => fr.id === d.frameId);
+    const nums = `표현 프레임 비율 차이 최대 ${Math.round(d.frameShare * 100)}%p${frame ? `(${frame.short})` : ''}, 국가별 서술과의 평균 유사도 차이 ${formatNum(d.similarity)}`;
+    const top = d.sameTopConcept ? '가장 많이 쓰인 개념은 같았습니다.' : '가장 많이 쓰인 개념은 연령대마다 달랐습니다.';
+    verdict = r.verdict === 'small'
+      ? `${eligibleLabels.join('·')} 사이의 표현 차이는 크지 않았습니다. (${nums}) ${top}`
+      : `${eligibleLabels.join('·')} 사이에 일부 차이가 관찰되었습니다. (${nums}) ${top}`;
+  }
+
+  return memorySection('◫', '세대별 표현 차이', `
+    <p class="nlp-desc">연령대별로 제안을 나눠 같은 분석을 다시 실행한 결과입니다. ${r.minSize}명 미만인 연령대는 세부 결과를 표시하지 않습니다.</p>
+    <div class="gen-table">${rows}</div>
+    <p class="nlp-desc">${verdict}</p>
+    <p class="nlp-meta">“차이가 크지 않음”은 프레임 비율 차이 ${Math.round(Gen.DIFF_THRESHOLDS.frameShare * 100)}%p 미만, 유사도 차이 ${Gen.DIFF_THRESHOLDS.similarity} 미만일 때의 기술적 표현이며 통계적 검정 결과가 아닙니다.</p>
+    ${caveat}`);
+}
+
 function drawMemoryMap() {
   const container = document.getElementById('memoryMap');
-  if (!container || !MemoryMap || !expressionAnalysis) return;
-  MemoryMap.render(container, expressionAnalysis, { selectedId: selectedClusterId, onSelect: selectCluster });
+  const a = currentMemoryAnalysis();
+  if (!container || !MemoryMap || !a) return;
+  MemoryMap.render(container, a, { selectedId: selectedClusterId, onSelect: selectCluster });
 }
 
 function selectCluster(id) {
@@ -1877,9 +2220,9 @@ function renderMemoryFraming(a) {
     <p class="nlp-meta">${f.noHit ? `프레임 어휘가 하나도 없는 제안 ${f.noHit}건은 집계에서 빠집니다. ` : ''}이 분석은 역사적 가치판단이 아니라 표현의 언어적 특징입니다. 사전 기반이라 목록에 없는 표현은 세지 못하고, 부정문·인용·반어 같은 문맥은 구분하지 못합니다.</p>`);
 }
 
-function renderMemoryBeforeAfter() {
+function renderMemoryBeforeAfter(source) {
   const event = currentEvent();
-  const withBefore = sharedNarratives.filter(it => it.before);
+  const withBefore = (source || sharedNarratives).filter(it => it.before);
   if (!withBefore.length) {
     return memorySection('↻', '탐구 전 → 탐구 후 표현 변화', `
       <p class="nlp-desc">탐구 전 표현과 함께 등록된 제안이 아직 없습니다. 페이지 상단의 “탐구 전 한 문장”을 적은 뒤 공동 표현을 등록하면, 서술과 분석을 본 뒤 표현이 어떻게 달라졌는지가 여기에 집계됩니다.</p>`);
@@ -1941,13 +2284,86 @@ function renderMemoryMethod(a) {
 }
 
 /* ------------------------------------------------------------
+   첫 방문 온보딩 — 연령대(선택) · 참여자 수
+   · 연령대는 이 브라우저에만 보관했다가 공동 표현을 등록할 때 age_group으로 함께 저장합니다.
+   · 정확한 나이·생년월일·학교·이름·연락처는 묻지 않습니다.
+   ------------------------------------------------------------ */
+
+const AGE_STORAGE_KEY = 'sm_age_group';
+
+function getAgeGroup() {
+  const v = Store ? Store.storageGet(AGE_STORAGE_KEY) : null;
+  return Gen ? Gen.normalizeAgeGroup(v) : null;
+}
+function setAgeGroup(value) {
+  if (Store) Store.storageSet(AGE_STORAGE_KEY, value || '');
+}
+
+function renderAgeOptions() {
+  const boxes = document.querySelectorAll('[data-age-options]');
+  if (!Gen) {
+    boxes.forEach(box => { box.hidden = true; });
+    document.getElementById('formAgeLabel')?.setAttribute('hidden', '');
+    return;
+  }
+  const selected = getAgeGroup();
+  const options = Gen.AGE_GROUPS.concat([Gen.AGE_NO_ANSWER]);
+  boxes.forEach(box => {
+    box.innerHTML = options.map(g => `
+      <button type="button" class="age-chip${g.id === Gen.AGE_NO_ANSWER.id ? ' age-chip--quiet' : ''}${selected === g.id ? ' is-selected' : ''}" aria-pressed="${selected === g.id}" data-age-value="${g.id}">${escapeHtml(g.label)}</button>`).join('');
+  });
+}
+
+function handleAgeChoice(value, context) {
+  setAgeGroup(value);
+  renderAgeOptions();
+  if (context === 'start') {
+    navigateTo('events');
+    const picker = document.getElementById('agePicker');
+    if (picker) picker.hidden = true;
+    document.getElementById('startButton')?.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function startExploration() {
+  const picker = document.getElementById('agePicker');
+  const button = document.getElementById('startButton');
+  // 이미 연령대를 골랐거나(응답하지 않음 포함) 선택 UI를 쓸 수 없으면 바로 시작합니다.
+  if (getAgeGroup() || !Gen || !picker) { navigateTo('events'); return; }
+  picker.hidden = false;
+  button?.setAttribute('aria-expanded', 'true');
+  picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setTimeout(() => picker.querySelector('[data-age-value]')?.focus({ preventScroll: true }), 250);
+}
+
+/** 첫 화면의 참여자 수 — Supabase 집계 함수 결과만 사용합니다 (하드코딩 없음). */
+async function loadParticipantCount() {
+  const el = document.getElementById('participantCount');
+  if (!el || !Store || !Store.fetchParticipationSummary) return;
+  const r = await Store.fetchParticipationSummary();
+  if (!r.available || !r.participants) { el.hidden = true; return; }
+  el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}명</strong>이 Shared Memory에 참여했습니다.`;
+  el.hidden = false;
+}
+
+/* ------------------------------------------------------------
    초기화 · 이벤트 연결
    ------------------------------------------------------------ */
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-event-count]').forEach(el => { el.textContent = String(eventsData.length); });
   renderEventCards();
+  renderAgeOptions();
   navigateTo('home');
+  loadParticipantCount();
+
+  document.getElementById('startButton')?.addEventListener('click', startExploration);
+  document.addEventListener('click', e => {
+    const age = e.target.closest('[data-age-value]');
+    if (!age) return;
+    const box = age.closest('[data-age-options]');
+    handleAgeChoice(age.dataset.ageValue, box ? box.dataset.ageOptions : 'form');
+  });
 
   document.querySelectorAll('[data-page]').forEach(el => {
     el.addEventListener('click', e => {
@@ -1980,6 +2396,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filter) { sourcesFilter = filter.dataset.sourcesFilter; renderSourcesTab(); return; }
     const beforeAction = e.target.closest('[data-before-action]');
     if (beforeAction) { handleBeforeAction(beforeAction.dataset.beforeAction); return; }
+    const prior = e.target.closest('[data-prior-value]');
+    if (prior) { handlePriorAnswer(prior.dataset.priorValue); return; }
+    if (e.target.closest('[data-prior-action="edit"]')) { priorEditing = true; renderBeforeCard(); return; }
+    const flowStep = e.target.closest('[data-flow-step]');
+    if (flowStep) { gotoFlowStep(flowStep.dataset.flowStep); return; }
+    const ageFilter = e.target.closest('[data-age-filter]');
+    if (ageFilter) { setMemoryAgeFilter(ageFilter.dataset.ageFilter); return; }
   });
 
   document.getElementById('beforeCard')?.addEventListener('keydown', e => {

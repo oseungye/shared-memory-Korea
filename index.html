@@ -12,6 +12,7 @@
     - contribution-guide.js    : 공동 표현 작성 가이드 문구(표현 방식·문장 틀·이유 항목)
     - nlp-analyzer.js          : 국가별 서술 비교 분석 모듈(TF-IDF·유사도)
     - shared-memory-analyzer.js: 참여자 공동 표현 분석(유사도·군집·탐구 전/후·강조점)
+    - generation-analysis.js   : 연령대별(세대별) 분석·탐구 진행 기준 (기존 분석 함수 재사용)
     - memory-map.js            : 공동 기억 지도(SVG) 시각화
     - shared-store.js          : Supabase 읽기·쓰기(하위 호환 처리 포함)
     - script.js                : 화면 렌더링과 이벤트 처리
@@ -85,21 +86,48 @@
           <!-- 메인 카피: 한자/한글 조합으로 동북아 느낌 -->
           <p class="hero__eyebrow">記憶 · 記憶 · 记忆</p>
           <h1 class="hero__title">
-            <span class="hero__title-line">동일한 역사도</span>
-            <span class="hero__title-line hero__title-line--accent">국가마다 다르게 기억된다.</span>
+            <span class="hero__title-line">같은 역사를,</span>
+            <span class="hero__title-line">우리는 정말 같은 방식으로</span>
+            <span class="hero__title-line hero__title-line--accent">기억하고 있을까요?</span>
           </h1>
           <p class="hero__subtitle">
-            한국·일본·중국의 역사 서술을 나란히 놓고 비교합니다.<br />
-            그 차이를 인정하는 것에서 공동의 기억이 시작됩니다.
+            한국·일본·중국의 역사 서술을 비교하고,<br />
+            당신이 생각하는 ‘공동의 역사 표현’을 직접 남겨보세요.
           </p>
 
-          <!-- 시작하기 버튼: 클릭하면 사건 선택 페이지로 이동 -->
-          <button class="btn btn--primary" data-page="events">
-            <span>탐구 시작하기</span>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+          <!-- 시작하기 버튼: 연령대(선택)를 고른 뒤 사건 선택 페이지로 이동 -->
+          <div class="hero__cta">
+            <button class="btn btn--primary" id="startButton" type="button" aria-controls="agePicker" aria-expanded="false">
+              <span>5분 탐구 시작하기</span>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <ul class="hero__meta" aria-label="참여 조건">
+              <li>약 5분</li>
+              <li>익명 참여</li>
+              <li>로그인 필요 없음</li>
+            </ul>
+          </div>
+
+          <!-- 연령대 선택 (시작 버튼을 누르면 펼쳐짐 · 익명 통계용 · 응답하지 않아도 됨) -->
+          <div class="age-picker" id="agePicker" hidden>
+            <p class="age-picker__question" id="agePickerQuestion">통계 분석을 위해 연령대만 선택해주세요.</p>
+            <div class="age-picker__options" role="group" aria-labelledby="agePickerQuestion" data-age-options="start"><!-- JS --></div>
+            <p class="age-picker__note">연령대 정보는 세대별 역사 인식 차이를 분석하기 위한 익명 통계에만 활용됩니다.<br />
+              참여 내용은 익명으로 프로젝트 개선과 통계 분석에 활용되며, 이름·연락처·생년월일 등 개인정보는 수집하지 않습니다.</p>
+          </div>
+
+          <!-- 참여 방법 한눈에 보기 -->
+          <ol class="hero__steps" aria-label="참여 방법">
+            <li><span class="hero__step-num">1</span>사건 선택</li>
+            <li><span class="hero__step-num">2</span>세 나라의 서술 비교</li>
+            <li><span class="hero__step-num">3</span>나의 공동 표현 작성</li>
+            <li><span class="hero__step-num">4</span>다른 사람들의 공동 기억 확인</li>
+          </ol>
+
+          <!-- 실제 Supabase 집계 기반 참여자 수 (집계 함수가 없거나 0명이면 숨김) -->
+          <p class="hero__count" id="participantCount" hidden aria-live="polite"></p>
         </div>
       </div>
 
@@ -119,7 +147,7 @@
           <div class="intro__card">
             <div class="intro__num">03</div>
             <h3>어떻게 나아가는가</h3>
-            <p>텍스트 분석(NLP)으로 서술의 공통 표현과 차이를 살펴본 뒤, 참여자가 직접 '공동 표현'을 제안합니다. 모인 제안은 다시 분석되어 공동 기억 지도로 나타납니다.</p>
+            <p>서술의 공통 표현과 차이를 텍스트 분석으로 살펴본 뒤, 참여자가 직접 '공동 표현'을 제안합니다. 모인 제안은 다시 분석되어 공동 기억 지도로 나타납니다.</p>
           </div>
         </div>
       </div>
@@ -153,6 +181,9 @@
         </svg>
         <span>사건 목록으로</span>
       </button>
+
+      <!-- 권장 탐구 흐름 (탭 이동을 막지 않는 안내용 표시) -->
+      <nav class="flow-progress" id="flowProgress" aria-label="권장 탐구 흐름"><!-- JS --></nav>
 
       <!-- 사건 제목 영역 -->
       <div class="detail__header" id="detailHeader">
@@ -250,7 +281,7 @@
           </p>
 
           <div class="guide-intro">
-            <strong>처음 참여하시나요?</strong> 아래 4단계를 차례로 따라가면 3분 안에 작성할 수 있어요.
+            <strong>처음 참여하시나요?</strong> 닉네임·연령대는 비워 둬도 됩니다. 아래 4단계를 차례로 따라가면 3분 안에 작성할 수 있어요.
             정답이 정해진 활동이 아니며, 모든 선택은 참고용입니다.
           </div>
 
@@ -258,9 +289,13 @@
             <!-- 입력 폼 -->
             <div class="shared-form">
               <label class="shared-form__label" for="userName">
-                <span class="shared-form__num">①</span> 작성자(닉네임)
+                <span class="shared-form__num">①</span> 작성자(닉네임) <small class="guide-step__opt">선택 · 비워 두면 ‘익명’</small>
               </label>
-              <input type="text" id="userName" class="shared-form__input" maxlength="40" autocomplete="nickname" placeholder="예: 김역사" />
+              <input type="text" id="userName" class="shared-form__input" maxlength="40" autocomplete="off" placeholder="비워 두면 ‘익명’으로 등록됩니다" />
+
+              <div class="shared-form__label" id="formAgeLabel"><span class="shared-form__num">②</span> 연령대 <small class="guide-step__opt">선택 · 익명 통계용</small></div>
+              <div class="age-picker__options age-picker__options--form" role="group" aria-labelledby="formAgeLabel" data-age-options="form"><!-- JS --></div>
+              <p class="shared-form__privacy">참여 내용은 익명으로 프로젝트 개선과 통계 분석에 활용됩니다. 이름·연락처·생년월일 등 개인정보는 수집하지 않습니다.</p>
 
               <div class="guide-step">
                 <div class="shared-form__label"><span class="shared-form__num">STEP 1</span> 표현에 담고 싶은 핵심 요소 <small class="guide-step__opt">여러 개 선택 가능</small></div>
@@ -292,6 +327,9 @@
 
               <button class="btn btn--primary" id="submitNarrative">제안 등록하기</button>
               <p class="shared-form__status" id="submitStatus" role="status" aria-live="polite"></p>
+              <div class="shared-form__next" id="submitNext" hidden>
+                <button type="button" class="btn btn--small" data-goto-tab="memory">다른 사람들의 공동 기억 확인하기 →</button>
+              </div>
             </div>
 
             <!-- 작성 중 실시간 표현 분석 -->
@@ -377,6 +415,7 @@
   <script src="./contribution-guide.js"></script>
   <script src="./nlp-analyzer.js"></script>
   <script src="./shared-memory-analyzer.js"></script>
+  <script src="./generation-analysis.js"></script>
   <script src="./memory-map.js"></script>
   <script src="./shared-store.js"></script>
   <script src="./script.js"></script>
