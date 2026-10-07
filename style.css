@@ -1979,3 +1979,250 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
   .source-card__meta-row { grid-template-columns: 1fr; gap: 0; }
   .draft-ba { grid-template-columns: 1fr; gap: 0.2rem; }
 }
+
+
+/* ============================================================
+   19. 첫 방문 온보딩 · 참여자 통계 — 추가 구성 요소
+   · 새 색상·폰트·그림자 없이 기존 변수(베이지·먹색·강조색)와 칩/탭 스타일을 그대로 씁니다.
+   ============================================================ */
+
+/* ---------- 19-1. 히어로: 세 줄 제목 · CTA 옆 참여 조건 · 참여 방법 ---------- */
+.hero__title-line:nth-child(3) { animation-delay: 0.5s; }
+
+.hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem 1.4rem;
+}
+
+.hero__meta {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  animation: slideUp 0.8s ease 0.9s both;
+}
+.hero__meta li + li::before {
+  content: '·';
+  margin: 0 0.55rem;
+  color: var(--ink-mute);
+}
+
+.hero__steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  margin-top: 2.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  animation: slideUp 0.8s ease 1s both;
+}
+.hero__steps li { display: inline-flex; align-items: center; gap: 0.45rem; }
+.hero__step-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.hero__count {
+  margin-top: 0.9rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.hero__count strong { color: var(--accent); font-weight: 700; }
+
+/* ---------- 19-2. 연령대 · 학습 경험 선택 칩 ---------- */
+.age-picker {
+  margin-top: 1.4rem;
+  padding: 1.1rem 1.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  max-width: 620px;
+  animation: fadeIn 0.3s ease;
+}
+.age-picker__question {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.7rem;
+}
+.age-picker__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.age-picker__note {
+  font-size: 0.8rem;
+  color: var(--ink-mute);
+  margin-top: 0.8rem;
+  line-height: 1.6;
+}
+
+.age-chip {
+  min-height: 44px;                 /* 손가락으로 누르기 쉬운 크기 */
+  min-width: 4.6rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.age-chip:hover { border-color: var(--accent); }
+.age-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.age-chip.is-selected { background: var(--ink); border-color: var(--ink); color: var(--bg-soft); }
+.age-chip--quiet { color: var(--ink-soft); }
+
+.age-picker__options--compact .age-chip { min-height: 40px; font-size: 0.9rem; min-width: 0; }
+
+.shared-form__privacy {
+  font-size: 0.8rem;
+  color: var(--ink-mute);
+  margin-top: 0.6rem;
+  line-height: 1.6;
+}
+.shared-form__label .guide-step__opt { font-family: 'Noto Sans KR', sans-serif; }
+.shared-form__next { margin-top: 0.6rem; }
+
+/* 탐구 전 한 문장 카드 안의 학습 경험 질문 */
+.before-card__prior {
+  flex-basis: 100%;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--line);
+}
+.before-card__prior-q {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.5rem;
+}
+.before-card__prior-q small { color: var(--ink-mute); font-size: 0.78rem; }
+.before-card__prior.is-answered {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.8rem;
+}
+.before-card__prior.is-answered .before-card__prior-q { display: inline; margin: 0; }
+
+/* ---------- 19-3. 권장 탐구 흐름 (진행 표시) ---------- */
+.flow-progress {
+  margin: -1rem 0 2rem;
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+}
+.flow-progress__list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0;
+}
+.flow-progress__step { display: flex; align-items: center; }
+.flow-progress__step + .flow-progress__step::before {
+  content: '';
+  width: 1.4rem;
+  height: 1px;
+  background: var(--line);
+  margin: 0 0.5rem;
+}
+.flow-progress__step button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  color: inherit;
+  font-size: inherit;
+}
+.flow-progress__step button:hover .flow-progress__label { color: var(--ink); }
+.flow-progress__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-size: 0.75rem;
+  background: var(--bg-card);
+}
+.flow-progress__step.is-done .flow-progress__num { background: var(--ink); border-color: var(--ink); color: var(--bg-soft); }
+.flow-progress__step.is-done { color: var(--ink-soft); }
+.flow-progress__step.is-current { color: var(--accent); font-weight: 500; }
+.flow-progress__step.is-current .flow-progress__num { border-color: var(--accent); color: var(--accent); }
+.flow-progress__next {
+  margin-top: 0.4rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.flow-progress__next-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--accent);
+  margin-right: 0.3rem;
+}
+.flow-progress__next .before-card__link { margin-left: 0.3rem; }
+
+/* ---------- 19-4. 공동 기억 지도: 연령대 필터 · 세대별 비교 ---------- */
+.age-filter { margin-bottom: 1.5rem; }
+.age-filter__label { font-size: 0.85rem; color: var(--ink-soft); font-family: 'Noto Serif KR', serif; font-weight: 500; }
+.age-filter__tabs { margin: 0.5rem 0 0.4rem; }
+.age-filter__tabs small { opacity: 0.75; margin-left: 0.15rem; }
+.age-filter__note { margin: -0.5rem 0 1rem; }
+
+.gen-table { border-top: 1px solid var(--line); margin: 0.6rem 0 1rem; }
+.gen-row {
+  display: grid;
+  grid-template-columns: 7rem 1.4fr 1.4fr 1fr;
+  gap: 0.6rem 1rem;
+  align-items: start;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.gen-row.is-hidden { grid-template-columns: 7rem 1fr; align-items: center; }
+.gen-row__age {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+}
+.gen-row__age small { font-family: 'Noto Sans KR', sans-serif; font-weight: 400; font-size: 0.78rem; color: var(--ink-mute); }
+.gen-row__cell { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.gen-row__key { font-size: 0.75rem; color: var(--ink-mute); }
+.gen-row__muted { font-size: 0.85rem; color: var(--ink-mute); }
+
+/* ---------- 19-5. 반응형 ---------- */
+@media (max-width: 1024px) {
+  .gen-row { grid-template-columns: 6rem 1fr 1fr; }
+  .gen-row__cell:last-child { grid-column: 2 / -1; }
+}
+
+@media (max-width: 640px) {
+  .hero__cta { flex-direction: column; align-items: flex-start; }
+  .hero__steps { flex-direction: column; gap: 0.35rem; margin-top: 1.6rem; }
+  .age-picker { padding: 1rem; }
+  .age-picker__options .age-chip { flex: 1 1 calc(33.333% - 0.5rem); padding: 0.5rem 0.4rem; white-space: nowrap; }
+  .age-picker__options--compact .age-chip { flex: 1 1 calc(50% - 0.5rem); }
+
+  /* 진행 표시: 번호만 보이고, 지금 단계 이름만 함께 표시 */
+  .flow-progress { margin-top: -1rem; }
+  .flow-progress__step + .flow-progress__step::before { width: 0.7rem; margin: 0 0.3rem; }
+  .flow-progress__step:not(.is-current) .flow-progress__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .flow-progress__step button { min-height: 40px; min-width: 32px; justify-content: center; }
+
+  .gen-row, .gen-row.is-hidden { grid-template-columns: 1fr; gap: 0.4rem; }
+  .gen-row__age { flex-direction: row; align-items: baseline; gap: 0.5rem; }
+  .gen-row__cell:last-child { grid-column: auto; }
+}
