@@ -319,7 +319,13 @@
                   <span class="shared-form__num">STEP 3</span> 문장 작성 — 제안하는 공동 표현
                 </label>
                 <div id="guideTemplates" class="guide-templates"><!-- JS --></div>
-                <textarea id="userNarrative" class="shared-form__textarea" rows="4" maxlength="1000" placeholder="공동의 역사 표현을 입력하세요 / 共同の歴史表現を入力してください / Enter a shared historical narrative"></textarea>
+                <textarea id="userNarrative" class="shared-form__textarea" rows="4" maxlength="1000" placeholder="공동의 역사 표현을 입력하세요 / 请输入共同的历史表述 / 共同の歴史表現を入力してください / Enter a shared historical narrative"></textarea>
+                <!-- 작성 언어: 고르지 않으면 자동 감지 (한자만 있는 문장은 중국어·일본어 구분이 어려워 직접 선택을 권합니다) -->
+                <div class="before-card__prior">
+                  <span class="before-card__prior-q" id="writingLangLabel">작성 언어 <small>(선택하지 않으면 자동 감지)</small></span>
+                  <div class="age-picker__options age-picker__options--compact" id="writingLangOptions" role="group" aria-labelledby="writingLangLabel"><!-- JS --></div>
+                  <p class="guide-step__hint" id="writingLangHint" aria-live="polite"></p>
+                </div>
               </div>
 
               <div class="guide-step">
@@ -349,8 +355,9 @@
             <div class="shared-language-tabs" id="sharedLanguageTabs" role="tablist" aria-label="제안 언어 선택">
               <button type="button" class="shared-language-tabs__tab is-active" data-shared-language="all" role="tab" aria-selected="true">전체</button>
               <button type="button" class="shared-language-tabs__tab" data-shared-language="ko" role="tab" aria-selected="false">한국어</button>
-              <button type="button" class="shared-language-tabs__tab" data-shared-language="en" role="tab" aria-selected="false">영어</button>
-              <button type="button" class="shared-language-tabs__tab" data-shared-language="ja" role="tab" aria-selected="false">일본어</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="zh" role="tab" aria-selected="false">中文</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="ja" role="tab" aria-selected="false">日本語</button>
+              <button type="button" class="shared-language-tabs__tab" data-shared-language="en" role="tab" aria-selected="false">English</button>
             </div>
             <div id="sharedList">
               <!-- Supabase에서 불러온 제안을 언어별로 표시합니다 -->

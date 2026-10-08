@@ -79,7 +79,7 @@ test('한국어·일본어·영어가 섞여도 언어를 구분하고, 같은 �
     'An international war in East Asia that began with the Japanese invasion of Joseon',
     '도자기와 인쇄술이 전해진 문화 교류'
   ]), { narratives });
-  assert.deepEqual(r.byLanguage, { ko: 2, ja: 1, en: 1, unknown: 0 });
+  assert.deepEqual(r.byLanguage, { ko: 2, zh: 0, ja: 1, en: 1, unknown: 0 });
   const big = r.clusters[0];
   assert.ok(big, '표현군이 있어야 함');
   assert.deepEqual(big.members, [0, 1, 2]);
@@ -94,7 +94,10 @@ test('언어 판별과 언어별 토큰화', () => {
   assert.equal(SM.detectLanguage('일본의 침략'), 'ko');
   assert.equal(SM.detectLanguage('日本の侵略'), 'ja');
   assert.equal(SM.detectLanguage('Japanese invasion'), 'en');
-  assert.equal(SM.detectLanguage('朝鮮侵略'), 'unknown');     // 가나 없는 한자만: 중국어와 구분 불가
+  // 가나 없는 한자만: 'zh 후보'이지만 일본어일 수도 있어 확정하지 않습니다 (사용자 선택으로 보완)
+  assert.equal(SM.detectLanguage('朝鮮侵略'), 'zh');
+  assert.equal(SM.detectLanguageDetail('朝鮮侵略').confident, false);
+  assert.deepEqual(SM.detectLanguageDetail('朝鮮侵略').candidates, ['zh', 'ja']);
   assert.equal(SM.detectLanguage('임진왜란 is a war'), 'ko');
   assert.deepEqual(SM.tokenizeExpression('The wars of the invaders', 'en'), ['war', 'invader']);
   assert.deepEqual(SM.tokenizeExpression('東アジアの国際的な戦争', 'ja'), ['アジア', '国際', '戦争']);
