@@ -49,6 +49,17 @@
   /* ---------- 공동 표현 ---------- */
 
   /**
+   * 작성 언어 코드. shared_expressions.country_code 컬럼은 이름과 달리 '국가'가 아니라
+   * '작성 언어'를 저장합니다(기존 데이터 호환을 위해 컬럼 이름은 바꾸지 않습니다).
+   * 지원 언어 외의 값(기존 'unknown', 기본값 'ETC', 빈 값)은 모두 'unknown'으로 다룹니다.
+   */
+  const LANG_CODES = ['ko', 'zh', 'ja', 'en'];
+  function normalizeLang(code) {
+    const c = typeof code === 'string' ? code.trim().toLowerCase() : '';
+    return LANG_CODES.indexOf(c) >= 0 ? c : 'unknown';
+  }
+
+  /**
    * 공동 표현을 저장합니다.
    * DB에 아직 없는 컬럼이 있으면 한 단계씩 줄여서 다시 저장합니다.
    *   ① 참여자 통계 컬럼 포함 → ② 작성 가이드 확장 컬럼까지 → ③ 기존 기본 컬럼만
@@ -62,7 +73,7 @@
     const base = {
       event_key: row.eventKey,
       author_name: String(row.author || '익명').slice(0, LIMITS.name),
-      country_code: row.lang || 'unknown',
+      country_code: normalizeLang(row.lang),
       content: String(row.content || '').slice(0, LIMITS.content),
       reason: String(row.reason || '').slice(0, LIMITS.reason)
     };
@@ -121,7 +132,7 @@
       text: item.content || '',
       reason: item.reason || '',
       eventId: item.event_key,
-      lang: item.country_code || 'unknown',
+      lang: normalizeLang(item.country_code),
       createdAt: item.created_at || null,
       style: typeof item.expression_style === 'string' ? item.expression_style : null,
       selectedConcepts: asArray(item.selected_concepts),
@@ -277,6 +288,8 @@
     storageGet,
     storageSet,
     mapRow,
+    normalizeLang,
+    LANG_CODES,
     isMissingSchemaError
   };
 })(typeof self !== 'undefined' ? self : this);

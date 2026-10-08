@@ -7,12 +7,17 @@
      군집 이름·비율·대표 제안을 미리 정해두지 않습니다.
 
    사용하는 방법
-     1) 언어 판별   : 문자 체계(한글·가나·라틴 문자) 비율
+     1) 언어 판별   : 문자 체계(한글·가나·한자·라틴 문자) 비율 + 보조 단서
+                      지원 언어 ko(한국어) · zh(중국어) · ja(일본어) · en(영어)
+                      가나 없는 한자 문장은 'zh 후보'로만 판별합니다(신뢰도 낮음 표시).
+                      → 참여자가 직접 고른 작성 언어가 있으면 항상 그것을 우선합니다.
      2) 토큰화      : 한국어 → nlp-analyzer.js의 규칙 기반 어간 처리
+                      중국어 → 한자 연속 구간 + 개념 사전·상용어 최장 일치 + 기능어 경계 분리
+                               (형태소 분석기가 아닌 규칙 기반 경량 분할)
                       일본어 → 한자·가타카나 연속 구간 추출 (히라가나는 기능어로 보고 제외)
                       영어   → 소문자화 + 불용어 제거 + 간단한 접미사 정리
      3) 개념 매핑   : concept-lexicon.js (사람이 만든 다국어 개념 사전)
-                      예) 침략·침공·侵略·invasion → 같은 개념
+                      예) 침략·침공·侵略·入侵·invasion → 같은 개념
      4) 특징 벡터   : [단어] + [문자 2-gram] + [개념]을 TF-IDF로 가중한 벡터
                       → 표현이 조금 달라도(국제전쟁 / 국제적인 전쟁) 가깝게,
                         언어가 달라도 같은 개념을 쓰면 가깝게 계산됩니다.
@@ -33,7 +38,10 @@
   'use strict';
 
   const COUNTRIES = ['korea', 'japan', 'china'];
-  const LANGS = ['ko', 'ja', 'en'];
+  /** 공식 지원 언어 (화면 표시 순서와 같습니다: 한국어 · 中文 · 日本語 · English) */
+  const LANGS = ['ko', 'zh', 'ja', 'en'];
+  /** 기존 데이터 호환용 값. 판별할 수 없거나 언어 정보가 없던 제안 */
+  const UNKNOWN = 'unknown';
   const FRAMES = Lex.FRAMES;
   const CONCEPTS = Lex.CONCEPTS;
   const CONCEPT_BY_ID = {};
@@ -71,29 +79,91 @@
 
   /* ---------- 1. 언어 판별 ---------- */
 
-  /**
-   * 문자 체계 비율로 언어를 판별합니다. 'ko' | 'ja' | 'en' | 'unknown'
-   * 가나가 없고 한자만 있는 문장은 중국어와 구분할 수 없어 'unknown'으로 둡니다.
-   */
-  function detectLanguage(text) {
-    const src = asText(text);
-    if (!src.trim()) return 'unknown';
-    const hangul = (src.match(/[가-힣]/g) || []).length;
-    const kana = (src.match(/[぀-ヿ]/g) || []).length;
-    const kanji = (src.match(/[一-鿿]/g) || []).length;
-    const latin = (src.match(/[A-Za-z]/g) || []).length;
+  // 중국어 판별 보조 단서: 중국어 기능어와 간체자·번체자 중 일본어 문장에는 거의 쓰이지 않는 글자
+  //   (了·在·和·国·争처럼 일본어에서도 흔한 글자는 일부러 넣지 않았습니다)
+  const ZH_HINT_CHARS = new Set((
+    '的们这吗呢吧么还对为从让说过给是也把我并' +   // 간체 기능어
+    '們這嗎還對從讓說過給與' +                       // 번체 기능어
+    '经发战历际东亚义军击权识应该场华鲜韩牺灾难记忆纪务动员强实现结关'  // 간체자
+  ).split(''));
+  // 일본어 판별 보조 단서: 일본 신자체 (중국어 간체·번체와 모양이 다른 한자)
+  const JA_HINT_CHARS = new Set('戦歴広囲図円気変関対験総覚駅権県帰応様栄拡弾払辺沢浜仏黒鉄労済渉継徴犠発経撃亜'.split(''));
 
-    const scores = {
-      ko: hangul,
-      ja: kana > 0 ? kana + kanji : 0,
-      en: latin * 0.5            // 라틴 문자는 한 단어에 글자 수가 많아 절반으로 계산
+  function scriptCounts(src) {
+    return {
+      hangul: (src.match(/[가-힣]/g) || []).length,
+      kana: (src.match(/[぀-ヿ]/g) || []).length,
+      hanzi: (src.match(/[㐀-䶿一-鿿]/g) || []).length,
+      latin: (src.match(/[A-Za-z]/g) || []).length
     };
-    let best = 'unknown';
+  }
+
+  /**
+   * 언어 판별 상세 결과.
+   * @returns {{lang: string, confident: boolean, candidates: string[]}}
+   *   · 한글이 있으면 ko, 가나가 있으면 ja, 라틴 문자가 주되면 en
+   *   · 가나 없이 한자가 주된 문장은 'zh 후보'입니다. 일본어에도 가나 없는 한자 표현이 있으므로
+   *     중국어 기능어·간체자 같은 단서가 없으면 confident=false, candidates=['zh','ja']로 돌려줍니다.
+   *     (일본어 신자체 단서만 있으면 ja 후보)
+   */
+  function detectLanguageDetail(text) {
+    const src = asText(text);
+    if (!src.trim()) return { lang: UNKNOWN, confident: false, candidates: [] };
+    const n = scriptCounts(src);
+    const scores = {
+      ko: n.hangul,
+      zh: n.kana === 0 ? n.hanzi : 0,
+      ja: n.kana > 0 ? n.kana + n.hanzi : 0,
+      en: n.latin * 0.5            // 라틴 문자는 한 단어에 글자 수가 많아 절반으로 계산
+    };
+    let best = UNKNOWN;
     let bestScore = 0;
     LANGS.forEach(lang => {
       if (scores[lang] > bestScore) { best = lang; bestScore = scores[lang]; }
     });
-    return best;
+    if (best !== 'zh') return { lang: best, confident: best !== UNKNOWN, candidates: best === UNKNOWN ? [] : [best] };
+
+    // 한자 위주 + 가나 없음 → 중국어/일본어 단서를 셉니다.
+    let zhHints = 0, jaHints = 0;
+    for (const ch of src) {
+      if (ZH_HINT_CHARS.has(ch)) zhHints += 1;
+      else if (JA_HINT_CHARS.has(ch)) jaHints += 1;
+    }
+    if (jaHints > 0 && zhHints === 0) return { lang: 'ja', confident: false, candidates: ['ja', 'zh'] };
+    const confident = zhHints > 0 && (zhHints >= jaHints) && n.hanzi >= 4;
+    return { lang: 'zh', confident, candidates: confident ? ['zh'] : ['zh', 'ja'] };
+  }
+
+  /**
+   * 문자 체계 비율로 언어를 판별합니다. 'ko' | 'zh' | 'ja' | 'en' | 'unknown'
+   * 가나 없는 한자 문장은 'zh'(후보)를 돌려주지만 확정이 아닙니다 → detectLanguageDetail 참고.
+   */
+  function detectLanguage(text) {
+    return detectLanguageDetail(text).lang;
+  }
+
+  /** 지원 언어 코드인지 확인합니다. */
+  function isSupportedLang(code) {
+    return LANGS.indexOf(code) >= 0;
+  }
+
+  /**
+   * 저장할 작성 언어를 정합니다. 우선순위: 참여자가 직접 고른 언어 → 자동 감지 결과
+   */
+  function resolveLanguage(chosen, text) {
+    const c = typeof chosen === 'string' ? chosen.toLowerCase() : '';
+    return isSupportedLang(c) ? c : detectLanguage(text);
+  }
+
+  /**
+   * 공동 표현 목록 언어 필터. 'all'이면 전체, 아니면 저장된 작성 언어가 같은 제안만 돌려줍니다.
+   * (자동 감지로 다시 분류하지 않습니다 — 'unknown' 기존 데이터는 '전체'에서만 보입니다)
+   */
+  function filterByLanguage(items, filter) {
+    const list = Array.isArray(items) ? items.filter(it => it && typeof it === 'object') : [];
+    const f = typeof filter === 'string' ? filter.toLowerCase() : 'all';
+    if (f === 'all' || !f) return list;
+    return list.filter(it => (typeof it.lang === 'string' ? it.lang.toLowerCase() : UNKNOWN) === f);
   }
 
   /* ---------- 2. 언어별 토큰화 ---------- */
@@ -150,11 +220,104 @@
     return out.concat(tokenizeEnglish(text));
   }
 
+  /* 중국어(zh) — 형태소 분석기가 아니라 규칙 기반 경량 분할입니다.
+     1) 한자 연속 구간을 찾고
+     2) 구간 안에서 [개념 사전의 한자 표현 + 상용어 목록]과 최장 일치하는 부분을 먼저 단어로 떼어 낸 뒤
+     3) 남은 부분은 기능어(的·了·是·在·和 …)를 경계로 나눕니다.
+     4) 한 글자 조각과 일반적인 기능 표현(我们·因为·可以 …)은 버려 과대평가를 막습니다.
+     정확한 단어 경계가 아닐 수 있으므로, 특징 벡터에서는 문자 2-gram과 개념이 함께 쓰입니다. */
+
+  // 단어 경계로 보는 기능어 한 글자 (사전 단어 안에 있으면 경계로 쓰지 않습니다: 和平·对话·存在 …)
+  const ZH_FUNCTION_CHARS = new Set((
+    '的了是在和与及也都就而并被把对为从向让使这那其之于以着过吗呢吧啊很又或但将给由所等地得我你他她它们个' +
+    '與對為從讓這們將給過著個'
+  ).split(''));
+
+  // 기능어를 포함하지만 하나의 단어로 쓰이는 상용어 + 분석에서 버릴 일반 기능 표현
+  const ZH_STOPWORDS = new Set((
+    '我们 你们 他们 她们 它们 这个 那个 这些 那些 这样 那样 这种 那种 其他 其中 以及 并且 而且 对于 由于 因为 所以 但是 因此 ' +
+    '可以 应该 需要 没有 自己 一个 一些 现在 在于 关于 为了 之间 以后 以前 之后 之前 之中 所有 等等 成为 作为 认为 已经 通过 进行 ' +
+    '希望 表达 表现 觉得 想要 我們 你們 他們 這個 這些 這樣 因為 應該 沒有 關於 為了 之間 以後 認為 已經 通過 進行 '
+  ).trim().split(/\s+/));
+  const ZH_COMMON_WORDS = (
+    '存在 发生 發生 地区 地區 国家 國家 历史 歷史 人们 人們 地方 时期 時期 时代 時代 以来 得到 中国 中國 日本 韩国 韓國 朝鲜 朝鮮 ' +
+    '日军 日軍 明朝 清朝 明军 明軍 半岛 半島 东亚 東亞 一起 统一 統一 使用 共同 事实 事實 真相 承认 承認 面对 面對 对待 對待 以为 人民 带来 帶來 造成 导致 導致 引发 引發 发动 發動'
+  ).trim().split(/\s+/);
+  const ZH_SINGLE_OK = new Set(['明', '清', '唐', '宋', '元', '倭', '汉', '漢', '秦', '隋']);
+
+  const HANZI_ONLY = /^[㐀-䶿一-鿿]+$/;
+  const ZH_DICT = new Set();
+  CONCEPTS.forEach(c => {
+    const f = c.forms || {};
+    [].concat(f.zh || [], f.ja || []).forEach(raw => {
+      const w = raw.replace(/^=/, '');
+      if (w.length >= 2 && HANZI_ONLY.test(w)) ZH_DICT.add(w);
+    });
+  });
+  ZH_COMMON_WORDS.concat([...ZH_STOPWORDS]).forEach(w => ZH_DICT.add(w));
+  const ZH_DICT_MAX = Math.max.apply(null, [...ZH_DICT].map(w => w.length));
+
+  const HANZI_RUN = /[㐀-䶿一-鿿]+/g;
+
+  /** 한자 연속 구간 하나를 단어 후보로 나눕니다. */
+  function segmentHanziRun(run, out) {
+    let buf = '';
+    const flush = () => {
+      if (buf.length >= 2 || ZH_SINGLE_OK.has(buf)) out.push(buf);
+      buf = '';
+    };
+    let i = 0;
+    while (i < run.length) {
+      let match = '';
+      for (let len = Math.min(ZH_DICT_MAX, run.length - i); len >= 2; len--) {
+        const piece = run.substr(i, len);
+        if (ZH_DICT.has(piece)) { match = piece; break; }
+      }
+      if (match) {
+        flush();
+        if (!ZH_STOPWORDS.has(match)) out.push(match);
+        i += match.length;
+      } else if (ZH_FUNCTION_CHARS.has(run.charAt(i))) {
+        flush();
+        i += 1;
+      } else {
+        buf += run.charAt(i);
+        i += 1;
+      }
+    }
+    flush();
+  }
+
+  function tokenizeChinese(text) {
+    const out = [];
+    const re = new RegExp(HANZI_RUN.source, 'g');
+    let m;
+    while ((m = re.exec(text)) !== null) segmentHanziRun(m[0], out);
+    return out.concat(tokenizeEnglish(text));
+  }
+
+  /** 중국어 문자 2-gram: 한자 연속 구간 전체에서 만들되, 기능어가 낀 2-gram은 제외합니다. */
+  function chineseBigrams(text) {
+    const grams = [];
+    const re = new RegExp(HANZI_RUN.source, 'g');
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const run = m[0];
+      for (let i = 0; i + 2 <= run.length; i++) {
+        const g = run.slice(i, i + 2);
+        if (ZH_FUNCTION_CHARS.has(g.charAt(0)) || ZH_FUNCTION_CHARS.has(g.charAt(1))) continue;
+        grams.push(g);
+      }
+    }
+    return grams;
+  }
+
   /** 언어에 맞게 내용어 목록을 반환합니다. (중복 포함, 등장 순서) */
   function tokenizeExpression(text, lang) {
     const src = asText(text);
     if (!src.trim()) return [];
     const l = lang || detectLanguage(src);
+    if (l === 'zh') return tokenizeChinese(src);
     if (l === 'ja') return tokenizeJapanese(src);
     if (l === 'en') return tokenizeEnglish(src);
     if (l === 'ko') return NLP.tokenize(src).map(t => t.term).filter(t => !KO_EXTRA_STOPWORDS.has(t));
@@ -234,14 +397,16 @@
     return { count: spans.length, spans, byForm };
   }
 
+  /** 한 개념의 모든 언어 표현 (ko → zh → ja → en 순서) */
   function allForms(concept) {
     const f = concept.forms || {};
-    return [].concat(f.ko || [], f.ja || [], f.en || []);
+    return LANGS.reduce((acc, lang) => acc.concat(f[lang] || []), []);
   }
 
   /**
    * 텍스트에 등장하는 개념 목록.
-   * 문자 체계가 서로 겹치지 않으므로 세 언어의 표현을 모두 검사합니다(혼합 문장 대응).
+   * 네 언어의 표현을 모두 검사합니다(혼합 문장 대응). 중국어·일본어는 한자 표기가 같을 수 있으나
+   * 같은 개념으로 묶여 있으므로, 어느 언어로 일치했는지와 관계없이 같은 개념으로 셉니다.
    */
   function findConcepts(text) {
     const src = asText(text);
@@ -299,10 +464,12 @@
 
     terms.forEach(term => {
       add('w:' + term);
-      if (term.length >= 2 && CJK_CHAR.test(term)) {
+      if (l !== 'zh' && term.length >= 2 && CJK_CHAR.test(term)) {
         for (let i = 0; i + 2 <= term.length; i++) add('g:' + term.slice(i, i + 2));
       }
     });
+    // 중국어는 단어 경계가 불확실하므로 단어 단위가 아니라 한자 구간 전체에서 2-gram을 만듭니다.
+    if (l === 'zh') chineseBigrams(src).forEach(g => add('g:' + g));
     const concepts = findConcepts(src);
     concepts.forEach(c => add('c:' + c.id, Math.min(c.count, 2)));
     return { features: feats, terms, concepts, lang: l };
@@ -351,13 +518,32 @@
 
   /* ---------- 6. 공동 표현 입력 정리 ---------- */
 
+  /**
+   * 제안의 언어를 정합니다.
+   *   · lang  : 화면·통계에 쓰는 작성 언어. 저장된 값이 지원 언어면 그대로, 'unknown'·'ETC' 같은
+   *             기존 값이면 'unknown'으로 유지합니다(기존 데이터를 다른 언어로 재분류하지 않음).
+   *             언어 정보가 아예 없을 때만 자동 감지합니다.
+   *   · analysisLang : 토큰화에만 쓰는 내부 값. 'unknown' 제안도 문자 체계에 맞게 토큰화하되,
+   *             가나 없는 한자 문장은 이전과 같은 방식(한자 구간 + 라틴 단어)으로 처리해 결과가 바뀌지 않게 합니다.
+   */
+  function itemLanguage(rawLang, text) {
+    const stored = typeof rawLang === 'string' ? rawLang.trim().toLowerCase() : '';
+    if (isSupportedLang(stored)) return { lang: stored, analysisLang: stored };
+    if (stored) {
+      const detected = detectLanguage(text);
+      return { lang: UNKNOWN, analysisLang: detected === 'zh' ? UNKNOWN : detected };
+    }
+    const detected = detectLanguage(text);
+    return { lang: detected, analysisLang: detected };
+  }
+
   function cleanItems(items) {
     return (Array.isArray(items) ? items : [])
       .filter(it => it && typeof it === 'object' && asText(it.text).trim())
       .map((it, i) => {
         const text = asText(it.text).trim();
-        const lang = LANGS.indexOf(it.lang) >= 0 ? it.lang : detectLanguage(text);
-        return Object.assign({}, it, { id: it.id != null ? it.id : 'item-' + i, text, lang });
+        const { lang, analysisLang } = itemLanguage(it.lang, text);
+        return Object.assign({}, it, { id: it.id != null ? it.id : 'item-' + i, text, lang, analysisLang });
       });
   }
 
@@ -434,8 +620,9 @@
     COUNTRIES.forEach(c => { narrTexts[c] = composeNarrative(opts.narratives && opts.narratives[c]); });
     const hasNarratives = COUNTRIES.some(c => narrTexts[c].trim());
 
-    const byLanguage = { ko: 0, ja: 0, en: 0, unknown: 0 };
-    list.forEach(it => { byLanguage[byLanguage[it.lang] != null ? it.lang : 'unknown'] += 1; });
+    const byLanguage = {};
+    LANGS.concat([UNKNOWN]).forEach(l => { byLanguage[l] = 0; });
+    list.forEach(it => { byLanguage[byLanguage[it.lang] != null ? it.lang : UNKNOWN] += 1; });
 
     const empty = {
       total: list.length, byLanguage, items: list, topTerms: [], topConcepts: [], clusters: [],
@@ -446,7 +633,7 @@
     if (list.length === 0) return empty;
 
     /* 8-1. 특징 벡터 (IDF = 공동 표현 + 국가별 서술) */
-    const feats = list.map(it => featurize(it.text, it.lang));
+    const feats = list.map(it => featurize(it.text, it.analysisLang));
     const narrFeats = hasNarratives ? COUNTRIES.map(c => featurize(narrTexts[c], 'ko').features) : [];
     const { idf } = buildDf(feats.map(f => f.features).concat(narrFeats));
     const vectors = feats.map(f => normalizeVec(weightVector(f.features, idf)));
@@ -703,7 +890,7 @@
     const narrFeats = {};
     COUNTRIES.forEach(k => { narrFeats[k] = featurize(narrTexts[k], 'ko').features; });
     const existing = cleanItems(c.existing);
-    const existingFeats = existing.map(it => featurize(it.text, it.lang).features);
+    const existingFeats = existing.map(it => featurize(it.text, it.analysisLang).features);
     const baseMaps = COUNTRIES.map(k => narrFeats[k]).concat(existingFeats);
     const baseDf = new Map();
     baseMaps.forEach(f => f.forEach((_, key) => baseDf.set(key, (baseDf.get(key) || 0) + 1)));
@@ -719,7 +906,10 @@
     function analyze(text, extra) {
       const opt = extra || {};
       const src = asText(text).trim();
-      const lang = detectLanguage(src);
+      // 참여자가 고른 작성 언어(opt.lang)가 있으면 자동 감지보다 우선합니다.
+      const detection = detectLanguageDetail(src);
+      const chosen = typeof opt.lang === 'string' && isSupportedLang(opt.lang) ? opt.lang : null;
+      const lang = chosen || detection.lang;
       const f = featurize(src, lang);
       const idf = idfWith(f.features);
       const vec = weightVector(f.features, idf);
@@ -748,6 +938,8 @@
       return {
         text: src,
         lang,
+        langSource: chosen ? 'selected' : 'auto',
+        detected: detection,
         chars: src.length,
         tokens: f.terms.length,
         terms: f.terms,
@@ -985,10 +1177,15 @@
   return {
     COUNTRIES,
     LANGS,
+    UNKNOWN,
     FRAMES,
     CONCEPTS,
     DEFAULTS,
     detectLanguage,
+    detectLanguageDetail,
+    resolveLanguage,
+    isSupportedLang,
+    filterByLanguage,
     tokenizeExpression,
     findConcepts,
     conceptSpans,

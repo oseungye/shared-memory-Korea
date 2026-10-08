@@ -31,6 +31,12 @@ const Store = window.SharedStore || null;
 const MemoryMap = window.SharedMemoryMap || null;
 const SOURCES = typeof sourcesData !== 'undefined' ? sourcesData : [];
 
+// 공동 표현 작성 언어 — 표시 순서: 한국어 · 中文 · 日本語 · English
+// ('unknown'은 언어 정보가 없던 기존 데이터 호환용으로만 통계에 남깁니다)
+const EXPRESSION_LANGS = Analyzer ? Analyzer.LANGS.slice() : ['ko', 'zh', 'ja', 'en'];
+const EXPRESSION_LANGS_WITH_UNKNOWN = EXPRESSION_LANGS.concat(['unknown']);
+let writingLangChoice = null;         // 참여자가 직접 고른 작성 언어 (null이면 자동 감지)
+
 function currentEvent() {
   return eventsData.find(e => e.id === currentEventId) || null;
 }
@@ -903,7 +909,7 @@ function renderMultilingualSection() {
 
   const a = result.analysis;
   const frames = Analyzer.FRAMES;
-  const langRows = ['ko', 'ja', 'en', 'unknown'].filter(l => a.byLanguage[l] > 0).map(lang => {
+  const langRows = EXPRESSION_LANGS_WITH_UNKNOWN.filter(l => a.byLanguage[l] > 0).map(lang => {
     const badge = getLangBadge(lang);
     const f = a.framing.byLanguage[lang] || {};
     const frameText = frames.map(fr => `${fr.short} ${f[fr.id] || 0}`).join(' · ');
@@ -927,7 +933,7 @@ function renderMultilingualSection() {
         <span>∞</span>
         <span>언어를 가로지르는 공통 개념</span>
       </div>
-      <p class="nlp-desc">다국어 개념 사전으로 한국어·일본어·영어 표현을 같은 개념으로 묶어 셉니다. (예: 침략 · 侵略 · invasion)</p>
+      <p class="nlp-desc">다국어 개념 사전으로 한국어·중국어·일본어·영어 표현을 같은 개념으로 묶어 셉니다. (예: ${langExample([['ko', '침략'], ['zh', '侵略'], ['ja', '侵略'], ['en', 'invasion']])})</p>
       <ul class="ai-result__list">${concepts}</ul>
       <button type="button" class="nlp-chip" data-goto-tab="memory">공동 기억 지도에서 표현군 보기 →</button>
     </div>
@@ -941,7 +947,7 @@ function runMultilingualAnalysis() {
   if (!a || a.total === 0) {
     return {
       empty: true,
-      message: '아직 등록된 공동 표현 제안이 없습니다. "공동 표현 작성" 탭에서 한국어·일본어·영어 어떤 언어로든 표현을 등록해 주세요.'
+      message: '아직 등록된 공동 표현 제안이 없습니다. "공동 표현 작성" 탭에서 한국어·중국어·일본어·영어 어떤 언어로든 표현을 등록해 주세요.'
     };
   }
   return { empty: false, analysis: a, totalCount: a.total };
@@ -1282,6 +1288,7 @@ function simBar(key, name, value) {
 }
 
 function updateDraftPanel() {
+  renderWritingLangHint();
   const panel = document.getElementById('draftPanel');
   if (!panel) return;
   const text = document.getElementById('userNarrative')?.value || '';
@@ -1298,7 +1305,7 @@ function updateDraftPanel() {
 
   let a;
   try {
-    a = draftContext.analyze(text, { selected: [...guideState.selected.values()], before: getBefore() });
+    a = draftContext.analyze(text, { selected: [...guideState.selected.values()], before: getBefore(), lang: writingLangChoice });
   } catch (e) {
     console.error('실시간 분석 오류:', e);
     panel.innerHTML = `${head}<p class="draft-panel__empty">분석 중 문제가 생겼습니다. 작성과 등록은 그대로 할 수 있어요.</p>`;
@@ -1321,7 +1328,7 @@ function updateDraftPanel() {
     : '<p class="draft-panel__muted">사건 주요 어휘를 만들지 못했습니다.</p>';
 
   const langNote = a.lang !== 'ko'
-    ? '<p class="draft-panel__muted">국가별 서술은 한국어로 작성되어 있어, 다른 언어의 문장은 개념 사전(침략·侵略·invasion 등)을 통해서만 비교됩니다.</p>'
+    ? '<p class="draft-panel__muted">국가별 서술은 한국어로 작성되어 있어, 다른 언어의 문장은 개념 사전(침략·侵略·入侵·invasion 등)을 통해서만 비교됩니다.</p>'
     : '';
   const simHtml = NLP_COUNTRIES.map(c => simBar(c.key, c.name, a.narrativeSimilarity[c.key])).join('') +
     `<p class="draft-panel__muted">단어·문자·개념 기반 코사인 유사도(0~1). 값이 높다고 더 좋은 표현이라는 뜻이 아닙니다.</p>${langNote}`;
@@ -1356,7 +1363,7 @@ function updateDraftPanel() {
     ${head}
     ${section('선택한 핵심 요소', selectedHtml)}
     ${section('사건 주요 어휘 포함 여부', kwHtml)}
-    ${section('문장 길이', `<p class="draft-panel__stat">${a.chars}자 · 내용어 ${a.tokens}개 · ${getLangBadge(a.lang).label}로 인식</p>`)}
+    ${section('문장 길이', `<p class="draft-panel__stat">${a.chars}자 · 내용어 ${a.tokens}개 · ${getLangBadge(a.lang).label}${a.langSource === 'selected' ? ' (직접 선택)' : ' (자동 감지)'}</p>`)}
     ${section('국가별 서술과의 텍스트 유사도', simHtml)}
     ${section('표현 프레임 어휘', frameHtml)}
     ${section('이미 등록된 공동 표현과의 텍스트 유사도', existingHtml)}
@@ -1430,7 +1437,7 @@ async function submitSharedNarrative() {
   const result = await Store.insertExpression({
     eventKey: eventIdAtSubmit,
     author: name,
-    lang: detectLanguage(text),
+    lang: resolveWritingLang(text),
     content: text,
     reason,
     style: guideState.style,
@@ -1585,8 +1592,10 @@ function renderSharedList() {
     return;
   }
 
-  const items = sharedNarratives.filter(item => item.eventId === currentEventId &&
-    (sharedLanguageFilter === 'all' || item.lang?.toLowerCase() === sharedLanguageFilter));
+  const eventItems = sharedNarratives.filter(item => item.eventId === currentEventId);
+  const items = Analyzer
+    ? Analyzer.filterByLanguage(eventItems, sharedLanguageFilter)
+    : eventItems.filter(item => sharedLanguageFilter === 'all' || item.lang?.toLowerCase() === sharedLanguageFilter);
 
   if (items.length === 0) {
     list.innerHTML = `<div class="shared-empty">${sharedLanguageFilter === 'all' ? '아직 등록된 제안이 없습니다. 첫 번째 제안을 작성해 보세요!' : '이 언어로 등록된 제안이 없습니다.'}</div>`;
@@ -1701,18 +1710,69 @@ function detectLanguage(text) {
   if (!text || !text.trim()) return 'unknown';
   if (/[가-힣]/.test(text)) return 'ko';
   if (/[぀-ゟ゠-ヿ]/.test(text)) return 'ja';
+  if (/[一-鿿]/.test(text)) return 'zh';
   if (/[A-Za-z]/.test(text)) return 'en';
   return 'unknown';
 }
 
+/** 저장할 작성 언어: 참여자가 직접 고른 언어 → 자동 감지 결과 순서 */
+function resolveWritingLang(text) {
+  if (Analyzer) return Analyzer.resolveLanguage(writingLangChoice, text);
+  return EXPRESSION_LANGS.indexOf(writingLangChoice) >= 0 ? writingLangChoice : detectLanguage(text);
+}
+
+// 언어 표시: 국가가 아니라 '작성 언어'이므로 국기 대신 글자 표시를 씁니다.
+// (중국어·일본어는 한자 표기가 같을 수 있어, 예시에는 항상 이 표시를 함께 붙입니다)
+const LANG_BADGES = {
+  ko: { flag: '한', label: '한국어' },
+  zh: { flag: '中', label: '中文' },
+  ja: { flag: '日', label: '日本語' },
+  en: { flag: 'EN', label: 'English' },
+  unknown: { flag: '?', label: '미식별' }
+};
+
 function getLangBadge(code) {
-  const map = {
-    'ko': { flag: '🇰🇷', label: '한국어' },
-    'ja': { flag: '🇯🇵', label: '日本語' },
-    'en': { flag: '🇺🇸', label: 'English' },
-    'unknown': { flag: '🌐', label: '미식별' }
-  };
-  return map[code] || map['unknown'];
+  const key = typeof code === 'string' ? code.toLowerCase() : 'unknown';
+  return LANG_BADGES[key] || LANG_BADGES.unknown;
+}
+
+/** [[언어, 표현], ...] → "한 침략 · 中 侵略 · 日 侵略 · EN invasion" (언어 표시 포함) */
+function langExample(pairs) {
+  return pairs.map(([lang, word]) => `<span class="nlp-meta">${getLangBadge(lang).flag}</span> ${escapeHtml(word)}`).join(' · ');
+}
+
+/* ---------- 공동 표현 작성 언어 선택 ---------- */
+
+function renderWritingLangOptions() {
+  const box = document.getElementById('writingLangOptions');
+  if (!box) return;
+  box.innerHTML = EXPRESSION_LANGS.map(lang => {
+    const on = writingLangChoice === lang;
+    return `<button type="button" class="age-chip${on ? ' is-selected' : ''}" aria-pressed="${on}" data-writing-lang="${lang}">${escapeHtml(getLangBadge(lang).label)}</button>`;
+  }).join('');
+  renderWritingLangHint();
+}
+
+function renderWritingLangHint() {
+  const hint = document.getElementById('writingLangHint');
+  if (!hint) return;
+  if (writingLangChoice) {
+    hint.textContent = `${getLangBadge(writingLangChoice).label}로 저장됩니다. 같은 버튼을 한 번 더 누르면 자동 감지로 돌아갑니다.`;
+    return;
+  }
+  const text = document.getElementById('userNarrative')?.value || '';
+  if (!text.trim()) { hint.textContent = ''; return; }
+  const detail = Analyzer ? Analyzer.detectLanguageDetail(text) : { lang: detectLanguage(text), confident: true };
+  if (detail.lang === 'unknown') { hint.textContent = '언어를 자동으로 판별하지 못했습니다. 작성 언어를 골라 주세요.'; return; }
+  hint.textContent = detail.confident
+    ? `자동 감지: ${getLangBadge(detail.lang).label}`
+    : `자동 감지: ${getLangBadge(detail.lang).label} (확인 필요) — 한자만 있는 문장은 중국어와 일본어를 구분하기 어려워요. 작성 언어를 직접 골라 주세요.`;
+}
+
+function handleWritingLangChoice(lang) {
+  writingLangChoice = writingLangChoice === lang ? null : lang;
+  renderWritingLangOptions();
+  updateDraftPanel();
 }
 
 /* 참고 번역 예시: 사건별로 미리 작성해 둔 예시문의 번역입니다.
@@ -1817,7 +1877,8 @@ function buildTranslation(item) {
   if (!samples) return null;
 
   const src = item.lang;
-  const srcKey = (src === 'ko' || src === 'ja' || src === 'en') ? src : 'ko';
+  // 참고 예시문은 한국어·일본어·영어로만 준비되어 있습니다. 그 밖의 언어(중국어 등)는 한국어 예시 기준으로 보여줍니다.
+  const srcKey = samples[src] ? src : 'ko';
   const map = samples[srcKey];
   if (!map) return null;
 
@@ -2039,7 +2100,7 @@ function memorySection(icon, title, body, extraClass) {
 }
 
 function renderMemoryOverview(a) {
-  const langs = ['ko', 'ja', 'en', 'unknown'].filter(l => a.byLanguage[l] > 0)
+  const langs = EXPRESSION_LANGS_WITH_UNKNOWN.filter(l => a.byLanguage[l] > 0)
     .map(l => `${getLangBadge(l).label} ${a.byLanguage[l]}`).join(' · ');
   const few = a.total < 3
     ? '<p class="nlp-desc"><small>제안이 아직 적어 표현군이 뚜렷하게 나타나지 않을 수 있습니다. 제안이 모일수록 경향이 더 분명해집니다.</small></p>'
@@ -2273,8 +2334,8 @@ function renderMemoryMethod(a) {
       <summary class="ai-result__heading"><span>?</span><span>공동 표현 분석 방법과 한계</span></summary>
       <ul class="ai-result__list">
         <li><strong>데이터</strong>: Supabase에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
-        <li><strong>언어 판별·토큰화</strong>: 한글·가나·라틴 문자 비율로 언어를 판별합니다. 한국어는 규칙 기반 조사·어미 제거, 일본어는 한자·가타카나 연속 구간, 영어는 불용어 제거와 간단한 어미 정리를 사용합니다.</li>
-        <li><strong>특징 벡터</strong>: 단어 + 문자 2-gram(예: “국제전쟁”과 “국제적인 전쟁”이 겹치도록) + 다국어 개념 사전(예: 침략·侵略·invasion을 같은 개념으로)을 TF-IDF로 가중합니다. IDF는 이 사건의 공동 표현과 국가별 서술 전체에서 계산합니다.</li>
+        <li><strong>언어 판별·토큰화</strong>: 참여자가 고른 작성 언어를 우선하고, 고르지 않았으면 한글·가나·한자·라틴 문자 비율로 판별합니다(가나 없는 한자 문장은 중국어 후보). 한국어는 규칙 기반 조사·어미 제거, 중국어는 한자 구간을 개념 사전·상용어 최장 일치와 기능어 경계로 나누는 경량 분할(형태소 분석기 아님), 일본어는 한자·가타카나 연속 구간, 영어는 불용어 제거와 간단한 어미 정리를 사용합니다.</li>
+        <li><strong>특징 벡터</strong>: 단어 + 문자 2-gram(예: “국제전쟁”과 “국제적인 전쟁”이 겹치도록) + 다국어 개념 사전(예: 침략·侵略·入侵·invasion을 같은 개념으로)을 TF-IDF로 가중합니다. IDF는 이 사건의 공동 표현과 국가별 서술 전체에서 계산합니다.</li>
         <li><strong>유사도</strong>: 두 벡터의 코사인 유사도(0~1).</li>
         <li><strong>표현군</strong>: 평균 연결 병합 군집화 — 평균 유사도가 가장 높은 두 묶음을 차례로 합치고, 평균 유사도가 ${a.meta.clusterThreshold} 미만이 되면 멈춥니다. 무작위성이 없어 같은 데이터에서는 항상 같은 결과가 나옵니다. ${a.meta.minClusterSize}건 이상인 묶음만 표현군으로 표시합니다.${a.meta.capped ? ` 제안이 많아 앞쪽 ${a.meta.maxClusterItems}건으로 묶음을 만든 뒤 나머지는 가장 가까운 묶음에 배정했습니다.` : ''}</li>
         <li><strong>표현군 이름·대표 제안</strong>: 절반 이상의 제안에 나타난 개념(없으면 “군집 안 등장 제안 수 × IDF”가 높은 어휘)으로 이름을 짓고, 다른 제안들과의 평균 유사도가 가장 높은 제안(medoid)을 대표 제안으로 보여줍니다.</li>
@@ -2476,6 +2537,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cb.checked) guideState.reasons.add(cb.value); else guideState.reasons.delete(cb.value);
   });
   document.getElementById('userNarrative')?.addEventListener('input', scheduleDraftPanel);
+  renderWritingLangOptions();
+  document.getElementById('writingLangOptions')?.addEventListener('click', e => {
+    const chip = e.target.closest('[data-writing-lang]');
+    if (chip) handleWritingLangChoice(chip.dataset.writingLang);
+  });
   document.getElementById('submitNarrative')?.addEventListener('click', submitSharedNarrative);
 
   // 공동 표현 목록 (공감 / 참고 번역 예시 / 더 보기)
