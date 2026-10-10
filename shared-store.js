@@ -16,6 +16,10 @@
   const PARTICIPANT_TABLE = 'expression_participants';
   const SUMMARY_RPC = 'participation_summary';
   const AGE_RPC = 'age_group_participants';
+  const LIST_RPC = 'public_expressions';
+  // 공개 조회 컬럼 (age_group 제외). 2단계 SQL 이후에는 테이블에서 age_group 을 직접 읽을 수 없습니다.
+  const PUBLIC_COLUMNS = 'id,event_key,author_name,country_code,content,reason,created_at,expression_style,' +
+    'selected_concepts,reason_tags,before_content,prior_learning,viewed_compare,viewed_nlp,viewed_sources,completed_flow';
   const AGE_GROUP_IDS = ['10s', '20s', '30s', '40s', '50s', '60plus', 'no_answer'];
   const PRIOR_IDS = ['yes', 'no', 'unsure', 'no_answer'];
   const LOAD_LIMIT = 500;
@@ -140,6 +144,8 @@
       before: typeof item.before_content === 'string' ? item.before_content : '',
       // 참여자 통계 (기존 행에는 없음 → null)
       ageGroup: AGE_GROUP_IDS.indexOf(item.age_group) >= 0 ? item.age_group : null,
+      // 서버가 소표본(5명 미만) 보호를 위해 연령대를 가린 행
+      ageSuppressed: item.age_group_suppressed === true,
       priorLearning: PRIOR_IDS.indexOf(item.prior_learning) >= 0 ? item.prior_learning : null,
       viewedCompare: typeof item.viewed_compare === 'boolean' ? item.viewed_compare : null,
       viewedNlp: typeof item.viewed_nlp === 'boolean' ? item.viewed_nlp : null,
@@ -148,18 +154,32 @@
     };
   }
 
-  /** 한 사건의 공동 표현(최신순, 최대 LOAD_LIMIT개) → { data, error } */
+  /**
+   * 한 사건의 공동 표현(최신순, 최대 LOAD_LIMIT개) → { data, error, source }
+   * ① public_expressions() RPC — 5명 미만 연령대의 age_group 을 서버에서 가린 결과 (기본)
+   * ② RPC 가 아직 없으면 테이블에서 공개 컬럼만 조회 (age_group 없음)
+   * ③ 그래도 안 되면(확장 컬럼이 없는 예전 DB) 기존 방식 select('*')
+   */
   async function loadExpressions(eventKey) {
     const c = client();
     if (!c) return { data: [], error: '데이터베이스에 연결할 수 없습니다.' };
+    const done = (rows, source) => ({
+      data: (rows || []).map(mapRow), error: null, source,
+      limited: (rows || []).length >= LOAD_LIMIT
+    });
     try {
-      const res = await c.from(TABLE)
-        .select('*')
+      if (typeof c.rpc === 'function') {
+        const r = await c.rpc(LIST_RPC, { p_event_key: eventKey, p_limit: LOAD_LIMIT });
+        if (!r.error && Array.isArray(r.data)) return done(r.data, 'rpc');
+      }
+      const table = cols => c.from(TABLE).select(cols)
         .eq('event_key', eventKey)
         .order('created_at', { ascending: false })
         .limit(LOAD_LIMIT);
+      let res = await table(PUBLIC_COLUMNS);
+      if (res.error && isMissingSchemaError(res.error)) res = await table('*');
       if (res.error) return { data: [], error: friendlyError(res.error) };
-      return { data: (res.data || []).map(mapRow), error: null, limited: (res.data || []).length >= LOAD_LIMIT };
+      return done(res.data, 'table');
     } catch (e) {
       return { data: [], error: friendlyError(e) };
     }
@@ -260,7 +280,11 @@
     }
   }
 
-  /** 사건별·연령대별 참여자 수 → { available, counts: {ageGroup: n} } */
+  /**
+   * 사건별·연령대별 참여자 수 → { available, counts: {ageGroup: n}, suppressed: [ageGroup] }
+   * 서버는 5명 미만인 연령대의 수를 null 로 돌려줍니다(소표본 보호). 이 경우 0으로 두고 suppressed 에 기록해
+   * 화면에서는 "5명 미만"으로만 표시합니다.
+   */
   async function fetchAgeGroupParticipants(eventKey) {
     const c = client();
     if (!c || typeof c.rpc !== 'function') return { available: false, counts: null };
@@ -268,8 +292,12 @@
       const res = await c.rpc(AGE_RPC, { p_event_key: eventKey });
       if (res.error) return { available: false, counts: null };
       const counts = {};
-      (res.data || []).forEach(r => { counts[r.age_group] = Number(r.participants) || 0; });
-      return { available: true, counts };
+      const suppressed = [];
+      (res.data || []).forEach(r => {
+        if (r.participants == null) suppressed.push(r.age_group);
+        counts[r.age_group] = Number(r.participants) || 0;
+      });
+      return { available: true, counts, suppressed };
     } catch (e) {
       return { available: false, counts: null };
     }
@@ -278,6 +306,7 @@
   root.SharedStore = {
     LIMITS,
     LOAD_LIMIT,
+    PUBLIC_COLUMNS,
     insertExpression,
     loadExpressions,
     fetchEmpathyCounts,

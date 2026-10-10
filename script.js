@@ -62,6 +62,7 @@ function renderEventCards() {
         ${event.mark}
       </div>
       <div class="event-card__body">
+        ${event.featured ? '<span class="event-card__featured">먼저 살펴보기</span>' : ''}
         <div class="event-card__era">${event.era}</div>
         <h3 class="event-card__title">${event.title}</h3>
         <p class="event-card__desc">${event.shortDesc}</p>
@@ -95,7 +96,7 @@ function openEventDetail(eventId) {
   `;
 
   const countries = [
-    { key: 'korea', name: '대한민국', en: 'KOREA', flag: '韓', titleField: event.title },
+    { key: 'korea', name: '한국', en: 'KOREA', flag: '韓', titleField: event.title },
     { key: 'japan', name: '일본', en: 'JAPAN', flag: '日', titleField: event.titleJP },
     { key: 'china', name: '중국', en: 'CHINA', flag: '中', titleField: event.titleCN }
   ];
@@ -107,7 +108,7 @@ function openEventDetail(eventId) {
         <div class="narrative-card__flag">
           <div class="narrative-card__flag-mark">${c.flag}</div>
           <div>
-            <div class="narrative-card__country">${c.name}</div>
+            <div class="narrative-card__country">${c.name} <small class="narrative-card__scope">측 요약 서술</small></div>
             <div class="narrative-card__country-en">${c.en} · ${c.titleField}</div>
           </div>
         </div>
@@ -125,6 +126,8 @@ function openEventDetail(eventId) {
           <div class="narrative-card__label">표현 특징 (편집자 해설)</div>
           <p class="narrative-card__feature">${n.feature}</p>
         </div>
+
+        ${renderNarrativeBasis(event, c)}
       </div>
     `;
   }).join('');
@@ -144,6 +147,9 @@ function openEventDetail(eventId) {
   nlpAnalysis = null;
   nlpSelectedTerm = null;
   beforeEditing = false;
+  beforeSkipConfirm = false;
+  termCheckConfirmedFor = null;
+  templateUsed = false;
   expressionAnalysis = null;
   selectedClusterId = null;
   sharedNarratives = [];
@@ -162,6 +168,7 @@ function openEventDetail(eventId) {
   renderBeforeCard();
   renderFlowProgress();
   renderKeywordChart(event);
+  renderGlance();
   renderSourcesTab();
   resetGuide(event);
   rebuildDraftContext();
@@ -182,6 +189,48 @@ function computeEventNlp(event) {
   }
 }
 
+/* ------------------------------------------------------------
+   서술의 성격과 함께 볼 자료 ("이 서술은 어떻게 작성했나요?")
+   · sourceRefs에는 서지·제공처를 확인한 자료(verified/partial)만 들어 있습니다 (tests에서 검사).
+   · 같은 국가의 "검토 전" 자료는 따로 구분해 보여줍니다.
+   ------------------------------------------------------------ */
+
+const VERIFICATION_LABEL = { verified: '출처 확인', partial: '일부 확인', unverified: '검토 전' };
+
+function sourceVerification(s) {
+  if (!s) return 'unverified';
+  if (s.verification === 'verified' || s.verification === 'partial') return s.verification;
+  return s.reviewed === true ? 'verified' : 'unverified';
+}
+
+function verificationBadge(s) {
+  const v = sourceVerification(s);
+  return `<span class="source-verify source-verify--${v}" title="${escapeAttr(s.verificationNote || '')}">${VERIFICATION_LABEL[v]}</span>`;
+}
+
+function renderNarrativeBasis(event, country) {
+  const n = event[country.key] || {};
+  const refs = (n.sourceRefs || []).map(id => SOURCES.find(s => s.id === id)).filter(Boolean);
+  const pending = sourcesForEvent(event.id).filter(s =>
+    s.country === country.key && sourceVerification(s) === 'unverified' && refs.indexOf(s) < 0);
+  const link = s => `<button type="button" class="source-link" data-goto-source="${escapeAttr(s.id)}">${escapeHtml(s.title)} <small>${escapeHtml(s.year || '')}</small> ${verificationBadge(s)}</button>`;
+  const refsHtml = refs.length
+    ? `<div class="nlp-chips">${refs.map(link).join('')}</div>`
+    : `<p class="narrative-card__basis-empty">아직 출처를 확인한 ${country.name} 측 관련 자료가 없습니다. 이 카드는 편집자가 구성한 비교용 관점 요약이므로 참고용으로 읽어 주세요.</p>`;
+  const pendingHtml = pending.length
+    ? `<p class="nlp-meta">검토 중인 자료: ${pending.map(s => `<button type="button" class="before-card__link" data-goto-source="${escapeAttr(s.id)}">${escapeHtml(s.title)}</button>`).join(' · ')}</p>`
+    : '';
+  return `
+    <details class="narrative-card__basis">
+      <summary>이 서술은 어떻게 작성했나요?</summary>
+      <p>이 문장은 ${country.name}의 교과서 원문이나 공식 견해가 아니라, Shared Memory가 비교를 위해 작성한 요약입니다.
+        ${country.name} 전체의 역사 인식을 대표하지 않습니다.</p>
+      <div class="narrative-card__label">이 서술과 대조해 볼 자료</div>
+      ${refsHtml}
+      ${pendingHtml}
+    </details>`;
+}
+
 function switchTab(tabName) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -194,6 +243,7 @@ function switchTab(tabName) {
   if (tabName === 'sources') markFlow({ viewedSources: true });
   if (tabName === 'memory' && flow && flow.submitted) markFlow({ viewedResult: true });
   if (tabName === 'compare') watchCompareView(); else stopCompareTimer();
+  if (tabName === 'shared') renderSourceNudge();
 
   // 지도는 보이는 상태에서 너비를 재야 하므로 탭을 열 때 다시 그립니다.
   if (tabName === 'memory') renderMemoryTab();
@@ -207,10 +257,10 @@ function switchTab(tabName) {
 
 const FLOW_STEPS = [
   { id: 'select', label: '사건 선택' },
-  { id: 'before', label: '처음 생각', hint: '아래에 이 사건에 대한 지금의 생각을 한 문장으로 남겨 보세요. 건너뛰어도 됩니다.' },
-  { id: 'compare', label: '서술 탐구', hint: '‘국가별 서술’에서 세 나라의 서술을 차례로 읽어 보세요.' },
-  { id: 'shared', label: '공동 표현', hint: '‘공동 표현 작성’에서 나의 공동 표현을 남겨 보세요.' },
-  { id: 'result', label: '결과 확인', hint: '‘공동 기억 지도’에서 다른 사람들의 표현과 비교해 보세요.' }
+  { id: 'before', label: '처음 생각', hint: '아래에 지금 알고 있는 내용만으로 한 문장을 적어 주세요. 검색하거나 정답을 찾지 않아도 됩니다.' },
+  { id: 'compare', label: '서술 탐구', hint: '‘세 나라의 서술’을 차례로 읽고, ‘어떻게 다를까?’에서 차이를 확인해 보세요.' },
+  { id: 'shared', label: '내 한 문장', hint: '‘내 한 문장 쓰기’에서 이 역사를 당신의 한 문장으로 다시 써 보세요.' },
+  { id: 'result', label: '결과 확인', hint: '‘모두의 기억 보기’에서 다른 사람들의 표현과 비교해 보세요.' }
 ];
 const COMPARE_DWELL_MS = 5000;        // 국가별 서술이 화면에 이만큼 보이면 "서술 확인"으로 기록
 
@@ -335,6 +385,7 @@ function gotoTab(tabName) {
    ------------------------------------------------------------ */
 
 let beforeEditing = false;
+let beforeSkipConfirm = false;        // "건너뛰기"를 한 번 눌렀을 때 짧게 한 번 더 확인합니다 (강제하지 않음)
 
 function beforeKey(kind) { return `sm_before_${kind || ''}${currentEventId}`; }
 function getBefore() { return (Store && Store.storageGet(beforeKey())) || ''; }
@@ -393,23 +444,29 @@ function renderBeforeCard() {
   if (isBeforeSkipped() && !beforeEditing) {
     box.className = 'before-card is-collapsed';
     box.innerHTML = `
-      <span class="before-card__hint">서술을 읽기 전의 생각을 한 문장으로 남겨 두면, 나중에 공동 표현과 비교해 생각의 변화를 볼 수 있어요.</span>
+      <span class="before-card__hint">서술을 읽기 전의 생각을 한 문장으로 남겨 두면, 나중에 내 한 문장과 비교해 생각의 변화를 볼 수 있어요.</span>
       <button type="button" class="before-card__link" data-before-action="edit">지금 적기</button>
       ${renderPriorQuestion()}`;
     return;
   }
   box.className = 'before-card';
+  const skipHtml = beforeSkipConfirm
+    ? `<p class="before-card__confirm" role="status">이 한 문장은 활동 전과 후의 생각 변화를 보는 데 꼭 필요한 자료예요. 한 단어만 적어도 괜찮아요.
+         <button type="button" class="before-card__link" data-before-action="focus">지금 적기</button>
+         <button type="button" class="before-card__link before-card__link--quiet" data-before-action="skip">그래도 건너뛰기</button></p>`
+    : '';
   box.innerHTML = `
     <div class="before-card__head">
-      <span class="before-card__label">탐구 전 한 문장 <small>(선택)</small></span>
-      <p class="before-card__desc">국가별 서술을 읽기 전에, 지금 알고 있는 내용만으로 이 사건을 한 문장으로 표현해 주세요.</p>
+      <span class="before-card__label">먼저, 탐구 전 한 문장 <small>(1분)</small></span>
+      <p class="before-card__desc">먼저 지금 알고 있는 내용만으로 이 사건을 한 문장으로 적어 주세요.<br />검색하거나 정답을 찾지 않아도 됩니다. 잘 모르면 떠오르는 단어만 적어도 괜찮아요.</p>
     </div>
     <div class="before-card__row">
-      <input type="text" id="beforeInput" class="shared-form__input" maxlength="500" value="${escapeAttr(saved)}" placeholder="예: 일본이 조선을 침략한 전쟁" aria-label="탐구 전 한 문장" />
-      <button type="button" class="btn btn--small" data-before-action="save">저장</button>
-      <button type="button" class="before-card__link" data-before-action="skip">건너뛰기</button>
+      <input type="text" id="beforeInput" class="shared-form__input" maxlength="500" value="${escapeAttr(saved)}" placeholder="예: 잘 모르지만, 일본과 조선이 싸운 전쟁" aria-label="탐구 전 한 문장" />
+      <button type="button" class="btn btn--small" data-before-action="save">저장하고 시작</button>
+      ${beforeSkipConfirm ? '' : '<button type="button" class="before-card__link before-card__link--quiet" data-before-action="skip">건너뛰기</button>'}
     </div>
-    <p class="before-card__note">이 브라우저에만 임시로 저장되며, 공동 표현을 등록할 때 함께 저장되어 탐구 전·후 변화 분석에 쓰입니다.</p>
+    ${skipHtml}
+    <p class="before-card__note">이 브라우저에만 임시로 저장되며, 내 한 문장을 등록할 때 함께 저장되어 탐구 전·후 변화 분석에 쓰입니다.</p>
     ${renderPriorQuestion()}`;
 }
 
@@ -420,15 +477,34 @@ function handleBeforeAction(action) {
     document.getElementById('beforeInput')?.focus();
     return;
   }
+  if (action === 'focus') {
+    beforeSkipConfirm = false;
+    renderBeforeCard();
+    document.getElementById('beforeInput')?.focus();
+    return;
+  }
   if (action === 'save') {
     const value = (document.getElementById('beforeInput')?.value || '').trim();
+    if (!value && !beforeSkipConfirm) {
+      // 빈 칸으로 저장하면 건너뛰기와 같으므로, 한 번만 부드럽게 다시 권합니다.
+      beforeSkipConfirm = true;
+      renderBeforeCard();
+      return;
+    }
     setBefore(value);
     beforeEditing = false;
+    beforeSkipConfirm = false;
     if (!value && Store) Store.storageSet(beforeKey('skip_'), '1');
   }
   if (action === 'skip') {
+    if (!beforeSkipConfirm) {
+      beforeSkipConfirm = true;
+      renderBeforeCard();
+      return;
+    }
     if (Store) Store.storageSet(beforeKey('skip_'), '1');
     beforeEditing = false;
+    beforeSkipConfirm = false;
   }
   renderBeforeCard();
   renderFlowProgress();
@@ -463,6 +539,99 @@ function formatNum(value, digits = 2) {
 
 function formatPercent(value) {
   return `${Math.round(value * 100)}%`;
+}
+
+/* ------------------------------------------------------------
+   한눈에 비교 — 쉬운 결과를 먼저, 계산 방법은 "자세히 분석하기"에서
+   · 모든 단어는 eventNlp(세 서술 텍스트의 실제 계산 결과)에서 가져옵니다. 예시 단어를 미리 적어 두지 않습니다.
+   · 숫자·일반 명사는 "한눈에" 요약에서만 뺍니다 (자세한 분석에는 그대로 남아 있음).
+   ------------------------------------------------------------ */
+
+const GLANCE_GENERIC = ['과정', '시기', '수행', '문제', '사회', '경우', '이후', '당시', '생활', '구조', '처리', '사건', '기반', '형성', '원인', '결과', '측면', '관점', '시각', '경향'];
+
+function glanceTermOk(term) {
+  return !!term && term.indexOf(' ') < 0 && !/[0-9]/.test(term) && GLANCE_GENERIC.indexOf(term) < 0;
+}
+
+function computeGlance(a) {
+  if (!a) return null;
+  const common = (a.common || []).filter(e => !e.isPhrase && glanceTermOk(e.term)).slice(0, 4).map(e => e.term);
+  const distinct = {};
+  NLP_COUNTRIES.forEach(c => {
+    distinct[c.key] = (a.distinctive[c.key] || []).filter(d => glanceTermOk(d.term)).slice(0, 3).map(d => d.term);
+  });
+  return { common, distinct };
+}
+
+/** 사료 우선순위: 출처 확인 → 일부 확인 → 검토 전 */
+function sourceRank(s) {
+  return { verified: 0, partial: 1, unverified: 2 }[sourceVerification(s)];
+}
+
+function glanceSources(g) {
+  if (!g) return [];
+  const terms = g.common.concat(...NLP_COUNTRIES.map(c => g.distinct[c.key]));
+  const found = [];
+  terms.forEach(t => sourcesForTerm(currentEventId, t).forEach(s => { if (found.indexOf(s) < 0) found.push(s); }));
+  const list = found.length ? found : sourcesForEvent(currentEventId);
+  return list.slice().sort((x, y) => sourceRank(x) - sourceRank(y));
+}
+
+function renderGlance() {
+  const box = document.getElementById('aiGlance');
+  if (!box) return;
+  const g = computeGlance(eventNlp);
+  if (!g) {
+    box.innerHTML = '<div class="shared-empty">분석 모듈을 불러오지 못했습니다.</div>';
+    return;
+  }
+  const chips = (list, country) => list.length
+    ? list.map(t => `<button type="button" class="nlp-chip${country ? ` nlp-chip--${country}` : ''}" data-glance-term="${escapeAttr(t)}" title="세 서술에서 쓰인 위치 보기">${escapeHtml(t)}</button>`).join('')
+    : '<span class="nlp-meta">뚜렷한 표현 없음</span>';
+  const sources = glanceSources(g);
+  const best = sources[0];
+  box.innerHTML = `
+    <div class="glance__head">
+      <span class="glance__eyebrow">한눈에 비교</span>
+      <p class="glance__scope">이 비교는 프로젝트에서 선정·요약한 세 서술을 대상으로 하며, 각 국가의 모든 교과서나 역사 인식을 대표하지 않습니다.</p>
+    </div>
+    <div class="glance__q">
+      <div class="glance__label"><span class="glance__num">①</span> 세 서술이 공통으로 쓰는 말</div>
+      <div class="nlp-chips">${chips(g.common, null)}</div>
+    </div>
+    <div class="glance__q">
+      <div class="glance__label"><span class="glance__num">②</span> 서술마다 두드러지게 쓰는 말</div>
+      <div class="glance__cols">
+        ${NLP_COUNTRIES.map(c => `
+          <div class="glance__col glance__col--${c.key}">
+            <div class="glance__col-head">${c.flag} ${c.name} 측 서술</div>
+            <div class="nlp-chips">${chips(g.distinct[c.key], c.key)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="glance__q">
+      <div class="glance__label"><span class="glance__num">③</span> 그 판단은 어디서 확인할 수 있나요?</div>
+      <p class="nlp-desc">위의 단어를 누르면 세 서술에서 그 단어가 실제로 쓰인 위치와, 연결된 사료가 함께 나타납니다.</p>
+      ${best ? `
+        <div class="glance__cta">
+          <p>왜 이렇게 다르게 표현될까요? 실제 자료에서 직접 확인해 보세요.</p>
+          <button type="button" class="btn btn--small" data-goto-source="${escapeAttr(best.id)}">관련 사료 1개 확인하기 → <small>${escapeHtml(best.title)}</small></button>
+        </div>` : ''}
+    </div>
+    <p class="nlp-meta glance__note">※ 위 단어는 실제 세 서술 텍스트에서 계산한 결과입니다. ①은 세 서술에 모두 나온 단어, ②는 한 서술에서 다른 두 서술보다 상대적으로 많이 쓰인 단어(특징적 표현)입니다. 숫자와 ‘과정·시기’ 같은 일반 명사는 이 요약에서만 뺐습니다.</p>`;
+}
+
+/* 내 한 문장 쓰기 탭: 사료를 아직 보지 않았다면 짧게 권합니다 (필수 아님) */
+function renderSourceNudge() {
+  const box = document.getElementById('sharedSourceNudge');
+  if (!box) return;
+  const best = glanceSources(computeGlance(eventNlp))[0];
+  if (!best || (flow && flow.viewedSources)) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = `
+    <span>한 문장을 쓰기 전에 근거 자료 하나를 확인해 볼까요?</span>
+    <button type="button" class="before-card__link" data-goto-source="${escapeAttr(best.id)}">${escapeHtml(best.title)} 보기 →</button>
+    <span class="nlp-meta">(건너뛰어도 됩니다)</span>`;
 }
 
 function runAIAnalysis() {
@@ -517,7 +686,7 @@ function renderNLPAnalysis(a) {
 
   return `
     <div class="ai-result__section">
-      <div class="ai-result__heading"><span>⌬</span><span>분석 개요</span></div>
+      <div class="ai-result__heading"><span>⌬</span><span>자세히 분석하기 — 분석 개요</span></div>
       <ul class="ai-result__list">
         <li>분석 대상: 각 국가 서술의 제목과 본문 — ${statLine}</li>
         <li>가중치 기준: 사이트에 등록된 전체 서술 ${a.meta.corpusSize}개를 말뭉치로 사용해, 여러 서술에 흔히 나오는 단어의 비중을 낮춥니다.</li>
@@ -783,6 +952,7 @@ function renderEditorNotes(data) {
   return `
     <details class="ai-result__section nlp-editor">
       <summary class="ai-result__heading"><span>✎</span><span>참고: 편집자 해설 (사람이 작성한 해석 · 자동 분석 결과 아님)</span></summary>
+      <p class="nlp-meta">프로젝트가 선정·요약한 세 서술에 대한 해설이며, 각 국가 전체의 역사 인식을 대표하지 않습니다.</p>
       <p class="nlp-desc nlp-desc--sub">공통점</p>
       <ul class="ai-result__list">${list(data.common)}</ul>
       <p class="nlp-desc nlp-desc--sub">핵심 차이점</p>
@@ -793,98 +963,99 @@ function renderEditorNotes(data) {
 }
 
 // 편집자 해설: 사람이 작성한 사건별 해석입니다. (자동 분석 결과와 구분해 표시)
+// "한국은 ~한다"처럼 국가 전체를 일반화하지 않고, "이 프로젝트가 비교한 ○○ 측 서술"을 주어로 씁니다.
 const editorNotes = {
   'imjin': {
     common: [
-      '세 국가 모두 1592–1598년의 사건임에는 일치하며, 일본의 군사 행동이 시작이었다는 사실 자체는 부정하지 않는다.',
-      '명나라의 참전이 전쟁의 향방을 바꾼 중요 변수였다는 점도 공통적으로 인정한다.'
+      '세 서술 모두 1592–1598년의 사건이며, 일본의 군사 행동으로 전쟁이 시작되었다는 사실 자체는 부정하지 않는다.',
+      '명나라의 참전이 전쟁의 흐름에 중요한 변수였다는 점도 세 서술에 공통으로 나타난다.'
     ],
     diff: [
-      '한국: "침략"이라는 가치 평가가 들어간 용어를 사용한다.',
-      '일본: "침략" 대신 "출병"·"진출"이라는 표현을 사용해 행위의 성격 규정을 드러내지 않는다.',
-      '중국: "왜에 맞서 조선을 도왔다"는 구원자적 위치를 강조한다.'
+      '한국 측 서술: "침략"이라는 평가가 담긴 용어를 사용한다.',
+      '일본 측 서술: "침략" 대신 "출병"·"진출"이라는 표현을 사용해 행위의 성격 규정을 드러내지 않는다.',
+      '중국 측 서술: "왜에 맞서 조선을 도왔다"는 구원자의 위치를 강조한다.'
     ],
     feature: [
-      '한국은 저항과 피해의 서사를 강조한다.',
-      '일본은 군사 행동과 문화 교류의 결과를 강조한다.',
-      '중국은 동아시아 질서 수호와 명나라의 역할을 강조한다.'
+      '한국 측 서술은 저항과 피해의 서사를 중심에 둔다.',
+      '일본 측 서술은 군사 행동과 문화적 영향을 함께 다룬다.',
+      '중국 측 서술은 동아시아 질서와 명나라의 역할을 중심에 둔다.'
+    ]
+  },
+  'zainichi': {
+    common: [
+      '세 서술 모두 재일조선인이 일본의 식민지 지배 시기와 전후 일본 사회의 변화 속에서 형성되었다는 점을 다룬다.',
+      '국적, 정체성, 차별 문제가 세 서술에 공통으로 등장하는 쟁점이다.'
+    ],
+    diff: [
+      '한국 측 서술: 식민지 지배와 강제 동원의 결과로 보고 피해와 권리의 관점에서 설명한다.',
+      '일본 측 서술: 전후 일본 사회의 외국인 주민·특별영주자 제도와 통합의 관점에서 설명한다.',
+      '중국 측 서술: 일본 제국주의가 남긴 동아시아 역사 문제의 하나로 설명한다.'
+    ],
+    feature: [
+      '한국 측 서술은 식민지 지배와 차별이라는 역사적 책임의 언어를 사용한다.',
+      '일본 측 서술은 특별영주자·지역사회처럼 행정·제도의 언어를 사용한다.',
+      '중국 측 서술은 재일조선인 문제를 동아시아 역사 인식 갈등의 사례로 연결한다. (출처를 확인한 중국 측 자료가 아직 없어, 이 서술은 참고용 관점 요약입니다)'
     ]
   },
   'culture': {
     common: [
-      '문화 교류가 일방향이 아닌 다방향이었다는 사실은 세 국가 모두 인정한다.',
-      '한자·불교·유교가 동아시아 공통 문화 기반이라는 점에 합의한다.'
+      '세 서술 모두 한자·불교·유교 등이 동아시아 여러 사회를 오갔다는 점을 다룬다.',
+      '각 사회가 들어온 문화를 받아들여 바꾸어 갔다는 점이 공통으로 나타난다.'
     ],
     diff: [
-      '한국: 문화 전파의 교량 역할을 강조한다.',
-      '일본: 주체적 수용과 변용을 강조한다.',
-      '중국: 문명의 중심이자 발신자 역할을 강조한다.'
+      '한국 측 서술: 문화 전파의 교량 역할을 강조한다.',
+      '일본 측 서술: 주체적 수용과 변용을 강조한다.',
+      '중국 측 서술: 문명의 중심이자 발신자 역할을 강조한다.'
     ],
     feature: [
-      '같은 문화 교류를 두고 각국은 자신을 서로 다른 위치에 놓는다.',
-      '한국은 중계자, 일본은 수용자이자 변용자, 중국은 발신자로 서술한다.'
+      '같은 문화 교류를 두고 세 서술은 자기 사회를 서로 다른 위치에 놓는다.',
+      '한국 측은 중계자, 일본 측은 수용자이자 변용자, 중국 측은 발신자로 서술한다.'
     ]
   },
   'tribute': {
     common: [
-      '동아시아에 중국 중심의 국제 질서가 존재했다는 사실 자체는 부정되지 않는다.',
-      '조공 체제가 19세기 말 서구의 충격으로 붕괴되었다는 점도 공통적으로 나타난다.'
+      '세 서술 모두 동아시아에 중국 왕조 중심의 국제 질서가 존재했다는 사실 자체는 부정하지 않는다.',
+      '조공 관계가 19세기 말 크게 무너졌다는 점도 함께 나타난다.'
     ],
     diff: [
-      '한국: 조공을 실리 외교로 재해석한다.',
-      '일본: 조공 체제에서 벗어난 독자성을 강조한다.',
-      '중국: 조공을 조화로운 천하 질서로 설명한다.'
+      '한국 측 서술: 조공을 실리 외교로 재해석한다.',
+      '일본 측 서술: 조공 체제에서 벗어난 독자적 위치를 강조한다.',
+      '중국 측 서술: 조공을 조화로운 천하 질서로 설명한다.'
     ],
     feature: [
-      '같은 제도를 두고 실리, 이탈, 조화라는 서로 다른 평가가 나타난다.',
+      '같은 제도를 두고 실리, 이탈, 조화라는 서로 다른 평가 어휘가 나타난다.',
       '평가 어휘의 차이가 국제 질서를 보는 관점의 차이를 드러낸다.'
     ]
   },
   'modern': {
     common: [
-      '19세기 서구 열강의 충격이 동아시아 근대화의 출발점이었다는 점에 일치한다.',
-      '각국이 자강을 위한 개혁을 시도했다는 사실도 공통적이다.'
+      '세 서술 모두 19세기 서구 열강의 충격을 근대화의 출발점으로 본다.',
+      '세 서술 모두 자강을 위한 개혁 시도를 언급한다.'
     ],
     diff: [
-      '한국: 자주적 근대화의 좌절을 강조한다.',
-      '일본: 메이지 유신의 성공을 강조한다.',
-      '중국: 백 년의 치욕과 민족 부흥 서사를 강조한다.'
+      '한국 측 서술: 자주적 근대화의 좌절을 강조한다.',
+      '일본 측 서술: 메이지 유신의 성공을 강조한다.',
+      '중국 측 서술: “백 년의 치욕”이라는 감정 어휘로 서술한다.'
     ],
     feature: [
-      '같은 시대를 한국은 비극, 일본은 성공, 중국은 굴욕으로 기억한다.',
-      '근대화 서술은 각국의 현재 역사 인식과 깊게 연결된다.'
-    ]
-  },
-  'zainichi': {
-    common: [
-      '세 국가 모두 재일조선인이 일본 제국주의 시기와 전후 일본 사회의 변화 속에서 형성된 집단이라는 점은 인정한다.',
-      '국적, 정체성, 차별 문제가 재일조선인 서술의 핵심 쟁점이라는 점도 공통적으로 나타난다.'
-    ],
-    diff: [
-      '한국: 식민지 지배와 강제 동원의 결과로 보며 피해와 권리 회복을 강조한다.',
-      '일본: 전후 일본 사회의 외국인 주민 문제로 보며 제도와 통합을 강조한다.',
-      '중국: 일본 제국주의가 남긴 동아시아 문제로 보며 역사 책임을 강조한다.'
-    ],
-    feature: [
-      '한국 서술은 식민지 지배와 차별이라는 역사적 책임의 언어를 사용한다.',
-      '일본 서술은 특별영주자·지역사회처럼 행정적 표현을 선호한다.',
-      '중국 서술은 재일조선인을 동아시아 반제국주의 역사 인식의 사례로 연결한다.'
+      '비교한 세 서술에서 같은 시대는 좌절·성공·치욕이라는 서로 다른 언어로 그려진다.',
+      '일본 측 서술에는 이웃 국가 침략에 대한 언급이 거의 없다는 점을 다른 두 서술과 비교해 볼 수 있다.'
     ]
   },
   'hiroshima': {
     common: [
-      '세 국가 모두 히로시마 원폭이 대규모 민간인 피해를 낳은 사건이라는 점은 인정한다.',
-      '조선인 피해자의 존재는 전쟁 피해와 식민지 동원을 함께 보게 만드는 중요한 지점이다.'
+      '세 서술 모두 히로시마 원폭이 대규모 민간인 피해를 낳은 사건이라는 점을 다룬다.',
+      '조선인 피해자의 존재는 전쟁 피해와 식민지 동원을 함께 보게 만드는 지점이다.'
     ],
     diff: [
-      '한국: 조선인 피해자를 강제 동원과 식민지 지배의 맥락에서 설명한다.',
-      '일본: 핵무기의 참혹성과 평화의 중요성을 중심으로 설명한다.',
-      '중국: 일본 군국주의와 전쟁 책임의 결과로 해석한다.'
+      '한국 측 서술: 조선인 피해자를 강제 동원과 식민지 지배의 맥락에서 설명한다.',
+      '일본 측 서술: 핵무기의 참혹성과 평화의 중요성을 중심으로 설명한다.',
+      '중국 측 서술: 일본 군국주의와 전쟁 책임의 결과로 설명한다.'
     ],
     feature: [
-      '한국 서술은 해방과 피해가 동시에 존재한 복합적 기억을 강조한다.',
-      '일본 서술은 반핵·평화 담론이 강하지만 식민지 피해자의 위치는 약해질 수 있다.',
-      '중국 서술은 원폭 피해를 일본의 전쟁 책임과 분리하지 않고 해석한다.'
+      '한국 측 서술은 해방과 피해가 동시에 존재한 복합적 기억을 다룬다.',
+      '일본 측 서술에는 식민지 출신 피해자에 대한 언급이 없다.',
+      '중국 측 서술은 원폭 피해를 일본의 전쟁 책임과 분리하지 않고 설명한다.'
     ]
   }
 };
@@ -1014,7 +1185,7 @@ function renderKeywordChart(event) {
    ------------------------------------------------------------ */
 
 let sourcesFilter = 'all';
-const SOURCE_COUNTRY_LABEL = { korea: '한국', japan: '일본', china: '중국', other: '기타' };
+const SOURCE_COUNTRY_LABEL = { korea: '한국', japan: '일본', china: '중국', other: '공동·기타' };
 
 function sourceTypeLabel(type) {
   return { primary: '1차 사료', secondary: '2차 자료', memorial: '기념물·기억 자료' }[type] || '자료';
@@ -1058,39 +1229,65 @@ function renderSourcesTab() {
     return;
   }
 
-  grid.innerHTML = list.map(s => {
+  const summary = document.getElementById('sourcesSummary');
+  if (summary) {
+    const n = v => all.filter(x => sourceVerification(x) === v).length;
+    summary.textContent = all.length
+      ? `이 사건의 자료 ${all.length}건 — 출처 확인 ${n('verified')} · 일부 확인 ${n('partial')} · 검토 전 ${n('unverified')}`
+      : '';
+  }
+
+  // 출처를 확인한 자료부터 보여줍니다.
+  grid.innerHTML = list.slice().sort((x, y) => sourceRank(x) - sourceRank(y)).map(s => {
     const url = safeUrl(s.url);
+    const v = sourceVerification(s);
     const related = (s.relatedTerms || []).map(t => {
       const normalized = window.SharedMemoryNLP && t.indexOf(' ') < 0 ? SharedMemoryNLP.normalizeToken(t) : t;
       const counts = eventNlp ? eventNlp.countsFor(normalized) : null;
       const inText = counts && NLP_COUNTRIES.some(c => counts[c.key] > 0);
       return inText
-        ? `<button type="button" class="nlp-chip" data-evidence-term="${escapeAttr(normalized)}" title="서술 원문에서 위치 보기">${escapeHtml(t)}</button>`
+        ? `<button type="button" class="nlp-chip" data-evidence-term="${escapeAttr(normalized)}" title="세 서술에서 이 표현이 쓰인 위치 보기">${escapeHtml(t)}</button>`
         : `<span class="source-card__term">${escapeHtml(t)}</span>`;
     }).join('');
-    const meta = [
-      ['연도', s.year],
-      ['작성 주체', s.creator],
+
+    // 1차 화면: 학생이 먼저 알아야 할 것 (누가·언제·왜 볼까·주의할 관점)
+    const primary = [
+      ['언제', s.year],
+      ['누가 남겼나', s.creator]
+    ].filter(([, val]) => val).map(([k, val]) => `<div class="source-card__meta-row"><dt>${k}</dt><dd>${escapeHtml(val)}</dd></div>`).join('');
+    // 자세히 보기: 기관·원문명·자료 종류·확인 근거
+    const detail = [
+      ['원문명', s.originalTitle],
+      ['자료 종류', [sourceTypeLabel(s.sourceType), s.typeNote].filter(Boolean).join(' · ')],
       ['소장·제공', [s.institution, s.archive].filter(Boolean).join(' · ')],
-      ['자료의 관점', s.perspective]
-    ].filter(([, v]) => v).map(([k, v]) => `<div class="source-card__meta-row"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+      ['자료 설명', s.description],
+      ['확인 상태', `${VERIFICATION_LABEL[v]}${s.checkedAt ? ` (${s.checkedAt})` : ''}${s.verificationNote ? ` — ${s.verificationNote}` : ''}`]
+    ].filter(([, val]) => val).map(([k, val]) => `<div class="source-card__meta-row"><dt>${k}</dt><dd>${escapeHtml(val)}</dd></div>`).join('');
+
+    const linkHtml = url
+      ? (v === 'verified'
+        ? `<a class="source-card__open" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">원문/기관에서 확인하기 ↗</a>`
+        : `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">제공 기관 대표 페이지 열기 ↗</a>`)
+      : '<span class="nlp-meta">확인된 원문 링크 없음</span>';
 
     return `
       <article class="source-card source-card--${escapeAttr(s.country)}" id="source-${escapeAttr(s.id)}" data-source-id="${escapeAttr(s.id)}">
         <div class="source-card__badges">
           <span class="source-card__type source-card__type--${escapeAttr(s.sourceType)}">${escapeHtml(sourceTypeLabel(s.sourceType))}</span>
-          ${s.typeNote ? `<span class="source-card__note">${escapeHtml(s.typeNote)}</span>` : ''}
-          ${s.reviewed ? '' : '<span class="source-card__review">검토 전</span>'}
+          <span class="source-card__note">${escapeHtml(SOURCE_COUNTRY_LABEL[s.country] || '')}</span>
+          ${verificationBadge(s)}
         </div>
         <h4 class="source-card__title">${escapeHtml(s.title)}</h4>
-        ${s.originalTitle ? `<div class="source-card__original">${escapeHtml(s.originalTitle)}</div>` : ''}
-        <dl class="source-card__meta">${meta}</dl>
-        ${s.description ? `<p class="source-card__desc">${escapeHtml(s.description)}</p>` : ''}
-        ${related ? `<div class="source-card__related"><span class="narrative-card__label">연결된 표현</span><div class="nlp-chips">${related}</div></div>` : ''}
+        <dl class="source-card__meta">${primary}</dl>
+        ${s.whyRead ? `<p class="source-card__why"><span class="narrative-card__label">왜 볼까?</span>${escapeHtml(s.whyRead)}</p>` : ''}
+        ${s.perspective ? `<p class="source-card__caution"><span class="narrative-card__label">관점 주의</span>${escapeHtml(s.perspective)}</p>` : ''}
+        ${related ? `<div class="source-card__related"><span class="narrative-card__label">이 자료와 연결된 표현 <small>(누르면 위치 표시)</small></span><div class="nlp-chips">${related}</div></div>` : ''}
+        <details class="source-card__more">
+          <summary>자세히 보기</summary>
+          <dl class="source-card__meta">${detail}</dl>
+        </details>
         <div class="source-card__link">
-          ${url
-            ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">자료 제공 기관 페이지 열기 ↗</a>`
-            : '<span class="nlp-meta">링크 준비 중</span>'}
+          ${linkHtml}
           ${s.urlNote ? `<span class="nlp-meta">${escapeHtml(s.urlNote)}</span>` : ''}
         </div>
       </article>`;
@@ -1128,6 +1325,8 @@ function showEvidenceFor(term) {
    ------------------------------------------------------------ */
 
 const guideState = { candidates: [], selected: new Map(), style: null, reasons: new Set() };
+let templateUsed = false;             // 문장 틀을 넣은 적이 있는지 (빈칸 검사 기준에 사용)
+let termCheckConfirmedFor = null;     // 역사 용어 안내를 보고도 그대로 등록하려는 문장
 
 function candidateKey(c) {
   return c.conceptId ? `concept:${c.conceptId}` : `term:${c.term}`;
@@ -1235,6 +1434,7 @@ function insertTemplate(id) {
   const area = document.getElementById('userNarrative');
   if (!template || !area) return;
   const current = area.value.trim();
+  templateUsed = true;
   area.value = current ? `${current} ${template.text}` : template.text;
   const blank = area.value.indexOf('______', current.length);
   area.focus();
@@ -1287,8 +1487,20 @@ function simBar(key, name, value) {
     </div>`;
 }
 
+/* 역사 용어 확인 (작성 중 안내) — 판정이 아니라 확인을 권하는 문구만 보여줍니다. */
+function renderTermCheck(text) {
+  const el = document.getElementById('termCheck');
+  if (!el) return;
+  const notes = Guide.checkHistoricalTerms ? Guide.checkHistoricalTerms(text, currentEventId) : [];
+  el.hidden = !notes.length;
+  el.innerHTML = notes.length
+    ? `<strong>역사 용어 확인</strong> ${notes.map(n => escapeHtml(n.message)).join(' ')} <span class="nlp-meta">(관점이나 해석을 평가하는 기능이 아니며, 그대로 등록할 수도 있습니다)</span>`
+    : '';
+}
+
 function updateDraftPanel() {
   renderWritingLangHint();
+  renderTermCheck(document.getElementById('userNarrative')?.value || '');
   const panel = document.getElementById('draftPanel');
   if (!panel) return;
   const text = document.getElementById('userNarrative')?.value || '';
@@ -1397,9 +1609,35 @@ async function submitSharedNarrative() {
     narrativeInput?.focus();
     return;
   }
-  if (text.indexOf('______') >= 0) {
+  // 문장 틀의 빈칸이 남아 있으면(일부만 지운 밑줄, 비워 둔 빈칸 포함) 어느 부분인지 알려주고 막습니다.
+  if (Guide.findPlaceholderIssues) {
+    const ph = Guide.findPlaceholderIssues(text, { templateUsed });
+    if (ph.blocked) {
+      setSubmitStatus(Guide.placeholderMessage(ph), 'error');
+      if (narrativeInput) {
+        narrativeInput.focus();
+        const first = ph.issues[0];
+        const offset = narrativeInput.value.indexOf(text);
+        narrativeInput.setSelectionRange(offset + first.index, offset + first.index + first.length);
+      }
+      return;
+    }
+  } else if (text.indexOf('______') >= 0) {
     setSubmitStatus('문장 틀의 빈칸(______)을 자신의 말로 채운 뒤 등록해 주세요.', 'error');
     narrativeInput?.focus();
+    return;
+  }
+  // 공개되는 닉네임에 연락처·학교·학년/반 정보가 있으면 막습니다.
+  if (Guide.checkNickname && nameInput && !Guide.checkNickname(nameInput.value).ok) {
+    setSubmitStatus(Guide.NICKNAME_MESSAGE, 'error');
+    nameInput.focus();
+    return;
+  }
+  // 역사 용어 확인: 막지 않고 한 번 안내합니다. 같은 문장으로 다시 누르면 그대로 등록됩니다.
+  const termNotes = Guide.checkHistoricalTerms ? Guide.checkHistoricalTerms(text, currentEventId) : [];
+  if (termNotes.length && termCheckConfirmedFor !== text) {
+    termCheckConfirmedFor = text;
+    setSubmitStatus(`역사 용어 확인 — ${termNotes.map(n => n.message).join(' ')} 표현을 고치지 않고 그대로 등록하려면 ‘제안 등록하기’를 한 번 더 눌러 주세요.`, 'info');
     return;
   }
   if (!currentEventId) {
@@ -1462,6 +1700,8 @@ async function submitSharedNarrative() {
 
   if (narrativeInput) narrativeInput.value = '';
   if (reasonInput) reasonInput.value = '';
+  templateUsed = false;
+  termCheckConfirmedFor = null;
   document.querySelectorAll('[data-guide-reason]').forEach(cb => { cb.checked = false; });
   guideState.reasons = new Set();
 
@@ -1830,8 +2070,8 @@ const translationSamples = {
       en: 'Each of the three East Asian states attempted modernization through different paths in the late 19th century.'
     },
     en: {
-      ko: '근대화 과정은 한국에게는 좌절, 일본에게는 성공, 중국에게는 치욕으로 각기 다르게 기억된다.',
-      ja: '近代化の過程は、韓国には挫折、日本には成功、中国には屈辱として記憶されている。'
+      ko: '이 프로젝트가 비교한 서술에서 근대화 과정은 좌절·성공·치욕이라는 서로 다른 언어로 그려진다.',
+      ja: 'このプロジェクトが比較した叙述では、近代化の過程が挫折・成功・屈辱という異なる言葉で描かれている。'
     }
   },
   'zainichi': {
@@ -1926,7 +2166,7 @@ function renderMemoryTab() {
     if (!Gen.isSampleSufficient(n)) {
       box.innerHTML = `${filterHtml}
         <div class="shared-empty">
-          ${escapeHtml(Gen.ageLabel(memoryAgeFilter))} 참여 ${n}${ageParticipantCounts ? '명' : '건'} — 표본이 적어 세부 분석을 표시하지 않습니다.<br />
+          ${escapeHtml(Gen.ageLabel(memoryAgeFilter))} 참여 ${Gen.MIN_GROUP_SIZE}명 미만 — 표본이 적어 세부 분석을 표시하지 않습니다.<br />
           <small>${Gen.MIN_GROUP_SIZE}명 이상 모이면 이 연령대의 분석이 표시됩니다. 이 제안들은 ‘전체’ 분석에는 포함되어 있습니다.</small>
         </div>`;
       return;
@@ -1981,8 +2221,10 @@ function currentMemoryAnalysis() {
 function renderAgeFilter() {
   if (!Gen) return '';
   const counts = Gen.groupCounts(sharedNarratives);
+  // 5명 미만인 연령대는 정확한 수 대신 "5명 미만"으로만 표시합니다 (소표본 보호).
+  const shown = n => (n > 0 && n < Gen.MIN_GROUP_SIZE) ? `<${Gen.MIN_GROUP_SIZE}` : n;
   const tabs = [['all', '전체', sharedNarratives.length]]
-    .concat(Gen.AGE_GROUPS.map(g => [g.id, g.label, counts[g.id]]));
+    .concat(Gen.AGE_GROUPS.map(g => [g.id, g.label, shown(counts[g.id])]));
   const withAge = Gen.AGE_GROUPS.reduce((sum, g) => sum + counts[g.id], 0);
   return `
     <div class="age-filter">
@@ -1990,7 +2232,7 @@ function renderAgeFilter() {
       <div class="shared-language-tabs age-filter__tabs" role="tablist" aria-labelledby="ageFilterLabel">
         ${tabs.map(([id, label, n]) => `<button type="button" class="shared-language-tabs__tab${memoryAgeFilter === id ? ' is-active' : ''}" role="tab" aria-selected="${memoryAgeFilter === id}" data-age-filter="${id}">${label} <small>${n}</small></button>`).join('')}
       </div>
-      <p class="nlp-meta">${withAge ? '' : '아직 연령대 정보가 함께 저장된 제안이 없습니다. '}연령대 정보가 없는 기존 제안과 ‘응답하지 않음’을 고른 제안은 ‘전체’에만 포함됩니다. 숫자는 제안 수입니다.</p>
+      <p class="nlp-meta">${withAge ? '' : '아직 연령대별로 공개할 수 있는 제안이 없습니다. '}연령대 정보가 없는 기존 제안, ‘응답하지 않음’을 고른 제안, 참여자가 5명 미만이라 서버에서 연령대를 가린 제안은 ‘전체’에만 포함됩니다. 숫자는 제안 수입니다.</p>
     </div>`;
 }
 
@@ -2029,7 +2271,7 @@ function renderGenerationCompare() {
     if (!g.sufficient) {
       return `
         <div class="gen-row is-hidden">
-          <div class="gen-row__age">${g.label}<small>${g.sample}${unit}</small></div>
+          <div class="gen-row__age">${g.label}<small>${Gen.MIN_GROUP_SIZE}명 미만</small></div>
           <div class="gen-row__muted">표본이 적어 세부 분석을 표시하지 않습니다.</div>
         </div>`;
     }
@@ -2505,6 +2747,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (source) { gotoSource(source.dataset.gotoSource); return; }
     const evidence = e.target.closest('[data-evidence-term]');
     if (evidence) { showEvidenceFor(evidence.dataset.evidenceTerm); return; }
+    const glance = e.target.closest('[data-glance-term]');
+    if (glance) { showEvidenceFor(glance.dataset.glanceTerm); return; }
     const filter = e.target.closest('[data-sources-filter]');
     if (filter) { sourcesFilter = filter.dataset.sourcesFilter; renderSourcesTab(); return; }
     const beforeAction = e.target.closest('[data-before-action]');
@@ -2536,7 +2780,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cb) return;
     if (cb.checked) guideState.reasons.add(cb.value); else guideState.reasons.delete(cb.value);
   });
-  document.getElementById('userNarrative')?.addEventListener('input', scheduleDraftPanel);
+  document.getElementById('userNarrative')?.addEventListener('input', e => {
+    if (!e.target.value.trim()) templateUsed = false;
+    scheduleDraftPanel();
+  });
   renderWritingLangOptions();
   document.getElementById('writingLangOptions')?.addEventListener('click', e => {
     const chip = e.target.closest('[data-writing-lang]');

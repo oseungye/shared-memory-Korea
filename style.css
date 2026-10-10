@@ -2266,3 +2266,129 @@ details.ai-result__section[open] > summary { margin-bottom: 0.75rem; }
   .gen-row__age { flex-direction: row; align-items: baseline; gap: 0.5rem; }
   .gen-row__cell:last-child { grid-column: auto; }
 }
+
+
+/* ============================================================
+   19. 본선 안정화 (2026-10) — 기존 색·서체·카드 언어를 그대로 사용
+   ============================================================ */
+
+/* 탭: 학생이 할 일을 먼저, 기술 이름은 작은 글씨로 */
+.tab { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.3; }
+.tab__sub { font-size: 0.68rem; font-weight: 400; color: var(--ink-mute); letter-spacing: 0.02em; margin-top: 0.15rem; }
+.tab.active .tab__sub { color: var(--accent); opacity: 0.75; }
+
+/* 대표 사건 표시 (광고처럼 보이지 않도록 작게) */
+.event-card__featured {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--accent);
+  border: 1px solid var(--accent-soft);
+  border-radius: 100px;
+  padding: 0.05rem 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+/* 비교 범위 안내 */
+.scope-note {
+  background: var(--bg-soft);
+  border-left: 3px solid var(--ink-mute);
+  border-radius: var(--radius);
+  padding: 0.8rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+.scope-note strong { color: var(--ink); margin-right: 0.35rem; }
+
+/* 국가별 서술 카드: "측 요약 서술" · 작성 방식 */
+.narrative-card__scope { font-size: 0.72rem; font-weight: 400; color: var(--ink-mute); }
+.narrative-card__basis { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed var(--line); font-size: 0.82rem; color: var(--ink-soft); line-height: 1.7; }
+.narrative-card__basis > summary { cursor: pointer; color: var(--accent); font-size: 0.84rem; text-decoration: underline; text-underline-offset: 3px; }
+.narrative-card__basis[open] > summary { margin-bottom: 0.5rem; }
+.narrative-card__basis p { margin-bottom: 0.6rem; }
+.narrative-card__basis .narrative-card__label { margin-top: 0.4rem; }
+.narrative-card__basis-empty { color: var(--ink-mute); }
+
+/* 사료 확인 상태 배지 */
+.source-verify { font-size: 0.68rem; border-radius: 100px; padding: 0 0.5rem; white-space: nowrap; }
+.source-verify--verified { color: var(--ink); background: var(--accent-soft); }
+.source-verify--partial { color: var(--ink-soft); border: 1px solid var(--ink-mute); }
+.source-verify--unverified { color: var(--accent); border: 1px dashed var(--accent); }
+
+/* NLP 탭: 쉬운 질문 아래 기술 이름 */
+.ai-box__tech { font-size: 0.8rem; color: var(--ink-mute); letter-spacing: 0.02em; margin: -1rem 0 0 !important; }
+.ai-box__tech--left { margin: -1.1rem 0 1rem 1rem !important; }
+.ai-box__intro--detail { margin: 1.5rem 0 0; }
+.ai-box__intro--detail p { margin: 0 0 1.2rem; }
+
+/* 한눈에 비교 */
+.glance {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.6rem;
+}
+.glance__head { margin-bottom: 1rem; }
+.glance__eyebrow { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: 1.05rem; }
+.glance__scope { font-size: 0.8rem; color: var(--ink-mute); margin-top: 0.2rem; }
+.glance__q { padding: 0.8rem 0; border-top: 1px dashed var(--line); }
+.glance__label { font-weight: 500; font-size: 0.92rem; margin-bottom: 0.5rem; }
+.glance__num { color: var(--accent); margin-right: 0.2rem; }
+.glance__cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; }
+.glance__col { background: var(--bg-card); border-top: 3px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
+.glance__col--korea { border-top-color: var(--korea); }
+.glance__col--japan { border-top-color: var(--japan); }
+.glance__col--china { border-top-color: var(--china); }
+.glance__col-head { font-size: 0.8rem; color: var(--ink-soft); margin-bottom: 0.4rem; }
+.glance__cta { margin-top: 0.6rem; font-size: 0.88rem; color: var(--ink-soft); }
+.glance__cta p { margin-bottom: 0.5rem; }
+.glance__cta small { color: inherit; opacity: 0.8; margin-left: 0.3rem; }
+.glance__note { margin-top: 0.4rem; }
+
+/* 사료 탭: 텍스트 분석 → 근거 추적 → 관점 확인 */
+.source-flow { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin: -0.5rem 0 1rem; counter-reset: sflow; }
+.source-flow li { background: var(--bg-soft); border-radius: var(--radius); padding: 0.6rem 0.8rem; font-size: 0.82rem; color: var(--ink-soft); counter-increment: sflow; }
+.source-flow li strong { display: block; color: var(--ink); font-family: 'Noto Serif KR', serif; }
+.source-flow li strong::before { content: counter(sflow) '. '; color: var(--accent); }
+
+.source-card__why, .source-card__caution { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.7; }
+.source-card__why .narrative-card__label, .source-card__caution .narrative-card__label { display: block; margin-bottom: 0.1rem; }
+.source-card__caution { border-left: 2px solid var(--accent-soft); padding-left: 0.6rem; }
+.source-card__related .narrative-card__label small { font-weight: 400; color: var(--ink-mute); }
+.source-card__more > summary { cursor: pointer; font-size: 0.82rem; color: var(--ink-mute); }
+.source-card__more[open] > summary { margin-bottom: 0.5rem; }
+.source-card__link a.source-card__open { font-weight: 500; }
+
+/* 내 한 문장 쓰기: 사료 권유 · 역사 용어 확인 · 개인정보 안내 */
+.source-nudge {
+  display: flex; flex-wrap: wrap; gap: 0.3rem 0.7rem; align-items: baseline;
+  background: var(--bg-soft); border-left: 3px solid var(--line); border-radius: var(--radius);
+  padding: 0.7rem 1rem; font-size: 0.86rem; color: var(--ink-soft); margin: -0.5rem 0 1rem;
+}
+.term-check {
+  background: var(--bg-soft); border-left: 3px solid var(--china); border-radius: var(--radius);
+  padding: 0.6rem 0.9rem; font-size: 0.84rem; color: var(--ink-soft); margin-top: 0.5rem; line-height: 1.7;
+}
+.term-check strong { color: var(--ink); margin-right: 0.3rem; }
+.shared-form__status.is-info { color: var(--ink-soft); }
+.shared-form__privacy--strong { margin-top: 0.4rem; }
+.shared-form__privacy--strong strong { color: var(--accent); font-weight: 500; }
+
+/* 탐구 전 한 문장: 건너뛰기 확인 */
+.before-card__link--quiet { color: var(--ink-mute); }
+.before-card__confirm { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: baseline; }
+
+/* 소개 페이지: 자주 묻는 질문 */
+.faq { max-width: 860px; margin: 3rem auto 0; }
+.faq__item { background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1.2rem; margin-bottom: 0.6rem; }
+.faq__item > summary { cursor: pointer; font-family: 'Noto Serif KR', serif; font-weight: 500; }
+.faq__item[open] > summary { margin-bottom: 0.5rem; }
+.faq__item p { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.8; }
+
+@media (max-width: 640px) {
+  .tab { padding: 0.8rem 1rem; }
+  .glance { padding: 1.1rem 1rem; }
+  .glance__cols, .source-flow { grid-template-columns: 1fr; }
+}

@@ -70,6 +70,28 @@
 - 연령대·학습 경험은 자기 응답이며 검증하지 않습니다. 브라우저별 무작위 키 기준이라 다른 기기·브라우저에서 참여하면 다른 사람으로 세어질 수 있습니다.
 - 이 SQL 이전에 저장된 제안은 참여자 키가 없어 제안 1건을 1명으로 추정해 셉니다.
 
+### 3-2. 본선 배포 전 안정화 — 교육 UX · 사료 신뢰성 · 개인정보 (2026-10)
+
+디자인(한지 배경·먹색·Noto 서체·지도 SVG·국가별 포인트 컬러·카드·버튼)과 기존 기능은 그대로 두고, **쉬운 결과 → 근거 → 자세한 분석** 순서로 보이도록 정리했습니다.
+
+| 항목 | 내용 |
+|---|---|
+| 대표 사건 | 사건 목록을 **임진왜란 → 재일조선인 → 나머지** 순서로 배치(`eventsData` 배열 순서, id는 그대로). 두 카드에만 작은 “먼저 살펴보기” 표시(`featured`) |
+| 탭 이름 | 학생이 할 일을 먼저, 기술 이름은 작게: 세 나라의 서술(국가별 서술) · 어떻게 다를까?(NLP 비교 분석) · 단어 빈도(키워드 비교) · 사료로 확인(관련 사료) · 내 한 문장 쓰기(공동 표현 작성) · 모두의 기억 보기(공동 기억 지도) |
+| 한눈에 비교 | NLP 탭 맨 위에 ① 세 서술이 공통으로 쓰는 말 ② 서술마다 두드러지게 쓰는 말 ③ 근거 확인 방법을 표시. **모든 단어는 `eventNlp`(세 서술 텍스트의 실제 계산 결과)에서 가져오며 미리 적어 둔 값이 없습니다.** 단어를 누르면 원문 위치 강조 + 연결 사료. 기존 TF-IDF·특징 표현·코사인/Jaccard·기여 단어·강조점·근거는 “자세히 분석하기”에 그대로 |
+| 일반화 방지 | 비교 영역마다 “프로젝트에서 선정·요약한 자료이며 각 국가의 모든 교과서나 역사 인식을 대표하지 않는다”는 안내. 편집자 해설(`feature`, `editorNotes`)은 “이 서술은 …”, “한국 측 서술: …”을 주어로 다시 씀. 국가 카드 이름 ‘대한민국’ → ‘한국 측 요약 서술’ |
+| 서술의 출처 | 각 서술 카드 아래 “이 서술은 어떻게 작성했나요?” — 편집자 요약임을 밝히고, `sourceRefs`(출처를 확인한 자료만)로 대조할 자료를 연결. 확인된 자료가 없으면 “참고용 관점 요약”이라고 표시 |
+| 사료 검증 단계 | `verification: verified / partial / unverified` (화면: 출처 확인 · 일부 확인 · 검토 전). “원문/기관에서 확인하기” 버튼은 **verified 자료에만** 표시 |
+| 사료 카드 | 1차 화면: 자료명·언제·누가·왜 볼까?·관점 주의·연결된 표현 / “자세히 보기”: 원문명·자료 종류·소장·제공·설명·확인 근거. 출처 확인 자료부터 정렬 |
+| 사료 유도 | 사료 탭에 “텍스트 분석 → 근거 추적 → 관점 확인” 흐름 표시. 한눈에 비교 아래 “관련 사료 1개 확인하기 →”, 내 한 문장 쓰기 위에 “근거 자료 하나를 확인해 볼까요?”(사료를 아직 안 본 경우만, 필수 아님) |
+| 탐구 전 한 문장 | “먼저 지금 알고 있는 내용만으로 한 문장을 적어 주세요. 검색하거나 정답을 찾지 않아도 됩니다.” 건너뛰기·빈 저장은 **한 번만** 이유를 설명하고 다시 묻습니다(강제하지 않음) |
+| 빈칸 검사 | 밑줄 3개 이상(문장 틀 사용 시 2개 이상, 전각 ＿ 포함)이 남거나 빈칸을 지우기만 한 경우(“이 사건은 로 시작되어,”) 제출을 막고 고칠 위치를 알려줌. 일반 문장의 밑줄 1개는 허용 (`findPlaceholderIssues`) |
+| 역사 용어 확인 | **임진왜란 + 대한민국/대한제국**만 안내(“1592년 당시 국호는 ‘조선’”). 같은 문장에 ‘오늘날·부른다·교과서’ 등이 있으면 안내하지 않음. 점수·정답 판정 없음, 한 번 더 누르면 그대로 등록 (`checkHistoricalTerms`) |
+| 닉네임 | “닉네임은 선택사항이며 다른 참여자에게 공개됩니다. 실명·학교명·학년/반·연락처 등 개인정보는 입력하지 마세요.” 연락처·이메일·학교명·학년/반 형태는 등록 차단 (`checkNickname`) |
+| 자주 묻는 질문 | 소개 페이지에 교사·심사위원용 질문 10개(서술 작성자, 대표성, 출처, AI 판정 여부, LLM 미사용 이유, 하드코딩 여부, 학생 데이터 보호, 수업 활용, 교육 효과 해석, 사료–분석 연결) |
+
+**역사 용어 확인을 더 넓히지 않은 이유**: 국호·연대처럼 확실한 경우가 아니면 오탐(현재 시점 문장, 인용, 명칭 설명)이 커지고, 해석 판단으로 보일 위험이 있습니다. 그래서 임진왜란의 국호 한 가지만 두었습니다. 다른 사건(문화 교류·조공 등)은 기간이 길어 같은 규칙을 적용하면 정당한 문장까지 걸리므로 넣지 않았습니다.
+
 ## 4. 기술 스택
 
 - HTML · CSS · JavaScript (빌드 도구·프레임워크 없음, 정적 파일만으로 동작)
@@ -167,16 +189,19 @@
 - 국가별 서술은 편집자가 요약한 짧은 텍스트이며, 각국 교과서·학계 전체를 대표하지 않습니다.
 - 제안 수가 적으면 표현군이 불안정합니다. 가장 큰 표현군은 "많은 참여자가 비슷하게 쓴 방식"일 뿐 정답이 아닙니다.
 - 공감 수는 참여자의 반응이며 역사적 정답의 순위가 아닙니다.
-- 사료 메타데이터는 편집자 검토 전(`reviewed: false`) 상태입니다.
+- 사료 21건 가운데 출처를 확인한 자료(`verified`)는 6건, 일부 확인(`partial`) 2건이며 나머지 13건은 검토 전입니다(2026-10-10 기준, 임진왜란·재일조선인 우선). 검토 전 자료는 화면에 그대로 표시됩니다.
+- 재일조선인·히로시마의 **중국 측 서술**, 임진왜란의 **일본 측 서술**에는 아직 출처를 확인한 대조 자료가 없습니다. 화면에서 “참고용 관점 요약”으로 표시합니다.
 
 ## 8. 데이터 구조
 
-- `events-data.js` — 사건별 `korea/japan/china`(title·text·keywords·feature), `timeline`, `keywordGroups`(표현 묶음), `sampleExpression`(참고 예시, 정답 아님)
-- `sources-data.js` — 자료 메타데이터. `id, eventId, country, title, originalTitle, year, sourceType(primary|secondary|memorial), typeNote, creator, institution, archive, description, perspective, url, urlNote, relatedTerms, reviewed`
+- `events-data.js` — 사건별 `korea/japan/china`(title·text·keywords·feature·**sourceRefs**), `timeline`, `keywordGroups`(표현 묶음), `sampleExpression`(참고 예시, 정답 아님), `featured`(대표 사례). 배열 순서 = 화면 순서
+  - `title·text`는 교과서 원문이 아니라 편집자가 쓴 비교용 요약입니다. `sourceRefs`에는 서지·제공처를 확인한(`verified`/`partial`) 자료만 넣습니다(테스트로 검사).
+- `sources-data.js` — 자료 메타데이터. `id, eventId, country(korea|japan|china|other), title, originalTitle, year, sourceType(primary|secondary|memorial), typeNote, creator, institution, archive, description, whyRead, perspective, url, urlNote, relatedTerms, verification, verificationNote, checkedAt, reviewed`
+  - `verification`: `verified`(자료명·작성 주체·연도·제공 기관·해당 페이지 URL 확인) / `partial`(자료와 기본 서지는 확인, 세부 URL·일부 정보 미확인) / `unverified`. `reviewed`는 `verification === 'verified'`와 같습니다(하위 호환).
   - `relatedTerms`: NLP 결과와 자료를 잇는 사람이 검증한 표현 목록
-  - `url`: 확인된 기관 대표 페이지만 넣고, 나머지는 `null`. 세부 원문 링크는 확인 후 추가하세요.
+  - `url`: 확인한 페이지만 넣고 나머지는 `null`. 기관 대표 페이지를 넣은 경우 `urlNote`에 “대표 페이지”라고 밝힙니다. 추측으로 단계를 올리지 말고, 올릴 때는 근거를 `verificationNote`에 적으세요.
 - `concept-lexicon.js` — `FRAMES`, `CONCEPTS[{id, label, frame, forms:{ko, zh, ja, en}}]` (zh: 현대 표준 중국어 간체 기본 + 역사·동아시아 맥락에서 쓰이는 번체, 확신할 수 있는 핵심 표현만)
-- `contribution-guide.js` — `STYLES`, `TEMPLATES`, `REASONS` (id는 DB에 저장되므로 바꾸지 마세요)
+- `contribution-guide.js` — `STYLES`, `TEMPLATES`, `REASONS` (id는 DB에 저장되므로 바꾸지 마세요), 제출 전 확인 `findPlaceholderIssues`, `checkHistoricalTerms`, `checkNickname`
 
 ## 9. Supabase 구조
 
@@ -216,7 +241,7 @@
 | `participation_summary()` 함수 | 전체 참여자 수(서로 다른 키 수 + 키가 없는 기존 제안 수), 완료 참여자 수, 제안 수 |
 | `age_group_participants(p_event_key)` 함수 | 사건별·연령대별 중복 제거 참여자 수 (표본 기준에 사용) |
 
-`age_group`·`prior_learning`은 다른 제안 내용과 마찬가지로 공개 조회되는 값입니다(브라우저에서 연령대별 분석을 하기 위해). 화면에서는 소수 표본을 숨기지만, 원자료 API에서는 행 단위로 보입니다. 더 엄격하게 하려면 연령대 집계를 서버 함수로 옮기세요.
+~~`age_group`은 원자료 API에서 행 단위로 보입니다~~ → 아래 **본선 전 하드닝**에서 서버 단 소표본 보호로 바꿨습니다.
 
 **하위 호환**: SQL을 실행하기 전에도 사이트는 동작합니다. 저장은 ① 참여자 통계 컬럼 포함 → ② 작성 가이드 확장 컬럼까지 → ③ 기본 컬럼만 순서로 다시 시도합니다. 기존 행은 `age_group`이 없어 ‘전체’ 분석에만 포함되고, 참여자 수 문구는 집계 함수가 생길 때까지 숨겨집니다.
 
@@ -233,13 +258,27 @@
 
 **하위 호환**: 기존 `ko`/`ja`/`en` 행은 그대로, 기존 `unknown`(및 `ETC`) 행은 `unknown`으로 유지합니다. 한자만 있는 기존 `unknown` 행을 `zh`로 다시 분류하지 않으며, 그 토큰화 방식도 이전과 같습니다. 개선된 언어 판별·선택은 새로 등록되는 제안부터 적용됩니다.
 
+### 본선 전 하드닝 — [`supabase/2026-10-prefinal-hardening.sql`](supabase/2026-10-prefinal-hardening.sql) (1단계, 적용 완료) · [`supabase/2026-10-after-deploy-hide-age-column.sql`](supabase/2026-10-after-deploy-hide-age-column.sql) (2단계, 배포 후)
+
+| 대상 | 내용 |
+|---|---|
+| 테이블 권한 | anon/authenticated의 UPDATE·DELETE·TRUNCATE·REFERENCES·TRIGGER 회수. INSERT는 사이트가 보내는 컬럼에만 허용 → `id`·`created_at` 지정 불가(날짜를 미래로 넣어 목록 상단 고정 차단). 공감·참여자 테이블은 INSERT만, 조회 권한 없음 |
+| CHECK 제약 | `event_key ∈ {imjin, zainichi, culture, tribute, modern, hiroshima}`, 작성 언어, 공백뿐인 내용 금지, `reason_tags` 허용 코드, 선택 요소 총 길이. 기존 NOT VALID 제약까지 **모두 VALIDATE**(기존 10건 모두 통과) |
+| RPC | `participation_summary`·`empathy_counts`·`age_group_participants`·`public_expressions` 모두 `SECURITY DEFINER` + `search_path = ''` + 객체 전체 경로 + `REVOKE ALL FROM PUBLIC, anon, authenticated` 후 **anon에만 EXECUTE**. 동적 SQL 없음 |
+| 소표본 보호 | `age_group_participants`: 5명 미만인 실제 연령대는 `participants = null`. 새 함수 `public_expressions(event_key, limit)`: 5명 미만 연령대의 `age_group`을 null로 가리고 `age_group_suppressed = true`. 화면은 “5명 미만”으로만 표시 |
+| 2단계(배포 후) | 테이블에서 `age_group` 직접 조회를 막는 컬럼 단위 SELECT 권한. **새 `shared-store.js`가 배포된 뒤 실행**해야 합니다(이전 버전 사이트는 `select('*')`를 쓰기 때문) |
+
+> ⚠ 사건을 새로 추가하면 `shared_expressions_event_key_chk`의 목록도 함께 바꿔야 저장됩니다. 테이블에 컬럼을 추가하면 공개 여부를 판단한 뒤 2단계 SQL의 `grant select (...)`와 `public_expressions` 반환 목록에 추가하세요.
+
+**Security Advisor**: 하드닝 전 6건(anon 3 + authenticated 3) → 하드닝 후 4건. 남은 4건은 `anon_security_definer_function_executable`(위 4개 함수)이며 **의도된 구성**입니다. 이 함수들은 조회 정책이 없는 비공개 테이블(참여자 키·공감 키)을 읽어 집계값 또는 가려진 행만 돌려주기 위해 DEFINER가 필요합니다. INVOKER로 바꾸면 집계가 0이 되거나 비공개 키를 공개해야 합니다. 반환값에는 키·개인 식별 정보가 없고, 입력값은 SQL 파라미터로만 비교합니다.
+
 ### RLS와 보안
 
 - 브라우저에는 **publishable(anon) 키만** 있습니다. `service_role` 키·비밀 키를 절대 코드에 넣지 마세요.
-- `shared_expressions`: 조회·등록만 허용, 수정·삭제 정책 없음 (현재 설정 유지).
+- `shared_expressions`: 조회·등록만 허용, 수정·삭제 정책·권한 없음. 등록은 허용 컬럼·CHECK 제약 범위 안에서만.
 - `expression_empathy`: 등록만 허용, 조회 정책 없음. 집계는 함수로만.
 - 공감 중복 방지는 브라우저별 무작위 키 기준입니다. 저장소를 지우거나 다른 브라우저를 쓰면 다시 공감할 수 있습니다. 더 강하게 막으려면 Supabase 익명 로그인(Anonymous Sign-in) + `auth.uid()` 기준 UNIQUE를 권장합니다.
-- 누구나 제안을 등록할 수 있으므로, 부적절한 게시물 대응(대시보드에서 삭제, 필요 시 `is_hidden` 컬럼 추가)과 요청 빈도 제한을 운영 중 검토하세요.
+- 누구나 제안을 등록할 수 있으므로, 부적절한 게시물 대응(대시보드에서 삭제, 필요 시 `is_hidden` 컬럼 추가)과 요청 빈도 제한을 운영 중 검토하세요. **현재 DB 단 요청 빈도 제한은 없습니다**(수업 전 확인 권장).
 - 사용자 입력은 화면에 표시할 때 모두 `escapeHtml`로 처리하고, 지도 텍스트는 `textContent`로 넣습니다.
 
 ## 10. 파일 구조
@@ -251,7 +290,7 @@ supabase-config.js          Supabase 공개 클라이언트 (CDN 실패 시 null
 events-data.js              사건·국가별 서술·키워드 묶음·참고 예시
 sources-data.js             관련 사료·자료 메타데이터
 concept-lexicon.js          다국어 개념 사전·표현 프레임
-contribution-guide.js       작성 가이드 문구 (표현 방식·문장 틀·이유)
+contribution-guide.js       작성 가이드 문구 (표현 방식·문장 틀·이유) + 제출 전 확인 (빈칸·역사 용어·닉네임)
 nlp-analyzer.js             국가별 서술 NLP 분석
 shared-memory-analyzer.js   공동 표현 분석·군집·탐구 전/후·강조점·키워드 차트
 generation-analysis.js      연령대 필터·세대별 비교·소수 표본 기준·완료 참여 기준 (기존 분석 함수 재사용)
@@ -282,11 +321,13 @@ npm test          # = node --test tests/*.test.js  (Node 18 이상)
 - `tests/nlp-analyzer.test.js` — 국가별 서술 분석 (기존)
 - `tests/generation-analysis.test.js` — age_group 없는 기존 데이터 호환·연령대 필터·prior_learning null·소수 표본 숨김·completed_flow·전체 필터 = 기존 분석 결과·단계적 저장(하위 호환)·비공개 참여자 연결
 - `tests/multilingual-zh.test.js` — 한/중/일/영 언어 판별, 한자만 있는 표현의 비확정 판별, 사용자 선택 언어 우선, 중국어 개념 매핑(간체·번체), 중국어 토큰화, 중↔한 개념 연결, 4개 언어 혼합 군집화, 기존 ko/ja/en·unknown 데이터 호환, zh 언어 필터, 결정성
+- `tests/prefinal-stabilization.test.js` — 사건 순서(imjin→zainichi)·문장 틀 빈칸 잔존 검출·역사 용어 확인·닉네임 확인·사료 검증 단계와 메타데이터·`sourceRefs` 유효성·편집자 해설 일반화 방지·허용 event_key·정상 insert 컬럼 = 허용 컬럼·RPC 권한/`search_path`·집계 RPC 형식·소표본 보호(서버 기준 = 화면 기준)·RPC/테이블 하위 호환·기존 언어/연령 데이터 호환
 - `tests/shared-memory-analyzer.test.js` — 빈 배열·한 개·거의 같은 표현·완전히 다른 표현·한/일/영 혼합·잘못된 입력·유사도 범위·군집 결과·결정성·대량 데이터·서술 연결·프레이밍·탐구 전/후·실시간 분석·키워드 차트 자동 계산·강조점·작성 후보·공감 비교·사료 데이터 검증·지도 배치
 
 ## 13. 향후 발전 방향
 
-- 사료 메타데이터 편집자 검증(`reviewed: true`) 및 원문 세부 링크 추가
+- 검토 전 사료 13건 검증, `partial` 자료의 세부 원문 링크(선조실록 개별 기사, 징비록 원문 제공처) 확인
+- 임진왜란 일본 측·재일조선인 중국/국제 관점 대조 자료 보강 (관련성이 확인되는 경우에만)
 - 서버(Supabase Edge Function)에서 다국어 문장 임베딩을 계산해 저장하고, 브라우저는 결과만 읽는 방식의 의미 유사도
 - 한국어·중국어 형태소 분석기(서버 측) 도입, 개념 사전 확장 (중국어 표현은 원어민 검토 권장)
 - 국가별 서술의 일본어·중국어 원문 추가 및 원문 대조

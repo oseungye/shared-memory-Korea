@@ -9,7 +9,7 @@
     - events-data.js           : 역사 사건 데이터(국가별 서술 원문·키워드 묶음·참고 예시)
     - sources-data.js          : 관련 사료·자료 메타데이터(사람이 작성·검토)
     - concept-lexicon.js       : 다국어 개념 사전(개념·표현 프레임)
-    - contribution-guide.js    : 공동 표현 작성 가이드 문구(표현 방식·문장 틀·이유 항목)
+    - contribution-guide.js    : 공동 표현 작성 가이드 문구(표현 방식·문장 틀·이유 항목) + 제출 전 확인(빈칸·역사 용어·닉네임)
     - nlp-analyzer.js          : 국가별 서술 비교 분석 모듈(TF-IDF·유사도)
     - shared-memory-analyzer.js: 참여자 공동 표현 분석(유사도·군집·탐구 전/후·강조점)
     - generation-analysis.js   : 연령대별(세대별) 분석·탐구 진행 기준 (기존 분석 함수 재사용)
@@ -141,12 +141,12 @@
           <div class="intro__card">
             <div class="intro__num">01</div>
             <h3>왜 나라마다 다를까요</h3>
-            <p>같은 사건이 한국에서는 '왜란', 일본에서는 '出兵', 중국에서는 '抗倭援朝'로 불립니다. 이름 하나에도 그 나라가 역사를 바라보는 시선이 담겨 있습니다.</p>
+            <p>1592년의 같은 전쟁도 한국에서는 흔히 '임진왜란', 일본에서는 '文禄・慶長の役', 중국에서는 '万历朝鲜战争'이라고 부릅니다. 이름 하나에도 역사를 바라보는 시선이 담겨 있습니다.</p>
           </div>
           <div class="intro__card">
             <div class="intro__num">02</div>
             <h3>어떤 역사를 보나요</h3>
-            <p>임진왜란·문화 교류·조공 관계·근대화·재일조선인·히로시마 원폭까지, 세 나라의 설명이 서로 다른 사건 <span data-event-count>6</span>가지 가운데 하나를 골라 살펴봅니다.</p>
+            <p>임진왜란·재일조선인을 비롯해 문화 교류·조공 관계·근대화·히로시마 원폭까지, 세 나라의 설명이 서로 다른 사건 <span data-event-count>6</span>가지 가운데 하나를 골라 살펴봅니다. 처음이라면 임진왜란이나 재일조선인부터 보는 것을 권합니다.</p>
           </div>
           <div class="intro__card">
             <div class="intro__num">03</div>
@@ -200,18 +200,23 @@
         <!-- JS가 채워줍니다 -->
       </div>
 
-      <!-- 탭 메뉴: 서술 비교 → NLP 분석 → 키워드 → 사료 → 공동 표현 → 공동 기억 지도 -->
+      <!-- 탭 메뉴: 서술 비교 → NLP 분석 → 키워드 → 사료 → 공동 표현 → 공동 기억 지도
+           화면에는 "학생이 할 일"을 먼저, 기술 이름은 작은 글씨로 함께 보여줍니다. data-tab 값은 그대로입니다. -->
       <div class="tabs">
-        <button class="tab active" data-tab="compare">국가별 서술</button>
-        <button class="tab" data-tab="ai">NLP 비교 분석</button>
-        <button class="tab" data-tab="keywords">키워드 비교</button>
-        <button class="tab" data-tab="sources">관련 사료</button>
-        <button class="tab" data-tab="shared">공동 표현 작성</button>
-        <button class="tab" data-tab="memory">공동 기억 지도</button>
+        <button class="tab active" data-tab="compare">세 나라의 서술<small class="tab__sub">국가별 서술</small></button>
+        <button class="tab" data-tab="ai">어떻게 다를까?<small class="tab__sub">NLP 비교 분석</small></button>
+        <button class="tab" data-tab="keywords">단어 빈도<small class="tab__sub">키워드 비교</small></button>
+        <button class="tab" data-tab="sources">사료로 확인<small class="tab__sub">관련 사료</small></button>
+        <button class="tab" data-tab="shared">내 한 문장 쓰기<small class="tab__sub">공동 표현 작성</small></button>
+        <button class="tab" data-tab="memory">모두의 기억 보기<small class="tab__sub">공동 기억 지도</small></button>
       </div>
 
       <!-- 탭 1: 국가별 서술 비교 -->
       <div class="tab-content active" data-tab-content="compare">
+        <p class="scope-note">
+          <strong>읽기 전에</strong> 아래 세 서술은 각 나라의 교과서 원문이 아니라, Shared Memory가 비교를 위해 선정·요약한 서술입니다.
+          각 국가의 모든 교과서나 역사 인식을 대표하지 않습니다. 카드 아래 “이 서술은 어떻게 작성했나요?”에서 함께 볼 자료를 확인할 수 있어요.
+        </p>
         <div class="narratives" id="narrativesGrid">
           <!-- JS가 한국/일본/중국 카드를 채워줍니다 -->
         </div>
@@ -223,19 +228,33 @@
             <!-- JS가 채워줍니다 -->
           </div>
         </div>
+
+        <!-- 다음 단계 안내 (탭 이동을 강제하지 않음) -->
+        <div class="nlp-next">
+          <p>세 서술을 읽었다면, 세 나라가 <strong>무엇을 같이 말하고 무엇을 다르게 말하는지</strong> 한눈에 비교해 보세요.</p>
+          <button type="button" class="btn btn--small" data-goto-tab="ai">세 나라는 어떻게 다르게 말하고 있을까? →</button>
+        </div>
       </div>
 
       <!-- 탭 2: NLP 비교 분석 (nlp-analyzer.js가 서술 텍스트로부터 직접 계산) -->
       <div class="tab-content" data-tab-content="ai">
         <div class="ai-box">
           <div class="ai-box__intro">
-            <h3 class="section-h">NLP 기반 서술 비교 분석</h3>
-            <p>세 국가 서술의 핵심 키워드·공통 표현·특징적 표현·텍스트 유사도·서술 강조점을 계산합니다.<br />
-              <small>※ 외부 AI API나 학습된 언어 모델 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다. 어느 서술이 옳은지는 판정하지 않습니다.</small>
+            <h3 class="section-h">세 나라는 어떻게 다르게 말하고 있을까?</h3>
+            <p class="ai-box__tech">NLP 텍스트 비교 분석 · TF-IDF · 코사인/Jaccard 유사도 · 다국어 개념 사전</p>
+          </div>
+
+          <!-- 한눈에 비교: 실제 세 서술 텍스트에서 계산한 결과만 표시 (script.js renderGlance) -->
+          <div class="glance" id="aiGlance" aria-live="polite"><!-- JS --></div>
+
+          <div class="ai-box__intro ai-box__intro--detail">
+            <p>
+              <small>※ 외부 AI API나 학습된 언어 모델 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다.
+              이 분석은 단어 선택의 경향을 보여줄 뿐, 어느 서술이 역사적으로 옳은지는 판정하지 않습니다.</small>
             </p>
             <button class="btn btn--ai" id="aiAnalyzeBtn">
               <span class="btn__icon">⌬</span>
-              <span>비교 분석 실행</span>
+              <span>자세히 분석하기 (계산 과정·근거 보기)</span>
             </button>
           </div>
 
@@ -249,10 +268,10 @@
       <!-- 탭 3: 키워드 비교 -->
       <div class="tab-content" data-tab-content="keywords">
         <div class="keywords-box">
-          <h3 class="section-h">국가별 핵심 키워드 사용 빈도</h3>
+          <h3 class="section-h">서술별 핵심 표현 사용 빈도</h3>
           <p class="keywords-box__desc">
-            같은 사건을 설명할 때 각 국가가 어떤 단어를 더 자주 사용하는지 살펴보세요.<br />
-            단어 선택은 곧 시선의 선택이며, 역사 인식의 차이를 가장 직접적으로 드러냅니다.<br />
+            같은 사건을 설명할 때 이 프로젝트가 비교한 세 서술이 어떤 단어를 더 자주 사용하는지 살펴보세요.<br />
+            단어 선택은 곧 시선의 선택이며, 서술의 관점 차이를 가장 직접적으로 드러냅니다.<br />
             <small>※ 숫자는 각 국가 서술(제목+본문)에서 해당 표현 묶음이 실제로 등장한 횟수를 자동으로 센 값입니다. 서술이 바뀌면 차트도 함께 바뀝니다.</small>
           </p>
           <div class="keywords-chart" id="keywordsChart">
@@ -264,11 +283,17 @@
       <!-- 탭 4: 관련 사료 · 자료 (sources-data.js) -->
       <div class="tab-content" data-tab-content="sources">
         <div class="sources-box">
-          <h3 class="section-h">관련 사료 · 자료 보기</h3>
+          <h3 class="section-h">실제 자료로 확인해 보기</h3>
+          <ol class="source-flow" aria-label="사료를 보는 순서">
+            <li><strong>텍스트 분석</strong><span>‘어떻게 다를까?’에서 서술마다 다르게 쓰인 표현을 찾고</span></li>
+            <li><strong>근거 추적</strong><span>그 표현과 연결된 자료를 열어</span></li>
+            <li><strong>관점 확인</strong><span>누가, 언제, 어떤 위치에서 남긴 기록인지 확인해요</span></li>
+          </ol>
           <p class="keywords-box__desc">
-            각 자료가 <strong>누가, 언제, 어떤 위치에서</strong> 남긴 기록인지 함께 확인해 보세요.<br />
-            <small>※ 사료는 역사적 주장을 자동으로 증명하는 정답 자료가 아니라, 작성자의 관점과 맥락을 가진 기록입니다. “검토 전” 표시가 있는 항목은 편집자가 서지 정보와 링크를 아직 확인하지 않은 항목입니다.</small>
+            <small>※ 사료는 역사적 주장을 자동으로 증명하는 정답 자료가 아니라, 작성자의 관점과 맥락을 가진 기록입니다.
+            각 자료의 <strong>확인 상태</strong>(출처 확인 · 일부 확인 · 검토 전)는 편집자가 서지 정보와 제공처를 실제로 확인했는지를 뜻합니다.</small>
           </p>
+          <p class="nlp-meta" id="sourcesSummary"></p>
           <div class="sources-filter" id="sourcesFilter" role="tablist" aria-label="자료 필터"></div>
           <div class="sources-grid" id="sourcesGrid">
             <!-- JS가 자료 카드를 채워줍니다 -->
@@ -279,11 +304,14 @@
       <!-- 탭 5: 공동 표현 작성 (Guided Contribution) -->
       <div class="tab-content" data-tab-content="shared">
         <div class="shared-box">
-          <h3 class="section-h">공동 역사 서술 제안</h3>
+          <h3 class="section-h">이제 이 역사를 당신의 한 문장으로 다시 써보세요.</h3>
           <p class="shared-box__desc">
-            세 국가의 서술을 읽었다면, 이제 당신이 제안할 차례입니다.<br />
-            사실을 지우거나 약화시키지 않으면서, 서로 다른 관점을 함께 이해할 수 있는 '공동의 표현'을 작성해 보세요.
+            세 나라의 서술을 읽었다면, 이제 당신이 쓸 차례입니다. <small class="nlp-meta">(공동 역사 서술 제안 · Guided Contribution)</small><br />
+            사실을 지우거나 약화시키지 않으면서, 서로 다른 관점을 함께 이해할 수 있는 한 문장을 남겨 주세요.
           </p>
+
+          <!-- 사료를 아직 보지 않았다면 짧게 권합니다 (필수 아님) -->
+          <div class="source-nudge" id="sharedSourceNudge" hidden></div>
 
           <div class="guide-intro">
             <strong>처음 참여하시나요?</strong> 닉네임·연령대는 비워 둬도 됩니다. 아래 4단계를 차례로 따라가면 3분 안에 작성할 수 있어요.
@@ -296,11 +324,12 @@
               <label class="shared-form__label" for="userName">
                 <span class="shared-form__num">①</span> 작성자(닉네임) <small class="guide-step__opt">선택 · 비워 두면 ‘익명’</small>
               </label>
-              <input type="text" id="userName" class="shared-form__input" maxlength="40" autocomplete="off" placeholder="비워 두면 ‘익명’으로 등록됩니다" />
+              <input type="text" id="userName" class="shared-form__input" maxlength="40" autocomplete="off" placeholder="비워 두면 ‘익명’으로 등록됩니다 (예: 별명)" aria-describedby="userNameNote" />
+              <p class="shared-form__privacy shared-form__privacy--strong" id="userNameNote">닉네임은 선택사항이며 <strong>다른 참여자에게 공개됩니다.</strong> 실명·학교명·학년/반·연락처 등 개인정보는 입력하지 마세요.</p>
 
               <div class="shared-form__label" id="formAgeLabel"><span class="shared-form__num">②</span> 연령대 <small class="guide-step__opt">선택 · 익명 통계용</small></div>
               <div class="age-picker__options age-picker__options--form" role="group" aria-labelledby="formAgeLabel" data-age-options="form"><!-- JS --></div>
-              <p class="shared-form__privacy">참여 내용은 익명으로 프로젝트 개선과 통계 분석에 활용됩니다. 이름·연락처·생년월일 등 개인정보는 수집하지 않습니다.</p>
+              <p class="shared-form__privacy">참여 내용은 익명으로 프로젝트 개선과 통계 분석에 활용됩니다. 이름·연락처·생년월일 등 개인정보는 수집하지 않으며, 작성한 문장·이유·닉네임은 다른 참여자에게 공개됩니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다.</p>
 
               <div class="guide-step">
                 <div class="shared-form__label"><span class="shared-form__num">STEP 1</span> 표현에 담고 싶은 핵심 요소 <small class="guide-step__opt">여러 개 선택 가능</small></div>
@@ -320,6 +349,8 @@
                 </label>
                 <div id="guideTemplates" class="guide-templates"><!-- JS --></div>
                 <textarea id="userNarrative" class="shared-form__textarea" rows="4" maxlength="1000" placeholder="공동의 역사 표현을 입력하세요 / 请输入共同的历史表述 / 共同の歴史表現を入力してください / Enter a shared historical narrative"></textarea>
+                <!-- 역사 용어 확인: 확실한 국호·연대 불일치만 부드럽게 안내 (제출은 막지 않음) -->
+                <p class="term-check" id="termCheck" role="status" aria-live="polite" hidden></p>
                 <!-- 작성 언어: 고르지 않으면 자동 감지 (한자만 있는 문장은 중국어·일본어 구분이 어려워 직접 선택을 권합니다) -->
                 <div class="before-card__prior">
                   <span class="before-card__prior-q" id="writingLangLabel">작성 언어 <small>(선택하지 않으면 자동 감지)</small></span>
@@ -369,7 +400,8 @@
       <!-- 탭 6: 공동 기억 지도 (shared-memory-analyzer.js + memory-map.js) -->
       <div class="tab-content" data-tab-content="memory">
         <div class="memory-box">
-          <h3 class="section-h">Shared Memory — 공동 기억 지도</h3>
+          <h3 class="section-h">다른 사람들은 이 역사를 어떻게 기억했을까?</h3>
+          <p class="ai-box__tech ai-box__tech--left">Shared Memory — 공동 기억 지도 · 공동 표현 군집화</p>
           <p class="keywords-box__desc">
             참여자들이 등록한 공동 표현을 서로 비슷한 것끼리 묶어, 어떤 표현의 경향이 나타나는지 보여줍니다.<br />
             <small>※ 역사적 정답이나 “가장 올바른 표현”을 판정하는 기능이 아닙니다. 모든 수치는 Supabase에 저장된 실제 제안 텍스트에서 매번 계산됩니다.</small>
@@ -408,6 +440,31 @@
           <h3>🌏 미래의 동북아 시민</h3>
           <p>1982년 일본 교과서 파동 이후 40여 년간 한·중·일 역사 갈등은 반복되어 왔습니다. 본 플랫폼은 다음 세대가 이 문제를 <strong>대결이 아닌 대화로 풀어갈 수 있는 시민적 역량</strong>을 기르는 데 기여하고자 합니다.</p>
         </div>
+      </div>
+
+      <!-- 자주 묻는 질문 (교사·심사위원용) — 과장 없이 현재 구현 그대로 설명합니다 -->
+      <div class="faq">
+        <h3 class="section-h">자주 묻는 질문</h3>
+        <details class="faq__item"><summary>세 나라의 서술은 누가 작성했나요?</summary>
+          <p>Shared Memory 편집자가 비교 수업을 위해 작성한 <strong>요약 서술</strong>입니다. 특정 국가의 교과서 원문을 옮긴 것이 아닙니다. 각 서술 카드의 “이 서술은 어떻게 작성했나요?”에서 함께 대조해 볼 자료를 확인할 수 있습니다.</p></details>
+        <details class="faq__item"><summary>각 국가 전체의 역사관을 대표하나요?</summary>
+          <p>아닙니다. 프로젝트가 선정·요약한 서술끼리의 비교이며, 한 나라 안에도 다양한 교과서와 연구, 시민의 기억이 있습니다. 화면의 “○○ 서술”은 “이 프로젝트가 비교한 ○○ 측 요약 서술”이라는 뜻입니다.</p></details>
+        <details class="faq__item"><summary>출처는 무엇인가요?</summary>
+          <p>‘사료로 확인’ 탭의 자료마다 작성 주체·연도·제공 기관과 함께 <strong>확인 상태</strong>를 표시합니다. ‘출처 확인’은 자료명·작성 주체·연도·제공 기관·해당 페이지를 편집자가 확인한 자료이고, ‘일부 확인’과 ‘검토 전’은 아직 확인이 남은 자료입니다. 확인하지 못한 링크는 넣지 않습니다.</p></details>
+        <details class="faq__item"><summary>AI(NLP)가 역사적으로 옳고 그름을 판단하나요?</summary>
+          <p>아닙니다. 분석은 단어가 몇 번, 어느 서술에 쓰였는지를 계산해 표현 선택의 경향을 보여줄 뿐입니다. 어떤 서술이나 참여자의 문장이 옳다고 판정하거나 점수를 매기지 않습니다.</p></details>
+        <details class="faq__item"><summary>왜 대형 언어 모델(LLM)을 쓰지 않았나요?</summary>
+          <p>계산 과정을 학생과 교사가 직접 확인할 수 있어야 하기 때문입니다. TF-IDF·코사인 유사도는 결과가 어느 단어에서 나왔는지 하나하나 보여줄 수 있고, 같은 입력이면 항상 같은 결과가 나옵니다. 또한 외부 API 키를 브라우저에 노출하지 않고, 참여 문장을 외부 AI 서비스로 보내지 않습니다.</p></details>
+        <details class="faq__item"><summary>분석 결과가 미리 정해진(하드코딩된) 값은 아닌가요?</summary>
+          <p>아닙니다. 모든 수치는 화면에 보이는 서술 텍스트와 저장된 참여 문장에서 매번 계산됩니다. 서술 문장을 바꾸면 결과도 바뀌며, 이를 자동 테스트로 확인합니다. 사람이 쓴 해석(편집자 해설)은 자동 분석과 구분해 따로 표시합니다.</p></details>
+        <details class="faq__item"><summary>학생 데이터는 어떻게 보호하나요?</summary>
+          <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개 키와 행 수준 보안(RLS)으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다.</p></details>
+        <details class="faq__item"><summary>실제 수업에서는 어떻게 쓰나요?</summary>
+          <p>한 차시(약 20–30분) 기준으로, ① 탐구 전 한 문장 → ② 세 나라의 서술 읽기 → ③ ‘어떻게 다를까?’에서 공통점·차이점 확인 → ④ 관련 사료 1개 확인 → ⑤ 내 한 문장 쓰기 → ⑥ 반 전체의 기억 보기 순서로 진행할 수 있습니다. 교사는 ⑥의 표현군과 탐구 전·후 변화를 토론 자료로 쓸 수 있습니다.</p></details>
+        <details class="faq__item"><summary>활동 전·후 변화가 교육 효과를 증명하나요?</summary>
+          <p>그렇게 말할 수 없습니다. 탐구 전·후 문장의 어휘·개념 변화는 이 활동 안에서 관찰된 기술적(descriptive) 결과이며, 대조군이 없고 참여자가 무작위 표본이 아니므로 교육 효과를 증명하지 않습니다. “표현이 이렇게 달라졌다”는 관찰 자료로만 사용합니다.</p></details>
+        <details class="faq__item"><summary>사료와 분석 결과는 어떻게 연결되나요?</summary>
+          <p>‘어떻게 다를까?’에서 단어를 누르면 세 서술에서 그 단어가 쓰인 위치가 강조되고, 그 표현과 연결된 자료가 바로 아래에 나타납니다. 반대로 자료 카드의 ‘연결된 표현’을 누르면 분석 화면의 근거 위치로 이동합니다. 연결은 자동 추정이 아니라 자료마다 편집자가 지정한 관련 표현을 기준으로 합니다.</p></details>
       </div>
 
       <div class="about__footer">
