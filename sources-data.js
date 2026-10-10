@@ -4,19 +4,25 @@
    ============================================================
    · 사료는 역사적 주장을 자동으로 증명하는 "정답 자료"가 아닙니다.
      각 자료는 특정 작성자가 특정 시기·위치에서 남긴 기록이며, 고유한 관점과 맥락을 가집니다.
-   · 자동 검색으로 수집한 링크를 넣지 않습니다.
-     url에는 소장·제공 기관의 대표 페이지만 넣었고, 확인되지 않은 곳은 null로 두었습니다.
-     원문 세부 위치(권·면·기사 URL)는 편집자가 확인한 뒤 url/urlNote에 추가하세요.
-   · reviewed: 편집자가 서지 정보와 링크를 직접 확인했으면 true로 바꿉니다. (false면 화면에 "검토 전" 표시)
+   · 자동 검색으로 수집한 링크를 그대로 넣지 않습니다. 기관·데이터베이스의 실제 페이지를 확인한 경우에만
+     해당 페이지 url을 넣고, 확인하지 못한 곳은 null로 둡니다. 기관 대표 페이지를 넣은 경우에는
+     특정 사료의 직접 출처처럼 보이지 않도록 urlNote에 "대표 페이지"라고 밝힙니다.
+
+   [검증 단계 — verification]
+     'verified'   : 자료명·작성 주체·연도·제공 기관·URL(그 자료의 페이지)을 확인한 자료 → reviewed: true
+     'partial'    : 자료 자체와 기본 서지는 확인했으나 세부 URL이나 일부 메타데이터가 미확인 → reviewed: false
+     'unverified' : 아직 검증하지 않은 자료 → reviewed: false (화면에 "검토 전" 표시)
+     verificationNote : 무엇으로 확인했고 무엇이 아직 미확인인지. checkedAt : 마지막 확인일.
+     ※ 추측으로 단계를 올리지 않습니다. 올릴 때는 근거를 verificationNote에 함께 적어 주세요.
 
    필드
-     id, eventId, country('korea'|'japan'|'china'|'other')
+     id, eventId, country('korea'|'japan'|'china'|'other' — other: 국가 간 협정·제3국 자료)
      title(자료명), originalTitle(원문명), year
      sourceType : 'primary'(1차 사료: 당대 당사자·기관의 기록)
                 | 'secondary'(2차 자료: 후대 편찬·연구·해설)
                 | 'memorial'(기념물·기억 자료)
      typeNote, creator(작성 주체), institution(소장·제공 기관), archive(데이터베이스·컬렉션)
-     description, perspective(자료의 관점), url, urlNote
+     description, whyRead(왜 이 자료를 볼 만한가 — 학생용 한 줄), perspective(자료의 관점·주의할 점), url, urlNote
      relatedTerms : NLP 결과(서술 어휘)와 이 자료를 연결하는 사람이 검증한 표현 목록
    ============================================================ */
 
@@ -35,10 +41,14 @@ const sourcesData = [
     institution: '국사편찬위원회',
     archive: '조선왕조실록 웹서비스',
     description: '전쟁 기간 조정의 논의, 전황 보고, 명과의 교섭 등을 날짜별로 기록했다. 이후 정치 세력이 바뀌며 『선조수정실록』이 따로 편찬되었다.',
+    whyRead: '전쟁 당시 조선 조정이 무엇을 보고받고 어떻게 논의했는지를 날짜별로 확인할 수 있는 기록이다.',
     perspective: '국왕과 조정을 중심으로 한 조선 측 공식 기록이며, 편찬 당시의 정치적 입장이 반영될 수 있다.',
     url: 'https://sillok.history.go.kr',
-    urlNote: '기관 대표 페이지 (세부 기사 링크는 편집자 확인 후 추가)',
+    urlNote: '조선왕조실록 웹서비스 대표 페이지 — 사이트에서 “선조실록”을 찾아 보세요 (개별 기사 링크는 아직 확인하지 못함)',
     relatedTerms: ['침략', '왜', '왜군', '일본군', '조선', '명나라', '의병', '전쟁', '항쟁'],
+    verification: 'partial',
+    verificationNote: '선조실록 권26 선조 25년(1592) 4월 13일 기사(왜적의 부산 침입 보고) 등의 내용은 백과사전·보도 자료로 교차 확인. 국사편찬위원회 웹서비스의 개별 기사 URL은 직접 열어 확인하지 못함.',
+    checkedAt: '2026-10-10',
     reviewed: false
   },
   {
@@ -49,15 +59,19 @@ const sourcesData = [
     originalTitle: '懲毖錄',
     year: '전쟁 직후 집필 (17세기 초)',
     sourceType: 'primary',
-    typeNote: '당사자 회고록',
+    typeNote: '당사자 회고록 · 국보',
     creator: '류성룡 (전쟁 당시 조정 핵심 관료)',
-    institution: null,
+    institution: '한국국학진흥원 (소장)',
     archive: null,
     description: '전쟁의 원인과 경과, 조정의 대응을 돌아보며 “지난 일을 징계하여 뒷근심을 삼간다”는 뜻으로 쓴 기록이다.',
+    whyRead: '전쟁을 지휘한 관료가 “무엇이 잘못되었는가”를 스스로 돌아본 기록으로, 승리의 서사와는 다른 반성의 시선을 보여준다.',
     perspective: '전쟁을 직접 지휘한 조선 관료의 반성적 회고로, 자신과 조정의 판단을 설명·변호하는 시각이 함께 담길 수 있다.',
     url: null,
-    urlNote: '원문 제공처는 편집자 확인 후 추가',
+    urlNote: '소장 기관의 원문 제공 페이지는 아직 확인하지 못함',
     relatedTerms: ['침략', '전쟁', '조선', '명나라', '희생', '백성', '황폐화'],
+    verification: 'partial',
+    verificationNote: '류성룡 저, 한국국학진흥원 소장, 1969년 국보 지정 사실을 복수의 보도로 확인. 공식 원문 제공처 URL은 미확인.',
+    checkedAt: '2026-10-10',
     reviewed: false
   },
   {
@@ -70,14 +84,18 @@ const sourcesData = [
     sourceType: 'primary',
     typeNote: '개인 진중 일기 · 유네스코 세계기록유산(2013)',
     creator: '이순신 (조선 수군 지휘관)',
-    institution: null,
-    archive: null,
+    institution: '현충사관리소 (원본 소장, 충남 아산)',
+    archive: 'UNESCO 세계기록유산 (2013 등재)',
     description: '전쟁 중 수군 지휘관이 날마다 남긴 일기로, 해전과 군영 생활, 개인의 심경이 기록되어 있다.',
+    whyRead: '한 지휘관이 전쟁 중 날마다 남긴 기록으로, 국가 서술 속 “해전 승리”가 실제로 어떤 하루하루였는지 보여준다.',
     perspective: '한 지휘관의 개인적 시점에서 본 전쟁 기록으로, 전쟁 전체를 대표하지는 않는다.',
-    url: null,
-    urlNote: '원문 제공처는 편집자 확인 후 추가',
+    url: 'https://www.unesco.org/en/memory-world/nanjung-ilgi-war-diary-admiral-yi-sun-sin',
+    urlNote: 'UNESCO 세계기록유산 등재 정보 페이지 (원문 이미지 제공처는 아님)',
     relatedTerms: ['이순신', '해전', '왜군', '일본군', '항쟁'],
-    reviewed: false
+    verification: 'verified',
+    verificationNote: 'UNESCO 등재 페이지와 등재 신청서(2013 등재, 대한민국 신청, 1592–1598 친필 일기 7책, 아산 현충사 소장)로 확인.',
+    checkedAt: '2026-10-10',
+    reviewed: true
   },
   {
     id: 'imjin-keinen-01',
@@ -92,10 +110,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '정유재란 때 일본군 부대를 따라간 승려가 남긴 일기로, 전쟁터와 민간인이 겪은 참상을 기록했다.',
+    whyRead: '일본군을 따라간 사람이 전쟁터와 민간인이 겪은 참상을 남겼다는 점에서, “출병”이라는 서술과 나란히 읽어 볼 만하다.',
     perspective: '일본군 쪽에서 전쟁을 지켜본 종군자의 기록으로, 일본 측 내부에서 본 전쟁의 모습을 보여준다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['출병', '전쟁', '일본군', '조선', '희생'],
+    verification: 'unverified',
+    verificationNote: '원본 소장처·간행본·원문 제공처를 아직 확인하지 못함.',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -108,14 +130,18 @@ const sourcesData = [
     sourceType: 'secondary',
     typeNote: '후대 편찬 관찬 정사',
     creator: '청 조정 (명사 편찬관)',
-    institution: 'Chinese Text Project (전자 텍스트 제공)',
-    archive: null,
+    institution: 'Chinese Text Project (ctext.org, 전자 텍스트 제공)',
+    archive: '明史 卷320 列傳第二百八 外國一 朝鮮',
     description: '청나라가 명나라의 역사를 정리한 정사 가운데 조선 관련 기록으로, 명의 조선 파병과 전쟁 경과를 다룬다.',
+    whyRead: '사건 후 약 150년 뒤 중국 왕조가 정리한 공식 역사로, 명의 파병이 어떤 질서의 언어로 기록되었는지 볼 수 있다.',
     perspective: '사건 후 약 150년 뒤 청 조정이 편찬한 기록으로, 중국 왕조 중심의 조공 질서 관점에서 서술된다.',
-    url: 'https://ctext.org',
-    urlNote: '제공처 대표 페이지 (해당 권 링크는 편집자 확인 후 추가)',
+    url: 'https://ctext.org/wiki.pl?if=en&chapter=875045',
+    urlNote: 'ctext 위키 판본(전자 입력본) — 인용할 때는 간행본과 대조를 권장',
     relatedTerms: ['명나라', '구원', '조공', '왜', '조선', '의로운'],
-    reviewed: false
+    verification: 'verified',
+    verificationNote: 'ctext의 해당 권 페이지(明史 : 列傳第二百八 外國一 朝鮮)를 확인. 권320이 외국전 가운데 조선 편임을 위키문헌 판본과 대조.',
+    checkedAt: '2026-10-10',
+    reviewed: true
   },
 
   /* ---------- 한중일 문화 교류 ---------- */
@@ -132,10 +158,14 @@ const sourcesData = [
     institution: '국사편찬위원회',
     archive: '한국사데이터베이스',
     description: '고구려·백제·신라의 역사를 정리한 사서로, 고구려의 불교 수용(372) 등 삼국 시기 문화 수용 기록을 담고 있다.',
+    whyRead: '고구려의 불교 수용처럼 “문화가 어떻게 들어왔는가”를 후대 고려 조정이 어떻게 정리했는지 볼 수 있다.',
     perspective: '삼국 시대보다 수백 년 뒤 고려 조정이 편찬해, 편찬 당시의 역사관과 신라 중심 시각이 반영되었다는 평가가 있다.',
     url: 'https://db.history.go.kr',
     urlNote: '데이터베이스 대표 페이지',
     relatedTerms: ['불교', '고구려', '백제', '전파', '전수', '수용'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -151,10 +181,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '일본 고대 조정이 편찬한 역사서로, 백제에서 온 왕인(王仁)과 불교 전래 등 한반도에서 온 인물과 문물에 관한 기록이 있다.',
+    whyRead: '한반도에서 온 인물과 문물을 일본 고대 조정이 어떤 위치에 놓고 기록했는지 볼 수 있다.',
     perspective: '천황 중심 국가의 정통성을 세우려는 목적으로 편찬되어, 한반도 관계 기사에는 윤색·과장 논란이 있다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['왕인', '불교', '백제', '도래인', '수용', '한자'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
 
@@ -172,10 +206,14 @@ const sourcesData = [
     institution: '국사편찬위원회',
     archive: '조선왕조실록 웹서비스',
     description: '명으로부터의 책봉, 사신 왕래, 조공 물품 등 조선–명 관계의 실제 운영이 기록되어 있다.',
+    whyRead: '책봉·사신·조공 물품 등 조공 관계가 실제로 어떻게 운영되었는지 조선 쪽 기록으로 확인할 수 있다.',
     perspective: '조선 조정이 남긴 기록으로, 사대 외교를 조선의 선택과 실리의 관점에서 보여준다.',
     url: 'https://sillok.history.go.kr',
     urlNote: '기관 대표 페이지',
     relatedTerms: ['조공', '책봉', '사대', '외교', '실리', '명'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -191,10 +229,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '조선이 청·일본과 주고받은 외교 문서를 모아 엮은 책으로, 조공·책봉 절차의 실제 문서를 확인할 수 있다.',
+    whyRead: '조공·책봉이 실제 외교 문서에서 어떤 형식으로 오갔는지 볼 수 있다.',
     perspective: '조선 정부가 자국의 외교 실무를 위해 정리한 문서집으로, 조선 측의 분류와 편집을 거쳤다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['조공', '사대', '외교', '책봉'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -210,10 +252,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '명나라의 관제와 의례를 정리한 법전으로, 주변국의 조공 시기·경로·의례 규정이 포함되어 있다.',
+    whyRead: '중국 왕조가 “조공은 이렇게 해야 한다”고 정한 규범으로, 실제 운영과 비교해 볼 수 있다.',
     perspective: '중국 왕조가 정한 공식 규범으로, 실제 운영이나 상대국의 인식과는 차이가 있을 수 있다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['조공', '천하', '책봉', '질서', '후왕박래', '예치'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -229,10 +275,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '일본과 중국·조선 사이의 외교 기록과 문서를 모은 책으로, 무로마치 막부의 대명 외교와 감합무역의 배경을 보여준다.',
+    whyRead: '무로마치 시대 일본이 대명 외교의 형식을 어떻게 인식했는지 볼 수 있다.',
     perspective: '막부의 외교 문서를 담당한 선승의 편찬물로, 대명 외교의 형식에 대한 일본 측의 인식이 드러난다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['감합무역', '조공', '이탈', '독자성', '무로마치'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
 
@@ -250,10 +300,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '아편전쟁 뒤 청과 영국이 맺은 조약으로, 홍콩 할양과 개항 등을 규정했다.',
+    whyRead: '중국 근대사 서술에서 “치욕”의 출발점으로 자주 언급되는 조약의 실제 조항을 확인할 수 있다.',
     perspective: '전쟁에 패한 뒤 체결된 불평등 조약으로, 중국 근대사 서술에서 “치욕”의 출발점으로 자주 언급된다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['아편전쟁', '반식민지', '치욕', '열강', '침략'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -269,10 +323,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '조선이 일본과 맺은 근대적 조약으로, 개항과 영사재판권 등을 규정했다.',
+    whyRead: '같은 조약이 “개항”과 “침략의 시작”으로 다르게 서술되는 이유를 조항에서 찾아볼 수 있다.',
     perspective: '양국 사이의 힘의 차이가 반영된 불평등 조약으로 평가되며, 같은 조약을 “개항”과 “침략의 시작”으로 다르게 서술하기도 한다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['강화도조약', '개항', '침략', '간섭', '조선'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -288,10 +346,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '일본이 아시아 이웃 국가와 거리를 두고 서구 문명국을 따라야 한다고 주장한 글로, “탈아입구”라는 표현과 함께 자주 인용된다.',
+    whyRead: '“탈아입구”라는 표현이 어떤 주장 속에서 나왔는지 확인할 수 있다.',
     perspective: '근대 일본 지식인의 문명론으로, 이웃 국가를 낮춰 보는 시각이 담겨 있다. 당시 일본 사회 전체의 견해를 대표하지는 않는다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['탈아입구', '문명개화', '메이지 유신', '근대'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -307,10 +369,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '대한제국의 통치권을 일본에 넘긴다는 내용의 조약으로, 이후 35년간의 식민지 지배로 이어졌다.',
+    whyRead: '체결 과정과 효력을 둘러싼 해석 차이가 지금도 이어지는 문서를 직접 확인할 수 있다.',
     perspective: '체결 과정의 강제성과 조약의 효력을 두고 한국과 일본의 해석이 지금도 엇갈린다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['국권 상실', '한일강제병합', '식민지', '침략'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
 
@@ -320,38 +386,46 @@ const sourcesData = [
     eventId: 'zainichi',
     country: 'japan',
     title: '외국인등록령',
-    originalTitle: '外国人登録令',
-    year: '1947',
+    originalTitle: '外国人登録令 (昭和22年 勅令第207号)',
+    year: '1947 (5월 2일 공포)',
     sourceType: 'primary',
-    typeNote: '법령',
-    creator: '일본 정부',
-    institution: null,
-    archive: null,
+    typeNote: '법령 (점령기 칙령)',
+    creator: '일본 정부 (요시다 시게루 내각)',
+    institution: '나고야대학 일본법제사 데이터베이스 (원문·영역 제공)',
+    archive: 'JAHIS 법령 DB',
     description: '점령기 일본에서 공포된 법령으로, 당시 일본 국적을 가진 것으로 취급되던 조선인도 “당분간 외국인으로 간주”해 등록 대상으로 삼았다.',
+    whyRead: '“당분간 외국인으로 간주한다”는 행정 문장 하나가 사람들의 법적 지위를 어떻게 바꾸었는지 볼 수 있다.',
     perspective: '행정 관리의 관점에서 작성된 법령으로, 재일조선인의 법적 지위가 불안정해지는 출발점으로 서술되기도 한다.',
-    url: null,
-    urlNote: '원문 제공처는 편집자 확인 후 추가',
+    url: 'https://jahis.law.nagoya-u.ac.jp/lawdb/l/322i0207en',
+    urlNote: '대학 법령 데이터베이스의 원문·영문 대조 페이지 (관보 원본 아님)',
     relatedTerms: ['외국인', '국적', '차별', '재일조선인', '법적 지위'],
-    reviewed: false
+    verification: 'verified',
+    verificationNote: '칙령 제207호, 1947년 5월 2일 공포, 요시다 시게루 내각 부서(副署)를 나고야대학 법령 DB로 확인. 관보 원본 링크는 미확인.',
+    checkedAt: '2026-10-10',
+    reviewed: true
   },
   {
     id: 'zainichi-1965-01',
     eventId: 'zainichi',
-    country: 'korea',
-    title: '재일교포 법적지위협정',
-    originalTitle: '在日韓国人の法的地位及び待遇に関する協定',
-    year: '1965',
+    country: 'other',
+    title: '재일 한국인 법적지위협정 (1965 한일 협정)',
+    originalTitle: '日本国に居住する大韓民国国民の法的地位及び待遇に関する日本国と大韓民国との間の協定',
+    year: '1965 (한일 국교 정상화와 함께 체결)',
     sourceType: 'primary',
-    typeNote: '국가 간 협정',
+    typeNote: '한·일 정부 간 협정',
     creator: '대한민국·일본 정부',
-    institution: null,
-    archive: null,
+    institution: '일본 외무성 (조약 원문 제공)',
+    archive: '외무성 조약 데이터베이스',
     description: '한일 국교 정상화와 함께 맺어진 협정으로, 한국 국적을 가진 재일 한국인에게 영주 자격을 부여하는 내용을 담았다.',
+    whyRead: '두 정부가 재일 한국인의 영주 자격을 어떻게 정했는지, 그리고 누가 그 대상에서 빠졌는지를 함께 생각해 볼 수 있다.',
     perspective: '두 정부 사이의 협정으로, 한국 국적을 택하지 않은 사람들은 적용 대상에서 빠져 재일 사회 안의 분화로 이어졌다는 지적이 있다.',
-    url: null,
-    urlNote: '원문 제공처는 편집자 확인 후 추가',
+    url: 'https://www.mofa.go.jp/mofaj/gaiko/treaty/htmls/A-S40-335.html',
+    urlNote: '일본 외무성 조약 페이지 — 협정 원문(일본어)',
     relatedTerms: ['국적', '영주', '법적 지위', '재일조선인'],
-    reviewed: false
+    verification: 'verified',
+    verificationNote: '일본 외무성 조약 페이지에서 협정 본문(제1조: 1945년 8월 15일 이전부터 거주한 대한민국 국민 등의 영주 허가)을 확인. 한국 측(국가기록원 등) 원문 링크는 미확인.',
+    checkedAt: '2026-10-10',
+    reviewed: true
   },
   {
     id: 'zainichi-1991-01',
@@ -359,18 +433,22 @@ const sourcesData = [
     country: 'japan',
     title: '입관특례법 (특별영주자 제도)',
     originalTitle: '日本国との平和条約に基づき日本の国籍を離脱した者等の出入国管理に関する特例法',
-    year: '1991',
+    year: '1991 (5월 10일 공포, 법률 제71호)',
     sourceType: 'primary',
     typeNote: '법률',
     creator: '일본 정부',
-    institution: null,
-    archive: null,
+    institution: '일본 중의원 (제정 법률 원문 제공)',
+    archive: '중의원 제정 법률 목록',
     description: '식민지 시기부터 일본에 살아온 사람과 그 후손에게 “특별영주자” 자격을 부여한 법률이다.',
+    whyRead: '“특별영주자”라는 오늘날의 용어가 어떤 법률 언어에서 나왔는지 확인할 수 있다.',
     perspective: '출입국 관리 제도의 언어로 쓰인 법률로, 역사적 배경보다 체류 자격을 중심으로 규정한다.',
-    url: null,
-    urlNote: '원문 제공처는 편집자 확인 후 추가',
+    url: 'https://www.shugiin.go.jp/internet/itdb_housei.nsf/html/houritsu/12019910510071.htm',
+    urlNote: '중의원 “제정 법률” 페이지 — 공포 당시 원문 (이후 개정 내용은 반영되지 않음)',
     relatedTerms: ['특별영주자', '외국인 주민', '통합', '국적'],
-    reviewed: false
+    verification: 'verified',
+    verificationNote: '중의원 제정 법률 페이지(법률 제71호, 1991.5.10)와 일본 법무성 법령외국어번역 DB 게재본으로 확인.',
+    checkedAt: '2026-10-10',
+    reviewed: true
   },
 
   /* ---------- 히로시마 ---------- */
@@ -387,10 +465,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '원폭 투하 직후 미국 정부가 현지 조사를 바탕으로 피해 규모와 효과를 정리한 보고서다.',
+    whyRead: '투하국 정부가 원폭 피해를 어떤 기준으로 측정·기록했는지 볼 수 있다.',
     perspective: '투하국 정부의 조사로, 군사적 효과와 물리적 피해 측정에 초점을 둔다.',
     url: null,
     urlNote: '원문 제공처는 편집자 확인 후 추가',
     relatedTerms: ['원폭', '핵무기', '피해', '민간인'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -406,10 +488,14 @@ const sourcesData = [
     institution: '히로시마 평화기념자료관',
     archive: null,
     description: '피폭자의 유품과 증언, 피해 기록을 수집·전시하는 기관이다.',
+    whyRead: '피해 도시가 원폭을 어떻게 기억하고 전시하는지 볼 수 있다.',
     perspective: '피해 도시의 반핵·평화 메시지를 중심으로 구성되며, 전쟁의 배경과 식민지 피해자에 관한 전시 비중은 논의의 대상이 되어 왔다.',
     url: 'https://hpmmuseum.jp',
     urlNote: '기관 대표 페이지',
     relatedTerms: ['원폭', '평화', '히바쿠샤', '피해', '핵무기'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   },
   {
@@ -425,10 +511,14 @@ const sourcesData = [
     institution: null,
     archive: null,
     description: '히로시마 원폭으로 희생된 한반도 출신 사람들을 추모하기 위해 세운 위령비로, 처음에는 공원 밖에 세워졌다가 뒤에 공원 안으로 옮겨졌다.',
+    whyRead: '“누구를 기억하는가”라는 질문이 기념물의 위치를 둘러싼 논의로 드러난 사례다.',
     perspective: '조선인 피해자를 기억하려는 공동체의 기록으로, 위령비의 위치를 둘러싼 논의 자체가 “누구를 기억하는가”라는 문제를 보여준다.',
     url: null,
     urlNote: null,
     relatedTerms: ['조선인 피해자', '원폭 피해', '기억', '강제 동원', '조선인'],
+    verification: 'unverified',
+    verificationNote: '서지 정보·제공처 링크를 이번 점검에서 확인하지 못함 (편집자 확인 필요).',
+    checkedAt: null,
     reviewed: false
   }
 ];
