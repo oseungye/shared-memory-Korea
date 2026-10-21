@@ -22,7 +22,7 @@ const eventsData = [
     id: 'imjin',
     question: '같은 전쟁을, 세 나라는 왜 서로 다른 이름으로 부를까요?',
     title: '임진왜란',
-    titleJP: '文禄·慶長の役',
+    titleJP: '文禄・慶長の役',
     titleCN: '万历朝鲜战争',
     era: '1592 – 1598',
     mark: '壬',
