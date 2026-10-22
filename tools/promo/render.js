@@ -11,7 +11,7 @@ fs.mkdirSync(OUT,{recursive:true});
   await p.goto('file://'+path.join(__dirname,'compose.html'));
   await p.evaluate(()=>document.fonts.ready);
   // 모든 캡처 미리 읽기
-  await p.evaluate(async()=>{const names=['04-detail-top','08-narr-1','08-narr-2','08-narr-3','09-compare-sum','10-discovery-empty','11-discovery-1','12-discovery-2','13-type-0','13-type-1','13-type-2','13-type-3','14-card-page','15-card'];
+  await p.evaluate(async()=>{const names=['01-home-picks','02-step1-top','03-narr-1','03-narr-2','03-narr-3','04-q1-empty','05-q1-picked','04-q2-empty','05-q2-picked','04-q3-empty','05-q3-picked','06-type-0','06-type-1','06-type-2','06-type-3','07-card-page','08-card'];
     await Promise.all(names.map(n=>{const i=new Image();i.src='shots2/'+n+'.png';return i.decode()}));});
   await p.waitForTimeout(800);
   const only=process.argv[2]?process.argv[2].split(',').map(Number):null;

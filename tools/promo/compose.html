@@ -9,11 +9,11 @@ body{background:radial-gradient(ellipse at 20% 0%,#fbf8f1 0%,#f5f1e8 55%,#efe7d6
 .brand{position:absolute;top:64px;left:64px;display:flex;align-items:center;gap:18px;z-index:5}
 .brand .seal{width:68px;height:68px;background:#8b3a3a;color:#f5f1e8;font-family:'Noto Serif KR',serif;font-weight:700;font-size:44px;display:flex;align-items:center;justify-content:center;border-radius:6px}
 .brand span{font-family:'Noto Serif KR',serif;font-size:32px;font-weight:500;letter-spacing:.02em}
-.cap{position:absolute;left:64px;right:64px;top:170px;z-index:5}
+.cap{position:absolute;left:64px;right:40px;top:150px;z-index:5}
 .kick{display:inline-block;background:#8b3a3a;color:#f5f1e8;font-size:30px;font-weight:700;padding:8px 22px;border-radius:999px;letter-spacing:.04em}
-.big{font-family:'Noto Serif KR',serif;font-weight:700;font-size:72px;line-height:1.2;margin-top:18px}
+.big{font-family:'Noto Serif KR',serif;font-weight:700;font-size:64px;line-height:1.2;margin-top:14px;white-space:nowrap}
 .big em{font-style:normal;color:#8b3a3a}
-.phone{position:absolute;left:90px;top:468px;width:900px;height:1350px;border-radius:44px;overflow:hidden;background:#f5f1e8;box-shadow:0 30px 70px rgba(60,40,20,.22),0 0 0 3px #e8d5b7;z-index:2}
+.phone{position:absolute;left:90px;top:330px;width:900px;height:1485px;border-radius:44px;overflow:hidden;background:#f5f1e8;box-shadow:0 30px 70px rgba(60,40,20,.22),0 0 0 3px #e8d5b7;z-index:2}
 .phone img{position:absolute;left:0;top:0;width:900px}
 .note{position:absolute;left:0;right:0;bottom:44px;text-align:center;font-size:26px;color:#6f685f;z-index:6}
 .note b{display:inline-block;border:2px solid #b9a98e;border-radius:8px;padding:2px 12px;margin-right:10px;font-weight:700;color:#6f685f}
@@ -60,8 +60,8 @@ body{background:radial-gradient(ellipse at 20% 0%,#fbf8f1 0%,#f5f1e8 55%,#efe7d6
 <div class="cards" id="cards"><img id="cImjin" src="shots2/03-card-imjin.png"><img id="cZai" src="shots2/03-card-zainichi.png"></div>
 <p class="more" id="more">임진왜란 · 재일조선인 외에도 4개의 사건이 더 있어요</p>
 <div class="phone" id="phone"><img id="imgA"><img id="imgB"></div>
-<div class="ocard" id="ocard"><img src="shots2/15-card.png"></div>
-<div class="cta" id="cta"><div class="qr" id="qr"></div><div><h2>지금<br><em>참여해 보세요!</em></h2><p>QR 찍고 약 5분<br>로그인 없이 · 익명으로</p></div></div>
+<div class="ocard" id="ocard"><img src="shots2/08-card.png"></div>
+<div class="cta" id="cta"><div class="qr" id="qr"></div><div><h2>지금<br><em>참여해 보세요!</em></h2><p>QR 찍고 3–5분<br>로그인 없이 · 익명 · 정답 없음</p></div></div>
 <p class="url" id="url">oseungye.github.io/shared-memory-Korea</p>
 <p class="note" id="note"><b>예시</b>실제 사이트 화면 · 입력 문장은 예시이며 실제 학생 응답이 아닙니다</p>
 <div class="tap" id="tap"></div><div class="dot" id="dot"></div>
@@ -74,30 +74,35 @@ const ease=x=>{x=clamp(x);return 1-Math.pow(1-x,3)};
 const fadeIn=(t,s,d=.35)=>ease((t-s)/d);
 // 전화 화면 속 캡처 (시작 시각, 파일, 세로 이동 px[선택])
 const SHOTS=[
- [7.0,'04-detail-top'],
- [8.0,'08-narr-1'],[9.0,'08-narr-2'],[10.0,'08-narr-3'],[11.0,'09-compare-sum'],
- [12.0,'10-discovery-empty'],[12.95,'11-discovery-1',false,'cut'],[13.95,'12-discovery-2',false,'cut'],
- [15.0,'13-type-0'],[15.5,'13-type-1',false,'cut'],[16.0,'13-type-2',false,'cut'],[16.5,'13-type-3',false,'cut'],
- [17.9,'14-card-page'],[18.6,'15-card',true]
+ [4.0,'01-home-picks'],[7.0,'02-step1-top'],
+ [8.0,'03-narr-1'],[8.85,'03-narr-2'],[9.7,'03-narr-3'],
+ [10.6,'04-q1-empty'],[11.45,'05-q1-picked',false,'cut'],
+ [12.3,'04-q2-empty',false,'cut'],[12.95,'05-q2-picked',false,'cut'],
+ [13.7,'04-q3-empty',false,'cut'],[14.2,'05-q3-picked',false,'cut'],
+ [15.0,'06-type-0'],[15.5,'06-type-1',false,'cut'],[16.0,'06-type-2',false,'cut'],[16.5,'06-type-3',false,'cut'],
+ [17.9,'07-card-page'],[18.6,'08-card',true]
 ];
 const CAPS=[
- [4.0,'STEP 1 · 역사 고르기','어떤 역사를<br><em>탐구해 볼까?</em>'],
- [7.0,'STEP 1 · 임진왜란','오늘의 질문부터<br><em>시작해요</em>'],
- [8.0,'STEP 2 · 세 나라 기록 비교','한국은<br><em>“왜의 침략”</em>'],
- [9.0,'STEP 2 · 세 나라 기록 비교','일본은<br><em>“대륙 진출과 출병”</em>'],
- [10.0,'STEP 2 · 세 나라 기록 비교','중국은<br><em>“의로운 전쟁”</em>'],
- [11.0,'STEP 2 · 세 나라 기록 비교','같은 전쟁,<br><em>세 개의 이름</em>'],
- [12.0,'STEP 3 · 발견한 관점 고르기','무엇이 달랐는지<br><em>골라 봐</em>'],
- [15.0,'STEP 3 · 나의 한 문장','이제<br><em>네 말로 써 봐</em>'],
- [17.9,'STEP 4 · My Memory Card','나만의<br><em>기억 카드 완성!</em>']
+ [4.0,'바로 시작','<em>카드 한 번</em>이면 시작'],
+ [7.0,'STEP 1 · 세 나라 비교','같은 전쟁, <em>세 개의 기록</em>'],
+ [8.0,'STEP 1 · 세 나라 비교','한국 · <em>왜의 침략</em>'],
+ [8.85,'STEP 1 · 세 나라 비교','일본 · <em>대륙 진출과 출병</em>'],
+ [9.7,'STEP 1 · 세 나라 비교','중국 · <em>의로운 전쟁</em>'],
+ [10.6,'STEP 2 · 관점 고르기','<em>정답 없는</em> 객관식'],
+ [12.3,'STEP 2 · 관점 고르기','<em>내가 중요하게</em> 보는 것'],
+ [15.0,'STEP 3 · 한 줄 소감','<em>내 말로</em> 한 줄'],
+ [17.9,'STEP 4 · My Memory Card','<em>나만의 카드</em> 완성!']
 ];
 // 탭 위치: 화면 css 좌표 → 캡처(×2.7) → 전화 틀(×930/1080) + 틀 위치
-const S=2.7*900/1080, PX=90, PY=468;
+const S=2.7*900/1080, PX=90, PY=330;
+const NEXT=[94+147,599+26];
 const TAPS=[
- {t:6.2, x:40+240, y:470+300, frame:false},
- {t:12.6, css:[40+79,212.6+20]},
- {t:13.6, css:[40+83,259.8+20]},
- {t:17.45, css:[92+148,539.2+26]}
+ {t:6.3, css:[16+184,150+58]},
+ {t:10.35, css:[12+188,599+26]},
+ {t:11.2, css:[16+184,209+37]},{t:12.05, css:NEXT},
+ {t:12.7, css:[16+184,359+28]},{t:13.45, css:NEXT},
+ {t:13.95, css:[16+184,240+28]},{t:14.7, css:NEXT},
+ {t:17.45, css:NEXT}
 ];
 function setImg(el,name){const src='shots2/'+name+'.png';if(el.dataset.n!==src){el.src=src;el.dataset.n=src;}}
 function render(t){
@@ -115,15 +120,15 @@ function render(t){
   $('cap').style.transform=cap?`translateY(${(1-fadeIn(t,cap[0],.22))*24}px)`:'';
   if(cap){$('kick').textContent=cap[1];$('big').innerHTML=cap[2];}
   // 2. 사건 카드 두 장
-  const cardsOn=t>=4&&t<7.3;
+  const cardsOn=false;
   $('cards').style.opacity=cardsOn?fadeIn(t,4.05,.3)*(t>7?1-ease((t-7)/.3):1):0;
   $('more').style.opacity=$('cards').style.opacity;
   const pick=ease((t-6.35)/.35);
   $('cImjin').style.transform=`scale(${1+pick*.04})`;$('cImjin').style.boxShadow=pick>0?`0 0 0 ${6*pick}px #8b3a3a,0 20px 50px rgba(60,40,20,.18)`:'';
   $('cZai').style.opacity=1-pick*.5;
   // 3·4. 전화 화면
-  const phoneOn=t>=7.0&&t<20;
-  $('phone').style.opacity=phoneOn?fadeIn(t,7.0,.3)*(t>19.7?1-ease((t-19.7)/.3):1):0;
+  const phoneOn=t>=4.0&&t<20;
+  $('phone').style.opacity=phoneOn?fadeIn(t,4.0,.3)*(t>19.7?1-ease((t-19.7)/.3):1):0;
   let cur=-1;SHOTS.forEach((s,i)=>{if(t>=s[0])cur=i});
   if(cur>=0){
     const s=SHOTS[cur],p=SHOTS[cur-1];
@@ -131,7 +136,7 @@ function render(t){
     if(p){setImg($('imgA'),p[1]);$('imgA').style.opacity=1;$('imgA').style.transform=p[2]?'translateY(0)':''}else $('imgA').style.opacity=0;
     $('imgB').style.opacity=s[3]==='cut'?1:fadeIn(t,s[0],.18);
     if(s[2]){ // 카드: 위에서 아래로 천천히
-      const k=ease((t-s[0]-.3)/1.0);$('imgB').style.transform=`translateY(${-k*900}px)`;
+      const img=$('imgB'),maxPan=Math.max(0,img.naturalHeight*900/img.naturalWidth-1485);const k=ease((t-s[0]-.3)/1.0);img.style.transform=`translateY(${-k*Math.min(maxPan,1100)}px)`;
     } else $('imgB').style.transform='';
   }
   // 5. 마무리
