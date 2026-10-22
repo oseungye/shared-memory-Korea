@@ -41,10 +41,12 @@ run('shared-device', async ({ browser, base, check, mockPage }) => {
   check('제출 후 탐구 전 문장이 이 기기에서 지워짐', await page.evaluate(() => localStorage.getItem('sm_before_imjin') === null));
   check('제출 후 탐구 전 카드에 A의 문장이 보이지 않음', !(await page.$eval('#beforeCard', el => el.innerText)).includes(A.before));
 
-  // 다음 학생이 같은 창에서 "일반 참여 버튼"을 누름 → 이어받지 않고 먼저 물어봄
+  // 다음 학생이 같은 창에서 상단 "지금 참여하기" → 첫 화면 사건 카드 → 이어받지 않고 먼저 물어봄
   await page.click('.nav__menu a[data-view="participate"]');
-  check('제출 후 같은 창에서 일반 참여 버튼 → 선택 창이 먼저 뜸', await gateVisible(page));
-  check('선택 창이 떠 있는 동안 사건 목록·연령대가 진행되지 않음', !(await page.isVisible('.page--events.active')));
+  await page.waitForSelector('.page--home.active');
+  await page.click('[data-quick-event="imjin"]');
+  check('제출 후 같은 창에서 사건 카드 → 선택 창이 먼저 뜸', await gateVisible(page));
+  check('선택 창이 떠 있는 동안 사건 화면·연령대가 진행되지 않음', !(await page.isVisible('.page--detail.active')) && !(await page.isVisible('.page--events.active')));
   await page.keyboard.press('Escape');
   check('Esc로 닫으면 아무것도 지우지 않음', !(await gateVisible(page)) && (await smKeys(page)).includes('sm_age_group'));
 
@@ -171,11 +173,15 @@ run('shared-device', async ({ browser, base, check, mockPage }) => {
   db = await page.evaluate(() => window.__mockDb.read());
   check('저장소가 막혀도 참여·제출 가능 (탐구 전 문장 포함)', db.shared_expressions.length === 1 && db.shared_expressions[0].before_content === 'E의 문장');
   await page.click('.nav__menu a[data-view="participate"]');
+  await page.waitForSelector('.page--home.active');
+  await page.click('[data-quick-event="imjin"]');
   check('저장소가 막혀도 제출 후 다음 참여 시작 때 선택 창', await gateVisible(page));
   const box = await page.$eval('.participant-gate__card', el => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, w: window.innerWidth }; });
   check('모바일 폭에서 선택 창이 화면 안에 들어옴', box.l >= 0 && box.r <= box.w, JSON.stringify(box));
   await page.click('[data-gate-choice="new"]');
-  check('저장소가 막혀도 새 참여자로 시작 가능', await page.isVisible('#agePicker'));
+  await page.waitForSelector('.page--detail.active');
+  check('저장소가 막혀도 새 참여자로 시작 가능 (누르던 사건을 기본 체험으로 바로 엶 · 연령대 묻지 않음)',
+    (await page.$eval('.page--detail', el => `${el.dataset.mode}:${el.dataset.step}`)) === 'quick:1' && !(await page.isVisible('#agePicker')));
   check('저장소가 막힌 환경에서 페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   check('모바일 폭에서 가로 넘침 없음', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await noStorage.close();

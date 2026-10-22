@@ -3667,7 +3667,7 @@ body { word-break: keep-all; overflow-wrap: break-word; }
 .reflect-recap__label { font-size: var(--fs-xs); color: var(--accent); font-weight: 600; margin-bottom: 0.3rem; }
 .reflect-recap__list { list-style: none; display: grid; gap: 0.35rem; font-size: var(--fs-md); }
 .reflect-recap__list small { display: block; font-size: var(--fs-2xs); color: var(--ink-mute); }
-.reflect-skip { display: inline-block; margin: 0.4rem 0 1rem; min-height: 44px; }
+.reflect-step .consent-check--soft { margin-top: 0.8rem; }
 .consent-check--soft { background: var(--bg-card); border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.75rem 0.9rem; }
 .consent-check--soft input:disabled + span { opacity: 0.55; }
 
@@ -3695,3 +3695,257 @@ body { word-break: keep-all; overflow-wrap: break-word; }
   .choice-others__list li { grid-template-columns: 1fr 2.6rem; }
   .choice-others__list li .nlp-bar { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* ---------- 21-7. 기본 체험 동선 줄이기 (중복 버튼·긴 스크롤 정리) ----------
+   · STEP 1: 세 서술의 제목·본문만 먼저 (키워드·해설·근거 자료·NLP 카드·연표는 심화 탐구에 그대로)
+   · 단계 표시는 위쪽 한 곳만 (아래 버튼의 'STEP n/4' 글자는 숨김)
+   · 카드 화면: 카드 → 저장 버튼 → 디자인 고르기 순서 */
+.quick-scope { font-size: var(--fs-xs); color: var(--ink-mute); margin: -0.2rem 0 0.7rem; }
+.page--detail[data-mode="quick"] [data-tab-content="compare"] .step-head,
+.page--detail[data-mode="quick"] [data-tab-content="compare"] .scope-note,
+.page--detail[data-mode="quick"] #hlLegend,
+.page--detail[data-mode="quick"] .narrative-card__country-en,
+.page--detail[data-mode="quick"] .narrative-card__more,
+.page--detail[data-mode="quick"] .narrative-card__basis,
+.page--detail[data-mode="quick"] .compare-sum__head,
+.page--detail[data-mode="quick"] .compare-sum .sum-card:not(.sum-card--names),
+.page--detail[data-mode="quick"] #timelineBox,
+.page--detail[data-mode="quick"] .stepper__count,
+.page--detail[data-mode="quick"] .step-cta__step { display: none !important; }
+/* 형광펜 범례를 숨기므로 형광펜도 끕니다 (심화 탐구에서는 그대로) */
+.page--detail[data-mode="quick"] #narrativesGrid mark.hl { background: none; color: inherit; font-weight: inherit; padding: 0; }
+.page--detail[data-mode="quick"] .narrative-card { padding-top: 1rem; padding-bottom: 1rem; }
+.page--detail[data-mode="quick"] .narrative-card__text { line-height: 1.8; }
+.page--detail[data-mode="quick"] .stepper .flow-progress__list { margin-bottom: 0.2rem; }
+/* 아직 고르지 않은 질문의 아래 버튼은 '건너뛰기' — 눈에 덜 띄게 */
+.step-cta__main--quiet { background: var(--bg-card); color: var(--ink-soft); border: 1.5px solid var(--line); box-shadow: none; }
+@media (hover: hover) { .step-cta__main--quiet:hover { color: var(--accent); border-color: var(--accent); background: var(--bg-card); } }   /* 터치 뒤 남는 hover 방지 */
+
+.page--card[data-mode="quick"] #cardProgress,
+.page--card[data-mode="quick"] .page__desc,
+.page--card[data-mode="quick"] .card-builder__title,
+.page--card[data-mode="quick"] .card-builder__step { display: none; }
+.page--card[data-mode="quick"] .card-design { order: 1; }
+.page--card[data-mode="quick"] .card-actions__note,
+.page--card[data-mode="quick"] .choice-others { order: 2; }
+@media (max-width: 640px) {
+  .page--detail[data-mode="quick"] .narrative-card { padding: 0.9rem 0.95rem; }
+  .page--card[data-mode="quick"] .card-actions:not(.card-actions--more) {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: 0 -1rem; padding: 0.55rem 1rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(250, 247, 239, 0.94);
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* ---------- 21-8. 첫 화면: 들어오자마자 기본 체험 ----------
+   제목 바로 아래 "어떤 역사부터 볼까요?"와 사건 카드 두 장. '시작'은 채운 버튼 모양으로, 임진왜란에 '처음이라면 여기부터'.
+   휴대폰에서는 세 이름 칩을 숨겨 카드 두 장이 스크롤 없이 보이게 합니다(같은 내용이 임진왜란 카드 질문에 있음). */
+.quick-picks__label { font-size: var(--fs-md); color: var(--ink-soft); margin: 0.2rem 0 0.7rem; }
+.quick-picks__label strong { color: var(--ink); font-size: var(--fs-base); margin-right: 0.3rem; }
+.quick-picks { margin-top: 0; }
+.quick-pick { position: relative; }
+.quick-pick__go {
+  border-bottom: 0;
+  background: var(--accent); color: #fff;
+  padding: 0.3rem 0.9rem; border-radius: 999px;
+  margin-top: 0.25rem;
+}
+.quick-pick:hover .quick-pick__go, .quick-pick:focus-visible .quick-pick__go { background: var(--ink); }
+.quick-pick--zainichi .quick-pick__go { background: var(--bg-card); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.quick-pick__badge {
+  position: absolute; top: -0.7rem; right: 0.8rem;
+  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: 0.02em;
+  background: var(--ink); color: #fff;
+  padding: 0.15rem 0.55rem; border-radius: 999px;
+}
+.quick-picks--flash .quick-pick { animation: quickFlash 1.2s ease 1; }
+@keyframes quickFlash { 0%, 100% { box-shadow: 4px 4px 0 var(--accent-soft); } 40% { box-shadow: 0 0 0 4px var(--accent); } }
+@media (prefers-reduced-motion: reduce) { .quick-picks--flash .quick-pick { animation: none; } }
+@media (max-width: 640px) {
+  .hero--v2 .hero-names { display: none; }
+  .quick-picks { gap: 0.9rem; }
+}
+
+/* ---------- 21-9. 기본 체험 디자인 다듬기 (2026-10) ----------
+   굵은 검은 테두리·어긋난 그림자·형광펜·점선 상자를 걷어내고, 한지 위의 얇은 선·부드러운 그림자·명조 제목으로 통일합니다.
+   붉은 먹색(--accent)은 '지금 누를 것'에만 씁니다. */
+.quick-pick {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-items: start;
+  gap: 0 1rem;
+  min-height: 104px;
+  padding: 1.1rem 1.1rem 1.1rem 1.15rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04), 0 6px 18px -10px rgba(60, 40, 20, 0.18);
+}
+.quick-pick:hover, .quick-pick:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(139, 58, 58, 0.45);
+  box-shadow: 0 2px 4px rgba(26, 26, 26, 0.05), 0 14px 28px -14px rgba(60, 40, 20, 0.3);
+}
+.quick-pick__seal {
+  grid-row: auto;
+  width: 2.9rem; height: 2.9rem;
+  font-size: 1.5rem; font-weight: 700;
+  border-radius: 8px; transform: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+.quick-pick__era { font-size: var(--fs-xs); letter-spacing: 0.04em; color: var(--ink-mute); }
+.quick-pick__title { font-size: 1.35rem; font-weight: 700; margin: 0.05rem 0 0.1rem; }
+.quick-pick__q { color: var(--ink-soft); }
+.quick-pick__go {
+  grid-column: 2; align-self: start; justify-self: start;
+  margin: 0.55rem 0 0;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.45rem 0.95rem;
+  font-size: var(--fs-sm); font-weight: 600;
+  background: var(--accent); color: #fff;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+.quick-pick--zainichi .quick-pick__go { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px rgba(139, 58, 58, 0.5); }
+.quick-pick:hover .quick-pick__go, .quick-pick:focus-visible .quick-pick__go { background: #6f2c2c; color: #fff; box-shadow: none; }
+.quick-pick__badge {
+  top: -0.6rem; left: 1rem; right: auto;
+  background: var(--bg-soft); color: var(--accent);
+  border: 1px solid rgba(139, 58, 58, 0.35);
+  font-weight: 600; letter-spacing: 0;
+  padding: 0.1rem 0.6rem;
+}
+.quick-picks__label { margin-bottom: 0.9rem; }
+.quick-picks { gap: 1rem; }
+.hero__cta--secondary .btn--ghost {
+  border: 0; background: none; padding: 0.4rem 0; min-height: 44px;
+  color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px;
+}
+.hero__cta--secondary .btn--ghost:hover { color: var(--accent); text-decoration-color: currentColor; transform: none; box-shadow: none; }
+/* 세 이름: 둥근 태그 대신 얇은 선으로 나눈 한 줄 (버튼처럼 보이지 않게) */
+.hero--v2 .hero-names { gap: 0; margin-bottom: 1.4rem; }
+.hero--v2 .hero-names__item {
+  background: none; border: 0; border-radius: 0;
+  padding: 0.1rem 0.9rem;
+  border-left: 1px solid var(--line);
+}
+.hero--v2 .hero-names__item:first-child { padding-left: 0; border-left: 0; }
+.hero--v2 .hero-names__item--ai { border: 0; border-left: 1px solid var(--line); color: var(--accent); }
+
+/* 기본 체험 화면: 형광펜 대신 붉은 먹색 글자, 단계 머리말은 'STEP' 없이 */
+.page--detail[data-mode="quick"] .hl-ink,
+.page--card[data-mode="quick"] .hl-ink { background: none; padding: 0; color: var(--accent); }
+.choice-step .step-head__q, .reflect-step .step-head__q { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+
+/* 관점 고르기 선택지: 얇은 선 · 둥근 모서리 · 고르면 붉은 먹색 */
+.choice-options { gap: 0.7rem; }
+.choice-option {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.95rem 1.1rem;
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.03);
+  font-weight: 500;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+@media (hover: hover) { .choice-option:hover { border-color: rgba(139, 58, 58, 0.45); background: #fffdf9; } }
+.choice-option__mark { border: 1.5px solid #b9b1a3; }
+.choice-option.is-selected {
+  border-color: var(--accent);
+  background: #fbf5ef;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.choice-step__dots i { width: 1.8rem; height: 3px; }
+
+/* 한 줄 소감 */
+.reflect-recap { border: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
+.reflect-step #reflectInput { border-radius: 12px; border: 1px solid var(--line); background: var(--bg-card); }
+.reflect-step #reflectInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139, 58, 58, 0.12); outline: none; }
+.consent-check--soft { border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
+
+/* 화면 아래 버튼 줄 */
+.page--detail[data-mode="quick"] .step-cta__main:not(.step-cta__main--quiet) { background: var(--accent); }
+.page--detail[data-mode="quick"] .step-cta__main:not(.step-cta__main--quiet):hover { background: #6f2c2c; }
+.step-cta__main--quiet { border: 1px solid var(--line); color: var(--ink-soft); font-weight: 600; }
+.page--detail[data-mode="quick"] .step-cta__back { border-color: var(--line); }
+
+/* 비교 화면 서술 카드: 나라 색 띠는 얇게 */
+.page--detail[data-mode="quick"] .narrative-card { border-radius: 14px; border: 1px solid var(--line); border-top: 3px solid var(--line); box-shadow: none; }
+.page--detail[data-mode="quick"] .narrative-card--korea { border-top-color: var(--korea); }
+.page--detail[data-mode="quick"] .narrative-card--japan { border-top-color: var(--japan); }
+.page--detail[data-mode="quick"] .narrative-card--china { border-top-color: var(--china); }
+.page--detail[data-mode="quick"] .narrative-card__title { font-family: var(--font-display); }
+
+@media (min-width: 961px) {
+  .hero--v2 { padding-top: 2rem; }
+}
+@media (max-width: 640px) {
+  .quick-pick { padding: 1rem 0.9rem 1rem 0.95rem; gap: 0 0.8rem; min-height: 96px; }
+  .quick-pick__go { grid-column: 3; align-self: center; justify-self: end; margin: 0; }
+  .quick-pick__seal { width: 2.6rem; height: 2.6rem; font-size: 1.35rem; }
+  .quick-pick__title { font-size: 1.25rem; }
+  .quick-pick__go { padding: 0.4rem 0.75rem; }
+}
+@media (max-width: 640px) { .quick-pick { align-items: center; } }
+/* 터치 뒤 남는 :hover에도 '건너뛰기'가 빨간 버튼으로 바뀌지 않게 (.btn--primary:hover 덮어쓰기) */
+.step-cta__main--quiet:hover { background: var(--bg-card); color: var(--ink-soft); box-shadow: none; }
+@media (hover: hover) { .step-cta__main--quiet:hover { color: var(--accent); border-color: var(--accent); } }
+/* 카드 화면으로 넘어올 때 카드에 초점을 옮기지만(화면 읽기 프로그램용), 붉은 테두리는 키보드 사용 때만 */
+#memoryCard:focus:not(:focus-visible) { outline: none; }
+.page--detail[data-mode="quick"] .stepper__bar { display: none; }   /* 진행은 4단계 칩 한 줄로 */
+
+/* ============================================================
+   22. 서체 — 고급스러운 동양풍 박물관 아카이브 (2026-10)
+   · 영문 라벨·연도·숫자: 비문(碑文)에서 온 대문자 세리프 Cinzel, 넓은 자간
+   · 큰 제목: 굵은 마루부리 대신 Noto Serif KR 400–500 (가늘고 단정한 명조)
+   · 읽는 글(서술·질문·선택지·소감): 명조 400, 버튼·메뉴·안내 같은 조작 글씨만 Pretendard
+   · 마루부리는 대체 서체로 남겨 둡니다(서체를 못 불러오면 같은 명조 계열로)
+   ============================================================ */
+:root {
+  --font-display: 'Noto Serif KR', 'MaruBuri', 'Nanum Myeongjo', serif;
+  --font-latin: 'Cinzel', 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+}
+h1, h2, .hero__title, .hero--v2 .hero__title, .page__title, .detail__title, .archive__title, .compare-sum__title {
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+h3, h4 { font-weight: 600; }
+.hero--v2 .hero__title .hero__title-line { font-weight: 400; }
+.hero--v2 .hero__title .hl-ink { font-weight: 500; }
+.hero__title-sub { font-family: var(--font-serif); font-weight: 300; letter-spacing: 0; color: var(--ink-soft); }
+.hero__eyebrow { font-weight: 400; letter-spacing: 0.6em; font-size: var(--fs-md); }
+
+/* 로고: 'SHARED MEMORY' 비문 대문자 */
+.nav__logo-text strong { font-weight: 500; letter-spacing: 0.12em; font-size: 1.02rem; }
+
+/* 연도·영문 라벨: 넓은 자간 */
+.quick-pick__era, .memory-card__era, .qr-card__era, .hero-card__event small, .event-card__era, .detail__era {
+  font-family: var(--font-latin); letter-spacing: 0.14em; font-weight: 400;
+}
+
+/* 제목류: 가는 명조 */
+.quick-pick__title, .narrative-card__title, .event-card__title, .sum-card__title,
+.choice-step .step-head__q, .reflect-step .step-head__q, .step-head__q, .stepper__title,
+.source-card__title, .cluster-card__title, .choice-others__title, .card-builder__title, .finish-box__title, .age-picker__title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.quick-pick__title { font-weight: 600; }
+.choice-step .step-head__q, .reflect-step .step-head__q { font-weight: 500; line-height: 1.45; }
+
+/* 읽는 글: 명조 */
+.narrative-card__text, .quick-pick__q, .detail__question, .choice-option__label, .reflect-recap__list,
+.hero-card__quote, .shared-item__text {
+  font-family: var(--font-serif);
+}
+.narrative-card__text { font-weight: 400; color: #3a3a3a; }
+.quick-pick__q { font-weight: 400; }
+.choice-option { font-weight: 400; }
+.choice-option__label { font-size: var(--fs-base); line-height: 1.6; }
+.choice-option.is-selected .choice-option__label { font-weight: 600; }
+.detail__question { font-weight: 500; }
+
+/* 단계 머리말·작은 라벨: 넓은 자간의 작은 글씨 */
+.step-head__kicker { letter-spacing: 0.08em; }
+.step-head__kicker { font-weight: 500; }

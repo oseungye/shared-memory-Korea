@@ -27,7 +27,7 @@ run('regression-smoke', async ({ browser, base, check, mockPage, presetContinue 
   await page.evaluate(() => localStorage.setItem('sm_age_group', '10s'));
 
   // 사건 6개
-  await page.click('.nav__menu a[data-view="participate"]');
+  await page.click('#startButton');                     // 다른 사건 · 전체 탐구 (연령대 기록이 있어 바로 사건 목록)
   const ids = await page.$$eval('.event-card', els => els.map(e => e.dataset.eventId));
   check('사건 6개 표시 (임진왜란 → 재일조선인 순)', ids.length === 6 && ids[0] === 'imjin' && ids[1] === 'zainichi', ids.join(','));
   const bad = [];

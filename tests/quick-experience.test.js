@@ -267,7 +267,7 @@ test('index.html: 첫 화면에 두 사건 큰 카드, 객관식·소감 단계,
   assert.match(html, /data-quick-event="zainichi"/);
   assert.match(html, /id="choiceStep"/);
   assert.match(html, /id="reflectStep"/);
-  assert.match(html, /data-reflect-skip/);
+  assert.doesNotMatch(html, /data-reflect-skip/);                      // 소감 건너뛰기는 카드 버튼 하나로 (중복 버튼 없음)
   assert.match(html, /id="choiceShareConsent"/);
   assert.doesNotMatch(html, /id="choiceShareConsent"[^>]*checked/);      // 기본은 보내지 않음
   const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);

@@ -51,11 +51,11 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="preconnect" href="https://hangeul.pstatic.net" crossorigin />
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" media="print" onload="this.media='all'" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700;900&family=Gowun+Batang:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700;900&family=Cinzel:wght@400;500;600&family=Gowun+Batang:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 
   <noscript>
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700;900&family=Gowun+Batang:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700;900&family=Cinzel:wght@400;500;600&family=Gowun+Batang:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
   </noscript>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -124,14 +124,11 @@
             <li class="hero-names__item hero-names__item--china"><small>중국</small><span lang="zh-Hans">万历朝鲜战争</span></li>
             <li class="hero-names__item hero-names__item--ai"><small>AI</small><span>?</span></li>
           </ul>
-          <p class="hero__subtitle">
-            <strong>사건 하나를 누르면 바로 시작해요.</strong> 세 나라의 기록을 읽고, 내가 중요하다고 생각하는 관점을 고르면
-            <strong>My Memory Card</strong>를 받아 갑니다.
-          </p>
-
           <!-- 기본 체험: 큰 사건 카드를 누르면 연령대·긴 설명 없이 바로 STEP 1(세 나라 비교)이 열립니다 -->
-          <div class="quick-picks" role="group" aria-label="바로 시작할 역사 고르기">
+          <p class="quick-picks__label" id="quickPicksLabel"><strong>어떤 역사부터 볼까요?</strong> 하나를 누르면 바로 시작해요</p>
+          <div class="quick-picks" id="quickPicks" role="group" aria-labelledby="quickPicksLabel">
             <button type="button" class="quick-pick quick-pick--imjin" data-quick-event="imjin">
+              <span class="quick-pick__badge">처음이라면 여기부터</span>
               <span class="quick-pick__seal" aria-hidden="true">壬</span>
               <span class="quick-pick__body">
                 <span class="quick-pick__era">1592 – 1598</span>
@@ -307,7 +304,7 @@
       <!-- 탭 1: 국가별 서술 비교 -->
       <div class="tab-content active" data-tab-content="compare">
         <div class="step-head">
-          <p class="step-head__kicker" id="compareKicker">STEP 2 · 세 나라 기록 비교</p>
+          <p class="step-head__kicker">STEP 2 · 세 나라 기록 비교</p>
           <h3 class="step-head__q">세 나라는 같은 사건을 <span class="hl-ink">어떻게 다르게</span> 기록했을까요?</h3>
           <p class="step-head__desc">세 기록을 차례로 읽고, 아래의 공통점·차이점 카드에서 무엇이 같고 다른지 확인해 보세요.</p>
         </div>
@@ -315,6 +312,7 @@
           <strong>읽기 전에</strong> 아래 세 서술은 각 나라의 교과서 원문이 아니라, Shared Memory가 비교를 위해 선정·요약한 서술입니다.
           각 국가의 모든 교과서나 역사 인식을 대표하지 않습니다. 카드 아래 “이 서술은 어떻게 작성했나요?”에서 함께 볼 자료를 확인할 수 있어요.
         </p>
+        <p class="quick-only quick-scope">각 나라 교과서 원문이 아니라, 비교를 위해 요약한 서술이에요. (근거 자료는 심화 탐구에서)</p>
         <!-- 형광펜 범례: 강조는 NLP로 실제 계산된 표현에만 적용합니다 (script.js narrativeTextHtml) -->
         <p class="hl-legend" id="hlLegend" hidden></p>
         <div class="narratives" id="narrativesGrid">
@@ -589,7 +587,7 @@
       <!-- 기본 체험 STEP 3: 한 줄 소감 (건너뛰기 가능) — script.js renderReflectStep -->
       <section class="reflect-step" id="reflectStep" aria-labelledby="reflectPrompt">
         <div class="step-head">
-          <p class="step-head__kicker">STEP 3 · 한 줄 소감 <small>(선택)</small></p>
+          <p class="step-head__kicker">한 줄 소감 <small>(선택)</small></p>
           <h3 class="step-head__q" id="reflectPrompt">탐구를 마친 지금, 이 역사에 대해 <span class="hl-ink">느낀 점</span>을 한 문장으로 남겨 볼까요?</h3>
           <p class="step-head__desc">짧아도 괜찮아요. 쓰지 않고 넘어가도 카드는 만들어져요.</p>
         </div>
@@ -597,7 +595,6 @@
         <label class="sr-only" for="reflectInput">나의 한 줄 소감</label>
         <textarea id="reflectInput" class="shared-form__textarea shared-form__textarea--main" rows="3" maxlength="300" placeholder="예: 이름 하나에도 각 나라가 이 전쟁을 보는 눈이 담겨 있다는 게 새로웠다."></textarea>
         <p class="guide-step__hint"><span id="reflectCount">0</span>/300자 · 이 문장은 카드에만 담기고, 어디에도 공개되지 않아요.</p>
-        <button type="button" class="before-card__link before-card__link--quiet reflect-skip" data-reflect-skip>소감 쓰지 않고 카드 만들기</button>
 
         <label class="consent-check consent-check--soft">
           <input type="checkbox" id="choiceShareConsent" />
@@ -628,7 +625,7 @@
               <!-- 기본 체험 (임진왜란·재일조선인) -->
               <button type="button" class="btn btn--primary step-cta__main" data-step-main="q1" data-quick-next hidden><span>관점 고르러 가기</span><span aria-hidden="true">→</span></button>
               <button type="button" class="btn btn--primary step-cta__main" data-step-main="q2" data-quick-next hidden><span class="step-cta__label" id="choiceNextLabel">다음 질문</span><span aria-hidden="true">→</span></button>
-              <button type="button" class="btn btn--primary step-cta__main" data-step-main="q3" id="quickCardButton" hidden><span>My Memory Card 만들기</span><span aria-hidden="true">→</span></button>
+              <button type="button" class="btn btn--primary step-cta__main" data-step-main="q3" id="quickCardButton" hidden><span id="quickCardLabel">My Memory Card 만들기</span><span aria-hidden="true">→</span></button>
             </div>
           </div>
         </div>
@@ -711,7 +708,7 @@
     <section class="page page--card" data-page-name="card">
       <button class="back-btn no-print" type="button" data-card-action="back">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M16 10H4m0 0l4-4m-4 4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>STEP 3 · 내 표현 고치기</span>
+        <span id="cardBackLabel">STEP 3 · 내 표현 고치기</span>
       </button>
 
       <!-- STEP 4/4 진행 표시 (script.js renderFlowProgress가 함께 그립니다) -->

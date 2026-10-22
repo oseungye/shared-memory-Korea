@@ -147,7 +147,7 @@ function openEventDetail(eventId, opts) {
   const event = eventsData.find(e => e.id === eventId);
   if (!event) return;
   // 이전 참여 기록이 있는데 이 창에서 아직 "누가 참여하는지" 고르지 않았다면 먼저 묻습니다.
-  if (!ensureParticipantChoice(() => openEventDetail(eventId, opts), 'event')) return;
+  if (!ensureParticipantChoice(() => openEventDetail(eventId, opts), opts && opts.quick ? 'quick' : 'event')) return;
 
   currentEventId = eventId;
   // 서술 NLP 결과는 형광펜·공통점/차이점 카드·작성 가이드·사료 연결·공동 기억 지도에서 쓰므로 먼저 한 번 계산합니다.
@@ -605,7 +605,7 @@ const QUICK_STEPS = [
   { n: 1, id: 'qcompare', short: '세 나라 비교', title: '세 나라 기록 비교',
     todo: '세 나라의 기록을 차례로 읽어 보세요. 다 읽었다면 아래 버튼을 눌러요.' },
   { n: 2, id: 'qchoices', short: '관점 고르기', title: '내가 중요하게 보는 관점 고르기',
-    todo: '정답은 없어요. 질문마다 내가 가장 중요하다고 생각하는 것 하나를 골라요.' },
+    todo: '정답은 없어요. 질문마다 내가 가장 중요하다고 생각하는 것 하나를 누르면 다음 질문으로 넘어가요.' },
   { n: 3, id: 'qreflect', short: '한 줄 소감', title: '한 줄 소감',
     todo: '느낀 점을 한 문장으로 남겨요. 쓰지 않고 넘어가도 괜찮아요.' },
   { n: 4, id: 'card', short: 'Memory Card', title: 'My Memory Card',
@@ -621,7 +621,9 @@ function setExploreMode(mode) {
 }
 
 /* 기본 체험 상태 — 이 창의 메모리에만 둡니다(공용 기기 보호: 새로고침·새 참여자로 시작하면 사라짐) */
-const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false };
+const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, advanceTimer: 0 };
+const QUICK_ADVANCE_MS = 280;          // 선택지를 누른 뒤 고른 표시(✓)를 보여 주고 다음 질문으로 넘어가기까지
+const QUICK_TAP_GUARD_MS = 350;        // 새 질문이 뜬 직후의 터치는 무시 (서둘러 두 번 누른 손가락이 다음 질문을 고르지 않게)
 
 function resetChoiceState(eventId) {
   choiceState.eventId = eventId || null;
@@ -632,6 +634,7 @@ function resetChoiceState(eventId) {
   choiceState.reflectionSkipped = false;
   choiceState.maxStep = 1;
   choiceState.sent = false;
+  clearTimeout(choiceState.advanceTimer);
   const input = document.getElementById('reflectInput');
   if (input) input.value = '';
   const consent = document.getElementById('choiceShareConsent');
@@ -760,8 +763,6 @@ function renderStepCta() {
 function applyExploreStep() {
   const page = document.querySelector('.page--detail');
   if (page) { page.dataset.step = String(exploreStep); page.dataset.mode = exploreMode; }
-  const kicker = document.getElementById('compareKicker');
-  if (kicker) kicker.textContent = exploreMode === 'quick' ? 'STEP 1 · 세 나라 기록 비교' : 'STEP 2 · 세 나라 기록 비교';
   if (exploreMode === 'quick') {
     choiceState.maxStep = Math.max(choiceState.maxStep, exploreStep);
     if (exploreStep === 2) renderChoiceStep();
@@ -3404,11 +3405,15 @@ function renderQuickCta(bar) {
   const q = qs[choiceState.index];
   const label = document.getElementById('choiceNextLabel');
   if (label && q) {
+    // 선택지를 누르면 바로 다음으로 넘어가므로, 이 버튼은 주로 '건너뛰기'입니다(이전으로 돌아온 질문에서는 '다음').
     const last = choiceState.index >= qs.length - 1;
-    label.textContent = !choiceState.answers[q.id] || choiceState.answers[q.id] === Choices.SKIP
-      ? (last ? '고르지 않고 소감 쓰기' : '고르지 않고 다음 질문')
+    const unanswered = !choiceState.answers[q.id] || choiceState.answers[q.id] === Choices.SKIP;
+    label.textContent = unanswered
+      ? (last ? '이 질문 건너뛰고 소감 쓰기' : '이 질문 건너뛰기')
       : (last ? '한 줄 소감 쓰러 가기' : '다음 질문');
+    label.closest('[data-step-main]').classList.toggle('step-cta__main--quiet', unanswered);
   }
+  updateQuickCardLabel();
   const back = bar.querySelector('[data-step-back]');
   if (back) back.hidden = exploreStep === 1;
   const stepLabel = document.getElementById('stepCtaStep');
@@ -3424,6 +3429,7 @@ function renderQuickCta(bar) {
 
 /** 기본 체험의 '다음' — 고르지 않았으면 그 질문은 건너뛴 것으로 남깁니다(막지 않음). */
 function quickAdvance() {
+  clearTimeout(choiceState.advanceTimer);
   if (exploreStep === 1) { gotoQuickStep(2); return; }
   if (exploreStep === 2) {
     const qs = quickQuestions();
@@ -3431,6 +3437,7 @@ function quickAdvance() {
     if (q && !choiceState.answers[q.id]) choiceState.answers[q.id] = Choices.SKIP;
     if (choiceState.index < qs.length - 1) {
       choiceState.index += 1;
+      choiceState.shownAt = Date.now();
       renderChoiceStep();
       renderFlowProgress();
       scrollToQuickPanel();
@@ -3442,6 +3449,7 @@ function quickAdvance() {
 }
 
 function quickBack() {
+  clearTimeout(choiceState.advanceTimer);
   if (exploreStep === 2 && choiceState.index > 0) {
     choiceState.index -= 1;
     renderChoiceStep();
@@ -3469,10 +3477,10 @@ function renderChoiceStep() {
   const dots = qs.map((x, i) => `<i class="${i === choiceState.index ? 'is-current' : ''}${choiceState.answers[x.id] && choiceState.answers[x.id] !== Choices.SKIP ? ' is-done' : ''}"></i>`).join('');
   box.innerHTML = `
     <div class="step-head">
-      <p class="step-head__kicker">STEP 2 · 관점 고르기 <span class="choice-step__count">질문 ${choiceState.index + 1}/${qs.length}</span></p>
+      <p class="step-head__kicker">관점 고르기 <span class="choice-step__count">질문 ${choiceState.index + 1}/${qs.length}</span></p>
       <div class="choice-step__dots" aria-hidden="true">${dots}</div>
       <h3 class="step-head__q" id="choicePrompt">${escapeHtml(q.prompt)}</h3>
-      <p class="step-head__desc">정답은 없어요. 내가 가장 중요하다고 생각하는 것 <strong>하나</strong>를 골라 주세요.</p>
+      <p class="step-head__desc">정답은 없어요. 내가 가장 중요하다고 생각하는 것 <strong>하나</strong>를 누르면 바로 다음 질문으로 넘어가요.</p>
     </div>
     <div class="choice-options" role="radiogroup" aria-labelledby="choicePrompt">
       ${options.map(o => {
@@ -3485,7 +3493,12 @@ function renderChoiceStep() {
   renderStepCta();
 }
 
-function pickChoice(optionId) {
+/**
+ * @param {string} optionId
+ * @param {boolean} [advance]  누르기(탭·클릭)로 골랐다면 고른 표시를 잠깐 보여 준 뒤 다음 질문으로 넘어갑니다.
+ *   화살표 키로 옮겨 다닐 때는 넘어가지 않습니다(키보드 사용자가 선택지를 둘러볼 수 있게).
+ */
+function pickChoice(optionId, advance) {
   const q = quickQuestions()[choiceState.index];
   if (!q || !Choices.isValidAnswer(currentEventId, q.id, optionId)) return;
   choiceState.answers[q.id] = optionId;
@@ -3493,6 +3506,12 @@ function pickChoice(optionId) {
   renderChoiceStep();
   renderFlowProgress();
   document.querySelector(`#choiceStep [data-choice-option="${CSS.escape ? CSS.escape(optionId) : optionId}"]`)?.focus({ preventScroll: true });
+  clearTimeout(choiceState.advanceTimer);
+  if (!advance) return;
+  const at = choiceState.index;
+  choiceState.advanceTimer = setTimeout(() => {
+    if (exploreMode === 'quick' && exploreStep === 2 && choiceState.index === at) quickAdvance();
+  }, QUICK_ADVANCE_MS);
 }
 
 /** 선택지 사이 화살표 키 이동 (라디오 묶음) */
@@ -3527,6 +3546,14 @@ function renderReflectStep() {
   if (count && input) count.textContent = String(input.value.length);
   const consent = document.getElementById('choiceShareConsent');
   if (consent) consent.disabled = !chosenSummary().some(r => !r.skipped);
+}
+
+/** 소감 칸이 비어 있으면 아래 버튼이 '소감 없이 카드 만들기'가 됩니다 (따로 '건너뛰기' 버튼을 두지 않음). */
+function updateQuickCardLabel() {
+  const label = document.getElementById('quickCardLabel');
+  if (!label) return;
+  const typed = (document.getElementById('reflectInput')?.value || '').trim();
+  label.textContent = typed ? 'My Memory Card 만들기' : '소감 없이 카드 만들기';
 }
 
 function makeQuickCard(skipReflection) {
@@ -3720,6 +3747,12 @@ function makeMemoryCard() {
 }
 
 function openCardPage() {
+  // 기본 체험 카드: 카드 → 저장 → 디자인 순서로, 진행 표시·'카드 다듬기'(심화 탐구용 항목)는 숨깁니다 (style.css 21-7)
+  const quick = cardState.mode === 'quick';
+  const cardPage = document.querySelector('.page--card');
+  if (cardPage) cardPage.dataset.mode = quick ? 'quick' : 'deep';
+  const backLabel = document.getElementById('cardBackLabel');
+  if (backLabel) backLabel.textContent = quick ? '한 줄 소감 고치기' : 'STEP 3 · 내 표현 고치기';
   renderDiscoveryOptions();
   renderCardDesign();
   renderCardPreview();
@@ -4249,7 +4282,22 @@ function gotoEvents(mode) {
   navigateTo('events');
 }
 
-/* "참여하기": 연령대를 아직 고르지 않았다면 첫 화면의 참여 시작 영역을 먼저 엽니다. */
+/* 상단 "지금 참여하기": 첫 화면의 기본 체험 사건 카드로 가서 첫 카드에 초점을 둡니다(바로 누를 수 있게). */
+function gotoQuickPicks() {
+  const picks = document.getElementById('quickPicks');
+  if (!picks) { startExploration(); return; }
+  const fromOtherPage = !document.querySelector('.page--home.active');
+  if (fromOtherPage) navigateTo('home');
+  setTimeout(() => {
+    picks.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    picks.querySelector('[data-quick-event]')?.focus({ preventScroll: true });
+    picks.classList.remove('quick-picks--flash');
+    void picks.offsetWidth;            // 같은 화면에서 다시 눌러도 깜빡임이 다시 보이게
+    picks.classList.add('quick-picks--flash');
+  }, fromOtherPage ? 300 : 0);
+}
+
+/* "다른 사건 · 전체 탐구": 연령대를 아직 고르지 않았다면 첫 화면의 참여 시작 영역을 먼저 엽니다. */
 function startExploration() {
   if (!ensureParticipantChoice(() => startExploration(), 'start')) return;
   const picker = document.getElementById('agePicker');
@@ -4373,7 +4421,12 @@ function resetParticipantUiState(options) {
   }
 }
 
-function startAsNewParticipant() {
+/**
+ * @param {Function} [next]  초기화한 뒤 이어서 할 일. 없으면 기본 체험 중이었으면 첫 화면 사건 카드로,
+ *   심화 탐구 중이었으면 연령대 선택(전체 탐구)부터 다시 시작합니다.
+ */
+function startAsNewParticipant(next) {
+  const wasQuick = exploreMode === 'quick' || cardState.mode === 'quick';
   if (!Store) return false;
   const pending = draftInProgress();
   if (pending.length) {
@@ -4394,7 +4447,9 @@ function startAsNewParticipant() {
     status.hidden = false;
   }
   navigateTo('home');
-  startExploration();   // 연령대가 지워졌으므로 연령대 선택부터 다시 시작합니다.
+  if (typeof next === 'function') next();
+  else if (wasQuick) gotoQuickPicks();
+  else startExploration();   // 연령대가 지워졌으므로 연령대 선택부터 다시 시작합니다.
   return true;
 }
 
@@ -4501,7 +4556,8 @@ function handleGateChoice(choice) {
     document.getElementById('formAgeLabel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
-  startAsNewParticipant();    // 작성 중인 내용이 있으면 확인 창을 띄우고, 취소하면 선택 창이 그대로 남습니다.
+  // 기본 체험(사건 카드·QR)에서 물었다면, 초기화한 뒤 누르던 사건을 그대로 엽니다(연령대 묻지 않음).
+  startAsNewParticipant(context === 'quick' && action ? action : undefined);    // 작성 중인 내용이 있으면 확인 창을 띄우고, 취소하면 선택 창이 그대로 남습니다.
 }
 
 /** 이 기기에 이전 참여 기록이 있을 때만 "새 참여자로 시작" 안내를 보여줍니다 (처음 온 사람에게는 숨김). */
@@ -4536,6 +4592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     choiceState.reflection = e.target.value;
     const count = document.getElementById('reflectCount');
     if (count) count.textContent = String(e.target.value.length);
+    updateQuickCardLabel();
   });
   // 첫 화면 큰 사건 카드: 연령대·긴 설명 없이 바로 기본 체험 STEP 1
   document.querySelector('.quick-picks')?.addEventListener('click', e => {
@@ -4620,8 +4677,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-page]').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
-      // 상단 메뉴: "지금 참여하기"는 참여 시작 영역부터, "Shared Memory 보기"는 결과 보기용 사건 선택으로
-      if (el.dataset.view === 'participate') { startExploration(); return; }
+      // 상단 메뉴: "지금 참여하기"는 첫 화면의 기본 체험 사건 카드로, "Shared Memory 보기"는 결과 보기용 사건 선택으로
+      // (다른 사건·심화 탐구는 첫 화면의 '다른 사건 · 전체 탐구 둘러보기' → startExploration)
+      if (el.dataset.view === 'participate') { gotoQuickPicks(); return; }
       if (el.dataset.view === 'memory') { gotoEvents('memory'); return; }
       if (el.dataset.page === 'archive') { openArchive(); return; }
       navigateTo(el.dataset.page);
@@ -4668,8 +4726,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aiShow) { fourthLangShown = aiShow.dataset.aiShow; renderFourthTab(currentEvent()); return; }
     if (e.target.closest('[data-quick-next]')) { quickAdvance(); return; }
     const choiceOpt = e.target.closest('[data-choice-option]');
-    if (choiceOpt) { pickChoice(choiceOpt.dataset.choiceOption); return; }
-    if (e.target.closest('[data-reflect-skip]')) { makeQuickCard(true); return; }
+    if (choiceOpt) { if (Date.now() - (choiceState.shownAt || 0) >= QUICK_TAP_GUARD_MS) pickChoice(choiceOpt.dataset.choiceOption, true); return; }
     const deep = e.target.closest('[data-deep-switch]');
     if (deep) { switchToDeep(deep.dataset.deepSwitch); return; }
     if (e.target.closest('[data-quick-return]')) { switchToQuick(); return; }
