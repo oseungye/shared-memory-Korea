@@ -14,11 +14,12 @@ async function toCard(page, base, reflect) {
   await page.goto(base + 'index.html#/e/imjin');
   await page.waitForSelector('.page--detail.active');
   await page.click('[data-step-main="q1"]');
-  // 질문이 넘어가는 효과 중에 누른 탭은 무시되므로(두 번 넘어감 방지) STEP 3이 될 때까지 다시 고릅니다.
-  for (let i = 0; i < 10; i++) {
-    await page.waitForTimeout(600);
+  // 질문마다 첫 선택지를 고르고 '다음 질문'(마지막은 '한 줄 소감 쓰러 가기')을 누릅니다.
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(400);
     if (await page.$eval('.page--detail', el => el.dataset.step) === '3') break;
     await page.click('#choiceStep [data-choice-option]');
+    await page.click('[data-step-main="q2"]');
   }
   await page.waitForFunction(() => document.querySelector('.page--detail').dataset.step === '3');
   await page.fill('#reflectInput', reflect);
