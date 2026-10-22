@@ -175,7 +175,12 @@ async function main() {
         servedByFallback: q.servedByFallback,
         translationModel,
         collectedAt: new Date().toISOString(),
-        params: { maxTokens: MAX_TOKENS, system: null, thinking: '기본값', effort: '기본값', newConversation: true }
+        params: {
+          maxTokens: MAX_TOKENS, system: null, thinking: '기본값', effort: '기본값', newConversation: true,
+          // 2026-10-22 첫 수집(54건) 뒤 추가한 기록 — 그 54건도 같은 설정으로 수집했습니다 (README 3-6절)
+          fallbacks: 'default', fallbackBeta: FALLBACK_BETA,
+          translationPrompt: translationKo ? TRANSLATE_PROMPT.trim() : null
+        }
       };
       const problems = NA.validateRecord(rec, fourth.questions);
       if (problems.length) {

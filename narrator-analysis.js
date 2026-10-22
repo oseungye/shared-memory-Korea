@@ -106,18 +106,40 @@
     return { hits, runs, present: runs > 0 && hits * 2 >= runs, forms: Object.keys(found) };
   }
 
-  function conceptForms(concept) {
+  /** 개념의 표현 + 이 화면에서만 더 찾는 표기(data.conceptExtraForms) */
+  function conceptForms(concept, data) {
     const f = concept.forms || {};
-    return ['ko', 'zh', 'ja', 'en'].reduce((acc, l) => acc.concat(f[l] || []), []);
+    const extra = (data && data.conceptExtraForms && data.conceptExtraForms[concept.id]) || [];
+    return ['ko', 'zh', 'ja', 'en'].reduce((acc, l) => acc.concat(f[l] || []), []).concat(extra);
   }
 
-  /** 서술자별로 어떤 사건 이름을 썼는지 */
+  /** 글 하나에서 가장 먼저 나온 이름의 id (없으면 null) */
+  function firstNameIn(text, names) {
+    let best = null;
+    let at = Infinity;
+    names.forEach(name => {
+      const m = Analyzer.matchForms(text, name.forms);
+      m.spans.forEach(sp => { if (sp[0] < at) { at = sp[0]; best = name.id; } });
+    });
+    return best;
+  }
+
+  /**
+   * 서술자별로 어떤 사건 이름이 나왔는지.
+   * · hits  : 이름이 나온 글 수 (다른 나라의 이름을 소개한 경우도 포함)
+   * · first : 그 이름이 글에서 가장 먼저 나온 이름이었던 횟수 — 답변이 스스로 앞세운 이름
+   */
   function nameUsage(event, narrators, data) {
     const names = (data && data.names && event && data.names[event.id]) || [];
     const out = {};
     narrators.forEach(n => {
+      const first = {};
+      n.texts.forEach(t => {
+        const id = firstNameIn(t, names);
+        if (id) first[id] = (first[id] || 0) + 1;
+      });
       out[n.key] = names
-        .map(name => Object.assign({ id: name.id, label: name.label }, presenceOf(n, name.forms)))
+        .map(name => Object.assign({ id: name.id, label: name.label, first: first[name.id] || 0 }, presenceOf(n, name.forms)))
         .filter(x => x.hits > 0);
     });
     return { names, byNarrator: out };
@@ -138,7 +160,7 @@
     });
     const conceptRows = [];
     Analyzer.CONCEPTS.forEach((concept, order) => {
-      const forms = conceptForms(concept);
+      const forms = conceptForms(concept, data);
       const cells = {};
       let anyHit = false;
       narrators.forEach(n => {
@@ -236,6 +258,7 @@
     validateRecord,
     buildNarrators,
     presenceOf,
+    firstNameIn,
     nameUsage,
     elementRows,
     markGaps,

@@ -30,15 +30,18 @@ run('explore-steps', async ({ browser, base, check, mockPage }) => {
   await page.waitForTimeout(1000);
   const hero = await page.evaluate(() => {
     const t = document.querySelector('.hero__title');
-    const b = document.getElementById('startButton');
+    // 기본 체험: 첫 화면의 주요 시작 버튼은 큰 사건 카드 두 개입니다 (아래쪽 카드 기준으로 재요).
+    const picks = [...document.querySelectorAll('.quick-pick')];
+    const b = picks[picks.length - 1];
     const op = el => Number(getComputedStyle(el).opacity);
     const r = b.getBoundingClientRect();
-    return { title: t.innerText.replace(/\s+/g, ' '), titleOp: Math.min(...[...t.querySelectorAll('.hero__title-line')].map(op)), btnOp: op(b), btnBottom: r.bottom, btnH: r.height, vh: window.innerHeight };
+    return { title: t.innerText.replace(/\s+/g, ' '), titleOp: Math.min(...[...t.querySelectorAll('.hero__title-line')].map(op)), btnOp: Math.min(...picks.map(op)), btnBottom: r.bottom, btnH: Math.min(...picks.map(p => p.getBoundingClientRect().height)), vh: window.innerHeight };
   });
   check('첫 화면 메인 카피: 같은 전쟁, 세 개의 이름 · 우리는 정말 같은 역사를 기억하고 있을까?', /같은 전쟁, 세 개의 이름\. 우리는 정말 같은 역사를 기억하고 있을까\?/.test(hero.title), hero.title);
   const heroNames = await page.$$eval('.hero-names__item span', els => els.map(e => e.textContent.trim()));
   check('첫 화면에 같은 전쟁의 세 이름과 AI', heroNames.join('|') === '임진왜란|文禄・慶長の役|万历朝鲜战争|?', heroNames.join('|'));
-  check('시작 버튼: 다섯 번째 서술자 되어 보기', /다섯 번째 서술자 되어 보기/.test(await page.textContent('#startButton')));
+  const picks = await page.$$eval('.quick-pick', els => els.map(e => [e.dataset.quickEvent, e.querySelector('.quick-pick__title').textContent.trim()].join(':')));
+  check('시작 버튼: 임진왜란·재일조선인 큰 사건 카드 두 개', picks.join('|') === 'imjin:임진왜란|zainichi:재일조선인', picks.join('|'));
   check('1초 안에 제목·시작 버튼이 완전히 보임 (긴 등장 지연 없음)', hero.titleOp === 1 && hero.btnOp === 1, JSON.stringify(hero));
   check('모바일 첫 화면(스크롤 없이)에 시작 버튼', hero.btnBottom <= hero.vh, JSON.stringify(hero));
   check('시작 버튼 터치 영역 48px 이상', hero.btnH >= 48, String(hero.btnH));
@@ -46,11 +49,13 @@ run('explore-steps', async ({ browser, base, check, mockPage }) => {
   check('첫 화면 4단계 이름이 사건 화면 단계와 같음', (await page.$$eval('.hero__steps--v2 li', els => els.length)) === 4);
   check('모바일 첫 화면: 가로 스크롤 없음', await noHScroll(page));
 
-  /* ---------- 2. QR 진입 → STEP 1/4 ---------- */
-  await page.goto(base + 'index.html#/e/imjin');
+  /* ---------- 2. 사건 목록(전체 탐구)으로 진입 → 심화 탐구 STEP 1/4 ----------
+     (QR 링크·첫 화면 큰 카드는 기본 체험으로 열립니다 → tests/e2e/quick-experience.e2e.js) */
+  await page.goto(base + 'index.html');
+  await page.evaluate(() => openEventDetail('imjin'));
   await page.waitForSelector('.page--detail.active');
   await page.waitForTimeout(500);
-  check('QR 링크 진입 시 STEP 1/4 표시', /STEP\s*1\s*\/\s*4/.test(await page.$eval('#flowProgress .stepper__count', el => el.innerText)) && (await step(page)) === '1');
+  check('사건 목록 진입 시 STEP 1/4 표시', /STEP\s*1\s*\/\s*4/.test(await page.$eval('#flowProgress .stepper__count', el => el.innerText)) && (await step(page)) === '1');
   check('STEP 1: 질문·입력창·주요 버튼이 첫 화면 안에 보임',
     await inViewport(page, '.detail__question') && await inViewport(page, '#beforeInput') && await inViewport(page, '#stepCta [data-step-main="1"]'));
   check('STEP 1: 탭·서술은 아직 숨김 (한 가지 행동에 집중)', !(await page.isVisible('.tabs')) && !(await page.isVisible('#narrativesGrid')));
@@ -155,8 +160,8 @@ run('explore-steps', async ({ browser, base, check, mockPage }) => {
   await page.keyboard.press('Enter');
   check('키보드(Enter)로 시작 → 연령대 선택이 열리고 첫 칩에 초점', await page.isVisible('#agePicker') &&
     await page.waitForFunction(() => document.activeElement && document.activeElement.matches('[data-age-value]'), null, { timeout: 2000 }).then(() => true, () => false));
-  check('데스크톱 첫 화면: 카드 미리보기가 시작 버튼 옆(첫 화면 안)에 보임', await inViewport(page, '.hero-card__paper') && await inViewport(page, '#startButton'));
-  await page.goto(base + 'index.html#/e/zainichi');
+  check('데스크톱 첫 화면: 카드 미리보기가 시작 버튼 옆(첫 화면 안)에 보임', await inViewport(page, '.hero-card__paper') && await inViewport(page, '.quick-pick--zainichi'));
+  await page.evaluate(() => openEventDetail('zainichi'));
   await page.waitForSelector('.page--detail.active');
   await page.focus('#beforeInput');
   await page.keyboard.type('재일 한국인');

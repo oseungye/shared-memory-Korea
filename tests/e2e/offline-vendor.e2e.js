@@ -62,7 +62,13 @@ run('offline-vendor', async ({ browser, base, check, presetContinue }) => {
   check(`받은 vendor 파일이 기록된 ${VERSION.version} 파일과 같음 (sha256)`, vendor && vendor.sha256 === VERSION.fileSha256);
   check('외부 CDN 없이 supabase-js가 로드됨 (window.supabase.createClient)', await page.evaluate(() => !!(window.supabase && typeof window.supabase.createClient === 'function')));
   check('Supabase 클라이언트(db)가 만들어짐', await page.evaluate(() => typeof db !== 'undefined' && db !== null && typeof db.from === 'function'));
-  check('외부 스크립트 요청이 없음 (CDN 시도 0건)', !page.__external.some(u => /\.js(\?|$)/.test(u) || /jsdelivr|unpkg|cdnjs/.test(u)), page.__external.join(', '));
+  // 서체(Pretendard CSS·woff2, Google Fonts)는 공식 배포처에서 받고 실패해도 기본 서체로 동작하므로 스크립트 검사에서 제외합니다.
+  const isFontAsset = u => /\.(css|woff2?)(\?|$)/.test(u) || /fonts\.googleapis\.com|fonts\.gstatic\.com|hangeul\.pstatic\.net/.test(u);
+  check('외부 스크립트 요청이 없음 (CDN 시도 0건)', !page.__external.some(u => !isFontAsset(u) && (/\.js(\?|$)/.test(u) || /jsdelivr|unpkg|cdnjs/.test(u))), page.__external.join(', '));
+  check('서체를 불러오지 못해도(외부 차단) 화면 글자는 기본 서체로 표시', await page.evaluate(() => {
+    const t = document.querySelector('.hero__title');
+    return !!t && t.getBoundingClientRect().height > 0 && /MaruBuri/.test(getComputedStyle(t).fontFamily) && /Noto Serif KR|serif/.test(getComputedStyle(t).fontFamily);
+  }));
   check('페이지 기본 JS 동작 (사건 카드 6개 렌더)', (await page.$$eval('.event-card', els => els.length)) === 6);
   await page.evaluate(() => { localStorage.setItem('sm_age_group', '10s'); openEventDetail('imjin'); switchTab('shared'); });
   await page.waitForFunction(() => /첫 번째 제안|아직 등록된/.test(document.getElementById('sharedList').textContent));

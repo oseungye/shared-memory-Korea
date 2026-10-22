@@ -27,6 +27,8 @@ let memoryCache = {};                 // 연령대별로 다시 계산한 분석
 const Analyzer = window.SharedMemoryAnalyzer || null;
 const Gen = window.GenerationAnalysis || null;
 const Card = window.MemoryCard || null;
+const Choices = window.ChoiceQuestions || null;
+const Themes = window.CardThemes || null;
 const Guide = window.ContributionGuide || { STYLES: [], TEMPLATES: [], REASONS: [] };
 const Store = window.SharedStore || null;
 const MemoryMap = window.SharedMemoryMap || null;
@@ -101,7 +103,7 @@ function openRouteEvent(routeId) {
   const onDetail = document.querySelector('.page--detail.active, .page--card.active');
   if (onDetail && id === currentEventId) return true;
   eventsMode = 'participate';
-  openEventDetail(id);
+  openEventDetail(id, { quick: true });     // QR·사건 링크는 학생용 기본 체험으로
   return true;
 }
 
@@ -136,11 +138,16 @@ function renderEventCards() {
   });
 }
 
-function openEventDetail(eventId) {
+/**
+ * @param {string} eventId
+ * @param {{quick?: boolean}} [opts]  quick: 기본 체험으로 열기 (첫 화면 큰 사건 카드·QR 링크).
+ *   사건 목록('전체 탐구')·'Shared Memory 보기'는 기존 심화 탐구 4단계로 엽니다.
+ */
+function openEventDetail(eventId, opts) {
   const event = eventsData.find(e => e.id === eventId);
   if (!event) return;
   // 이전 참여 기록이 있는데 이 창에서 아직 "누가 참여하는지" 고르지 않았다면 먼저 묻습니다.
-  if (!ensureParticipantChoice(() => openEventDetail(eventId), 'event')) return;
+  if (!ensureParticipantChoice(() => openEventDetail(eventId, opts), 'event')) return;
 
   currentEventId = eventId;
   // 서술 NLP 결과는 형광펜·공통점/차이점 카드·작성 가이드·사료 연결·공동 기억 지도에서 쓰므로 먼저 한 번 계산합니다.
@@ -154,9 +161,9 @@ function openEventDetail(eventId) {
   `;
 
   const countries = [
-    { key: 'korea', name: '한국', en: 'KOREA', flag: '韓', titleField: event.title },
-    { key: 'japan', name: '일본', en: 'JAPAN', flag: '日', titleField: event.titleJP },
-    { key: 'china', name: '중국', en: 'CHINA', flag: '中', titleField: event.titleCN }
+    { key: 'korea', name: '한국', en: 'KOREA', flag: '韓', titleField: event.title, lang: 'ko' },
+    { key: 'japan', name: '일본', en: 'JAPAN', flag: '日', titleField: event.titleJP, lang: 'ja' },
+    { key: 'china', name: '중국', en: 'CHINA', flag: '中', titleField: event.titleCN, lang: 'zh-Hans' }
   ];
 
   document.getElementById('narrativesGrid').innerHTML = countries.map(c => {
@@ -167,7 +174,7 @@ function openEventDetail(eventId) {
           <div class="narrative-card__flag-mark">${c.flag}</div>
           <div>
             <div class="narrative-card__country">${c.name} <small class="narrative-card__scope">측 요약 서술</small></div>
-            <div class="narrative-card__country-en">${c.en} · ${c.titleField}</div>
+            <div class="narrative-card__country-en">${c.en} · <span lang="${c.lang}">${escapeHtml(c.titleField || '')}</span></div>
           </div>
         </div>
         <h4 class="narrative-card__title">${n.title}</h4>
@@ -223,15 +230,20 @@ function openEventDetail(eventId) {
   const next = document.getElementById('submitNext');
   if (next) next.hidden = true;
 
+  // 질문이 준비된 사건(임진왜란·재일조선인)은 기본 체험으로, 나머지 사건과 'Shared Memory 보기'는 기존 4단계로 엽니다.
+  const quick = !!(opts && opts.quick) && !!(Choices && Choices.hasChoices(eventId)) && eventsMode !== 'memory';
+  if (choiceState.eventId !== eventId) resetChoiceState(eventId);
+  setExploreMode(quick ? 'quick' : 'deep');
   switchTab('compare');
-  // 처음 여는 사건은 STEP 1(내가 아는 역사)부터, 이미 탐구 전 문장을 남겼다면 STEP 2부터 보여줍니다.
-  exploreStep = flowStepDone('before') ? 2 : 1;
+  // 기본 체험은 세 나라 비교부터. 심화 탐구는 처음이면 STEP 1(내가 아는 역사)부터, 탐구 전 문장을 남겼다면 STEP 2부터.
+  exploreStep = quick ? 1 : (flowStepDone('before') ? 2 : 1);
   renderBeforeCard();
   applyExploreStep();
   renderKeywordChart(event);
   renderGlance();
   renderCompareSummary(event);
   fourthRunChoice = {};
+  fourthLangShown = null;
   renderFourthTab(event);
   renderSourcesTab();
   resetGuide(event);
@@ -298,6 +310,8 @@ function renderNarrativeBasis(event, country) {
 }
 
 function switchTab(tabName) {
+  // 기본 체험 중 다른 탭(AI·NLP·사료·공동 표현·지도)을 열면 심화 탐구로 바꿉니다(기능은 모두 그대로).
+  if (exploreMode === 'quick' && tabName !== 'compare') setExploreMode('deep');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
@@ -316,6 +330,7 @@ function switchTab(tabName) {
 
   // 탭은 각 탐구 단계의 '자세히 보기'입니다. 탭을 열면 그 탭이 속한 단계로 표시합니다.
   activeTab = tabName;
+  if (exploreMode === 'quick') return;          // 기본 체험의 단계는 gotoQuickStep이 정합니다
   if (TAB_STEP[tabName]) {
     exploreStep = TAB_STEP[tabName];
     applyExploreStep();
@@ -330,6 +345,7 @@ function switchTab(tabName) {
    ------------------------------------------------------------ */
 
 let fourthRunChoice = {};             // 언어별로 지금 보고 있는 답변 회차 (lang → run)
+let fourthLangShown = null;           // 좁은 화면에서 지금 보이는 언어 카드 (넓은 화면은 세 카드를 나란히)
 const NARRATOR_SHORT = { korea: '한국 측', japan: '일본 측', china: '중국 측', 'ai-ko': 'AI · 한국어', 'ai-ja': 'AI · 일본어', 'ai-zh': 'AI · 중국어' };
 const AI_HTML_LANG = { ko: 'ko', ja: 'ja', zh: 'zh-Hans' };
 
@@ -353,6 +369,42 @@ function renderFourthTab(event) {
   }
   box.innerHTML = renderFourthNarrator(event, a);
   gapBox.innerHTML = renderMemoryGaps(a);
+}
+
+/**
+ * AI 답변 원문의 Markdown(제목 #, 굵게 **, 목록 - · 1.)을 화면에서만 읽기 좋게 바꿉니다.
+ * · 원문 데이터는 그대로 둡니다. NLP·빈자리 계산도 원문으로 합니다.
+ * · 모든 글자를 먼저 escapeHtml로 바꾼 뒤, 정해 둔 태그(p·ul·ol·li·strong)만 직접 붙입니다 → 답변 속 HTML은 글자로만 보입니다.
+ */
+function renderAnswerHtml(text) {
+  const inline = t => escapeHtml(t).replace(/\*\*(\S(?:.*?\S)?)\*\*/g, '<strong>$1</strong>');
+  const out = [];
+  let para = [];
+  let list = null;
+  const flushPara = () => { if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; };
+  const flushList = () => {
+    if (list) out.push(`<${list.tag}${list.start > 1 ? ` start="${list.start}"` : ''}>${list.items.map(i => `<li>${inline(i)}</li>`).join('')}</${list.tag}>`);
+    list = null;
+  };
+  String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n').forEach(line => {
+    const heading = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/);
+    const bullet = line.match(/^\s*[-*•]\s+(.+)$/);
+    const numbered = line.match(/^\s*(\d{1,3})[.)]\s+(.+)$/);
+    if (!line.trim() || /^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flushPara(); flushList(); return; }
+    if (heading) { flushPara(); flushList(); out.push(`<p class="md-h">${inline(heading[1].replace(/\*\*/g, ''))}</p>`); return; }
+    if (bullet || numbered) {
+      flushPara();
+      const tag = bullet ? 'ul' : 'ol';
+      if (!list || list.tag !== tag) { flushList(); list = { tag, start: numbered ? Number(numbered[1]) : 1, items: [] }; }
+      list.items.push(bullet ? bullet[1] : numbered[2]);
+      return;
+    }
+    flushList();
+    para.push(line.trim());
+  });
+  flushPara();
+  flushList();
+  return out.join('');
 }
 
 function fourthQuestionsHtml(eventId, open) {
@@ -383,6 +435,15 @@ function renderFourthNarrator(event, a) {
       </section>`;
   }
   const rowsFor = key => a.rows.filter(r => r.cells[key] && r.cells[key].present);
+  const nameChip = (x, count) => {
+    const shown = x.forms.length && x.forms.indexOf(x.label) < 0 ? `${x.label} (${x.forms[0]})` : x.label;
+    return `<span class="narrative-card__keyword">${escapeHtml(shown)} <small>${x.runs}회 중 ${count}회</small></span>`;
+  };
+  const shownLang = ai.some(n => n.lang === fourthLangShown) ? fourthLangShown : ai[0].lang;
+  const langSwitch = ai.length > 1 ? `
+      <div class="fourth-langs" role="group" aria-label="볼 언어 선택">
+        ${ai.map(n => `<button type="button" class="fourth-runs__btn${n.lang === shownLang ? ' is-active' : ''}" data-ai-show="${n.lang}" aria-pressed="${n.lang === shownLang}">${Narrator.AI_LANG_LABEL[n.lang]}로 물었을 때</button>`).join('')}
+      </div>` : '';
   const cards = ai.map(n => {
     const recs = n.records;
     const chosen = recs.find(r => r.run === fourthRunChoice[n.lang]) || recs[0];
@@ -391,29 +452,31 @@ function renderFourthNarrator(event, a) {
         ${recs.map(r => `<button type="button" class="fourth-runs__btn${r === chosen ? ' is-active' : ''}" data-ai-lang="${n.lang}" data-ai-run="${r.run}" aria-pressed="${r === chosen}">${r.run}회</button>`).join('')}
       </div>` : '';
     const names = a.names.byNarrator[n.key] || [];
-    const namesHtml = names.length
-      ? names.map(x => `<span class="narrative-card__keyword">${escapeHtml(x.label)} <small>${x.runs}회 중 ${x.hits}회</small></span>`).join('')
-      : '<span class="nlp-meta">사건 이름 목록에 있는 이름이 나오지 않았습니다</span>';
+    const firstNames = names.filter(x => x.first > 0).sort((p, q) => q.first - p.first);
+    const namesHtml = names.length ? `
+        <div class="narrative-card__label">가장 먼저 쓴 이름 <small class="nlp-meta">(답변이 앞세운 이름)</small></div>
+        <div class="narrative-card__keywords">${firstNames.map(x => nameChip(x, x.first)).join('')}</div>
+        <div class="narrative-card__label">답변에 나온 이름 <small class="nlp-meta">(다른 나라의 이름을 소개한 경우 포함)</small></div>
+        <div class="narrative-card__keywords">${names.map(x => nameChip(x, x.hits)).join('')}</div>` : '';
     const elements = rowsFor(n.key).slice(0, 8)
       .map(r => `<span class="nlp-chip nlp-chip--static">${escapeHtml(r.label)}<small>${r.cells[n.key].hits}/${r.cells[n.key].runs}</small></span>`).join('');
     const translation = chosen.translationKo ? `
       <details class="fourth-card__translation">
         <summary>한국어 참고 번역 (AI 번역)</summary>
-        <p>${escapeHtml(chosen.translationKo)}</p>
+        <div class="md">${renderAnswerHtml(chosen.translationKo)}</div>
       </details>` : '';
     const date = formatSharedDate(chosen.collectedAt);
     return `
-      <article class="fourth-card">
+      <article class="fourth-card${n.lang === shownLang ? ' is-shown' : ''}" data-ai-card="${n.lang}">
         <header class="fourth-card__head">
           <span class="fourth-card__mark" aria-hidden="true">AI</span>
           <div><div class="fourth-card__title">${escapeHtml(n.label)}</div>
             <div class="nlp-meta">같은 질문 ${recs.length}회 · 지금 보는 답변 ${chosen.run}회차</div></div>
         </header>
         ${runButtons}
-        <p class="fourth-card__answer" lang="${AI_HTML_LANG[n.lang]}">${escapeHtml(chosen.answer)}</p>
+        <div class="fourth-card__answer md" lang="${AI_HTML_LANG[n.lang]}">${renderAnswerHtml(chosen.answer)}</div>
         ${translation}
-        <div class="narrative-card__label">부른 이름</div>
-        <div class="narrative-card__keywords">${namesHtml}</div>
+        ${namesHtml}
         <div class="narrative-card__label">자주 나온 요소 <small class="nlp-meta">(물은 횟수 중 나온 횟수)</small></div>
         <div class="nlp-chips">${elements || '<span class="nlp-meta">개념 사전과 일치하는 요소가 없습니다</span>'}</div>
         <p class="fourth-card__meta">모델 ${escapeHtml(chosen.model)}${chosen.servedByFallback ? ' (처음 요청한 모델이 답하지 않아 대체 모델이 답함)' : ''}${date ? ` · ${escapeHtml(date)} 수집` : ''} · 시스템 지시 없이 새 대화에서 질문</p>
@@ -425,9 +488,22 @@ function renderFourthNarrator(event, a) {
       <div class="narrative-card__label">편집자 관찰 <small class="nlp-meta">(사람이 답변을 읽고 쓴 관찰 — 판정이 아닙니다)</small></div>
       <ul>${notes.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
     </div>` : '';
+  const first = ai[0].records[0];
+  const models = [...new Set(ai.reduce((acc, n) => acc.concat(n.records.map(r => r.model)), []))].join(', ');
+  const runs = Math.max(...ai.map(n => n.records.length));
+  const gapCount = kind => a.gaps.filter(g => (g.narrator.indexOf('ai-') === 0) === (kind === 'ai')).length;
   return `
     <section class="fourth-section">
       <h4 class="section-h section-h--small">네 번째 서술자 — AI의 서술</h4>
+      <div class="fourth-intro">
+        <p><strong>이렇게 읽어 보세요</strong> ① 어떤 이름을 먼저 쓰는지 ② 누가 무엇을 했다고 쓰는지(주어·동사) ③ 무엇이 빠졌는지</p>
+        <p class="nlp-meta">세 나라 서술은 이 프로젝트 편집자가 쓴 짧은 요약이고, 아래 카드는 AI가 쓴 답변 원문입니다
+          (${escapeHtml(models)} · ${escapeHtml(formatSharedDate(first.collectedAt))} 수집 · 언어마다 새 대화에서 같은 질문 ${runs}회 · 시스템 지시 없음).
+          언어마다 ${runs}회뿐인 작은 표본입니다.</p>
+        <p class="fourth-intro__count">이 사건에서 계산된 빈자리 — AI 세 언어 답변 <strong>${gapCount('ai')}곳</strong> · 세 나라 요약 <strong>${gapCount('nation')}곳</strong>
+          <span class="nlp-meta">(세 나라 요약은 두세 문장짜리 짧은 글이라 긴 AI 답변과 나란히 놓으면 빈자리가 많이 잡힙니다)</span></p>
+      </div>
+      ${langSwitch}
       <div class="fourth-grid">${cards}</div>
       ${notesHtml}
       ${fourthQuestionsHtml(event.id, false)}
@@ -489,6 +565,7 @@ function renderMemoryGaps(a) {
       <p class="gap-legend"><span class="gap-legend__item"><b class="gap-legend__present">●</b> 있음</span>
         <span class="gap-legend__item"><b class="gap-legend__absent">○</b> 없음</span>
         <span class="gap-legend__item"><b class="gap-legend__gap">○</b> 빈자리 (다른 서술자 대부분에게는 있음)</span>
+        <span class="gap-legend__item">한국 측·일본 측·중국 측 = 편집자가 쓴 요약 서술${a.hasAi ? ' · AI · ○○어 = 그 언어로 물은 AI 답변' : ''}</span>
         ${a.hasAi ? '<span class="gap-legend__item">AI 칸의 숫자 = 물은 횟수 중 나온 횟수 (절반 이상이면 있음)</span>' : ''}</p>
       <details class="ai-result__section nlp-method">
         <summary class="ai-result__heading"><span>?</span><span>빈자리는 어떻게 계산하나요? (한계)</span></summary>
@@ -521,6 +598,48 @@ const EXPLORE_STEPS = [
   { n: 4, id: 'card', short: 'Memory Card', title: 'My Memory Card',
     todo: '카드 내용을 확인하고 이미지로 저장하세요. 발견한 관점과 남은 질문은 아래에서 다듬을 수 있어요.' }
 ];
+/* 기본 체험 (임진왜란·재일조선인 — choice-questions.js에 질문이 있는 사건)
+   1 세 나라 기록 비교 → 2 관점 고르기(객관식, 질문 하나씩) → 3 한 줄 소감(건너뛰기 가능) → 4 My Memory Card
+   · 탐구 전 문장·AI·NLP·사료·자유서술 공동 표현은 '심화 탐구'(위의 4단계)로 그대로 남아 있습니다. */
+const QUICK_STEPS = [
+  { n: 1, id: 'qcompare', short: '세 나라 비교', title: '세 나라 기록 비교',
+    todo: '세 나라의 기록을 차례로 읽어 보세요. 다 읽었다면 아래 버튼을 눌러요.' },
+  { n: 2, id: 'qchoices', short: '관점 고르기', title: '내가 중요하게 보는 관점 고르기',
+    todo: '정답은 없어요. 질문마다 내가 가장 중요하다고 생각하는 것 하나를 골라요.' },
+  { n: 3, id: 'qreflect', short: '한 줄 소감', title: '한 줄 소감',
+    todo: '느낀 점을 한 문장으로 남겨요. 쓰지 않고 넘어가도 괜찮아요.' },
+  { n: 4, id: 'card', short: 'Memory Card', title: 'My Memory Card',
+    todo: '카드를 이미지로 저장하세요. 아래에서 다른 참여자들이 고른 관점도 볼 수 있어요.' }
+];
+let exploreMode = 'deep';             // 'quick' 기본 체험 | 'deep' 심화 탐구(기존 4단계)
+function stepList() { return exploreMode === 'quick' ? QUICK_STEPS : EXPLORE_STEPS; }
+
+function setExploreMode(mode) {
+  exploreMode = mode === 'quick' ? 'quick' : 'deep';
+  const page = document.querySelector('.page--detail');
+  if (page) page.dataset.mode = exploreMode;
+}
+
+/* 기본 체험 상태 — 이 창의 메모리에만 둡니다(공용 기기 보호: 새로고침·새 참여자로 시작하면 사라짐) */
+const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false };
+
+function resetChoiceState(eventId) {
+  choiceState.eventId = eventId || null;
+  choiceState.answers = {};
+  choiceState.index = 0;
+  choiceState.offsets = {};
+  choiceState.reflection = '';
+  choiceState.reflectionSkipped = false;
+  choiceState.maxStep = 1;
+  choiceState.sent = false;
+  const input = document.getElementById('reflectInput');
+  if (input) input.value = '';
+  const consent = document.getElementById('choiceShareConsent');
+  if (consent) consent.checked = false;
+  const count = document.getElementById('reflectCount');
+  if (count) count.textContent = '0';
+}
+
 /* 탭 → 탐구 단계 (탭은 각 단계의 '자세히 보기' 역할) */
 const TAB_STEP = { compare: 2, fourth: 2, ai: 2, keywords: 2, sources: 2, shared: 3, memory: 3 };
 const COMPARE_DWELL_MS = 5000;        // 국가별 서술이 화면에 이만큼 보이면 "서술 확인"으로 기록
@@ -559,13 +678,17 @@ function flowStepDone(id) {
   if (id === 'shared') return flow.submitted || flow.cardMade || !!(document.getElementById('userNarrative')?.value || '').trim();
   if (id === 'card') return flow.cardMade;
   if (id === 'result') return flow.submitted && flow.viewedResult;
+  if (id === 'qcompare') return flow.viewedCompare || choiceState.maxStep > 1;
+  if (id === 'qchoices') return !!(Choices && Choices.questionsFor(currentEventId).every(q => choiceState.answers[q.id]));
+  if (id === 'qreflect') return !!choiceState.reflection || choiceState.reflectionSkipped || flow.cardMade;
   return false;
 }
 
 function stepperHtml(current) {
-  const info = EXPLORE_STEPS[current - 1];
-  const allDone = EXPLORE_STEPS.every(st => flowStepDone(st.id));
-  const items = EXPLORE_STEPS.map(st => {
+  const steps = stepList();
+  const info = steps[current - 1];
+  const allDone = steps.every(st => flowStepDone(st.id));
+  const items = steps.map(st => {
     const done = flowStepDone(st.id);
     const isCurrent = st.n === current;
     const state = [isCurrent ? '지금 단계' : '', done ? '완료' : ''].filter(Boolean).join(', ');
@@ -578,15 +701,20 @@ function stepperHtml(current) {
         </button>
       </li>`;
   }).join('');
-  const memoryNote = current === 3 && activeTab === 'memory'
+  const memoryNote = exploreMode === 'deep' && current === 3 && activeTab === 'memory'
     ? '다른 참여자들이 남긴 기억을 둘러보고 있어요. 다 봤다면 아래 버튼으로 나의 카드를 만드세요.'
     : info.todo;
+  // 심화 탐구 중인 기본 체험 사건에는 '기본 체험으로 돌아가기'를 함께 보여줍니다.
+  const back = exploreMode === 'deep' && Choices && Choices.hasChoices(currentEventId)
+    ? '<p class="stepper__mode">심화 탐구 중이에요. <button type="button" class="before-card__link" data-quick-return>← 기본 체험(관점 고르기)으로 돌아가기</button></p>'
+    : '';
   return `
     <div class="stepper">
       <p class="stepper__count"><span class="stepper__num">STEP <strong>${current}</strong>/4</span> <span class="stepper__title">${info.title}</span></p>
       <div class="stepper__bar" aria-hidden="true"><i style="width:${current * 25}%"></i></div>
       <ol class="flow-progress__list">${items}</ol>
       <p class="stepper__todo"><span class="stepper__todo-label">지금 할 일</span> ${allDone && current === 4 ? '탐구를 모두 마쳤습니다. 카드를 저장하고, 다른 사건도 살펴보세요.' : memoryNote}</p>
+      ${back}
     </div>`;
 }
 
@@ -605,6 +733,7 @@ function renderFlowProgress() {
 function renderStepCta() {
   const bar = document.getElementById('stepCta');
   if (!bar) return;
+  if (exploreMode === 'quick') { renderQuickCta(bar); return; }
   const inputMode = exploreStep === 1 && !!document.getElementById('beforeInput');
   const key = exploreStep === 1 ? (inputMode ? '1' : '1-next') : String(exploreStep);
   bar.querySelectorAll('[data-step-main]').forEach(b => { b.hidden = b.dataset.stepMain !== key; });
@@ -630,14 +759,21 @@ function renderStepCta() {
 /** 사건 화면의 단계 표시를 지금 상태(exploreStep)에 맞춥니다. */
 function applyExploreStep() {
   const page = document.querySelector('.page--detail');
-  if (page) page.dataset.step = String(exploreStep);
-  if (exploreStep === 3) { renderStepDiscoveries(); renderAfterRecall(); }
+  if (page) { page.dataset.step = String(exploreStep); page.dataset.mode = exploreMode; }
+  const kicker = document.getElementById('compareKicker');
+  if (kicker) kicker.textContent = exploreMode === 'quick' ? 'STEP 1 · 세 나라 기록 비교' : 'STEP 2 · 세 나라 기록 비교';
+  if (exploreMode === 'quick') {
+    choiceState.maxStep = Math.max(choiceState.maxStep, exploreStep);
+    if (exploreStep === 2) renderChoiceStep();
+    if (exploreStep === 3) renderReflectStep();
+  } else if (exploreStep === 3) { renderStepDiscoveries(); renderAfterRecall(); }
   renderFlowProgress();
 }
 
 /** 단계 이동 (진행 표시 버튼 · 이전 버튼 · 주요 행동 버튼). 이동을 막지 않습니다. */
 function gotoStep(n) {
   n = Number(n);
+  if (exploreMode === 'quick') { gotoQuickStep(n); return; }
   if (n === 4) { makeMemoryCard(); return; }
   if (!(n >= 1 && n <= 3)) return;
   if (!document.querySelector('.page--detail.active')) { navigateTo('detail'); setRouteHash(currentEventId); }
@@ -1019,9 +1155,9 @@ function renderCompareSummary(event) {
       <span class="hl-legend__note">형광펜은 세 서술 텍스트에서 자동 계산(NLP)된 단어에만 표시되며, 중요도나 옳고 그름을 뜻하지 않습니다.</span>` : '';
   }
   const names = [
-    { key: 'korea', flag: '韓', name: '한국', title: event.title },
-    { key: 'japan', flag: '日', name: '일본', title: event.titleJP },
-    { key: 'china', flag: '中', name: '중국', title: event.titleCN }
+    { key: 'korea', flag: '韓', name: '한국', title: event.title, lang: 'ko' },
+    { key: 'japan', flag: '日', name: '일본', title: event.titleJP, lang: 'ja' },
+    { key: 'china', flag: '中', name: '중국', title: event.titleCN, lang: 'zh-Hans' }
   ].filter(x => x.title);
   const chips = (list, country) => list.length
     ? list.map(t => `<button type="button" class="nlp-chip${country ? ` nlp-chip--${country}` : ''}" data-glance-term="${escapeAttr(t)}" title="세 서술에서 쓰인 위치 보기">${escapeHtml(t)}</button>`).join('')
@@ -1029,7 +1165,7 @@ function renderCompareSummary(event) {
   const namesCard = new Set(names.map(x => x.title)).size >= 2 ? `
     <article class="sum-card sum-card--names">
       <h4 class="sum-card__title"><span class="sum-card__kicker">사건 이름</span>같은 사건, 서로 다른 이름</h4>
-      <ul class="sum-card__names">${names.map(x => `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><strong>${escapeHtml(x.title)}</strong></li>`).join('')}</ul>
+      <ul class="sum-card__names">${names.map(x => `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><strong lang="${x.lang}">${escapeHtml(x.title)}</strong></li>`).join('')}</ul>
     </article>` : '';
   if (!g) {
     box.innerHTML = namesCard ? `<div class="compare-sum__grid">${namesCard}</div>` : '';
@@ -2179,6 +2315,18 @@ async function submitSharedNarrative() {
    공동 표현 불러오기 · 목록
    ------------------------------------------------------------ */
 
+let sharedLoadingEventId = null;
+
+/** 마지막으로 불러온 시각 (발표 중 '최신 참여 불러오기'를 눌렀을 때 실제로 갱신됐는지 보여줌) */
+function setLoadedAt(id, ok) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  el.textContent = ok ? `${time} 기준` : '';
+}
+
+const RETRY_SHARED_HTML = '<div><button type="button" class="btn btn--small" data-shared-refresh>다시 시도</button></div>';
+
 async function loadSharedNarratives() {
   if (!currentEventId) {
     sharedNarratives = [];
@@ -2186,7 +2334,9 @@ async function loadSharedNarratives() {
     return;
   }
 
+  if (sharedLoadState === 'loading' && sharedLoadingEventId === currentEventId) return;   // 같은 사건을 이미 불러오는 중
   const eventId = currentEventId;
+  sharedLoadingEventId = eventId;
   sharedLoadState = 'loading';
   const list = document.getElementById('sharedList');
   if (list) list.innerHTML = '<div class="shared-empty">공동 표현을 불러오는 중입니다...</div>';
@@ -2206,6 +2356,8 @@ async function loadSharedNarratives() {
     Store.fetchAgeGroupParticipants ? Store.fetchAgeGroupParticipants(eventId) : { available: false, counts: null }
   ]);
   if (eventId !== currentEventId) return;   // 불러오는 사이 다른 사건으로 이동한 경우
+  sharedLoadingEventId = null;
+  setLoadedAt('memoryLoadedAt', !res.error);
 
   if (res.error) {
     console.error('Supabase 불러오기 오류:', res.error);
@@ -2285,7 +2437,7 @@ function renderSharedList() {
   if (!list) return;
 
   if (sharedLoadState === 'error') {
-    list.innerHTML = `<div class="shared-empty">데이터를 불러오지 못했습니다. ${escapeHtml(sharedLoadError)}</div>`;
+    list.innerHTML = `<div class="shared-empty">데이터를 불러오지 못했습니다. ${escapeHtml(sharedLoadError)}${RETRY_SHARED_HTML}</div>`;
     return;
   }
 
@@ -2361,7 +2513,7 @@ function renderSharedList() {
           <div class="shared-item__date">${escapeHtml(item.date || '')}</div>
         </div>
 
-        <div class="shared-item__text">"${escapeHtml(item.text)}"</div>
+        <div class="shared-item__text"${textLangAttr(item.lang)}>"${escapeHtml(item.text)}"</div>
         ${item.before ? `<div class="shared-item__before"><span class="shared-item__label">탐구 전</span> “${escapeHtml(item.before)}”</div>` : ''}
         ${concepts}
         ${reasonHtml}
@@ -2404,6 +2556,7 @@ async function handleEmpathy(id, button) {
 
 const ARCHIVE_PAGE_SIZE = 12;
 let archiveEventId = null;
+let archiveLoadedAt = '';
 let archiveItems = [];
 let archiveCounts = {};
 let archiveEmpathyAvailable = false;
@@ -2439,6 +2592,7 @@ async function loadArchive(eventId) {
   }
   const [res, emp] = await Promise.all([Store.loadExpressions(eventId), Store.fetchEmpathyCounts(eventId)]);
   if (eventId !== archiveEventId) return;   // 불러오는 사이 다른 사건을 고른 경우
+  archiveLoadedAt = res.error ? '' : new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   if (res.error) {
     archiveState = 'error';
     archiveError = res.error;
@@ -2463,7 +2617,11 @@ function renderArchive() {
       <div class="detail__era">${escapeHtml(event.era)}</div>
       <h3 class="archive__title">${escapeHtml(event.title)}</h3>
       ${event.question ? `<p class="detail__question"><span class="detail__question-label">역사적 질문</span>${escapeHtml(event.question)}</p>` : ''}
-      <button type="button" class="btn btn--small" data-archive-explore="${escapeAttr(event.id)}">이 사건 직접 탐구하기 →</button>
+      <div class="data-refresh">
+        <button type="button" class="btn btn--small" data-archive-explore="${escapeAttr(event.id)}">이 사건 직접 탐구하기 →</button>
+        <button type="button" class="btn btn--small btn--ghost" data-archive-refresh>↻ 최신 표현 불러오기</button>
+        <span class="nlp-meta">${archiveLoadedAt ? escapeHtml(archiveLoadedAt) + ' 기준' : ''}</span>
+      </div>
     `;
   }
 
@@ -2472,7 +2630,7 @@ function renderArchive() {
     return;
   }
   if (archiveState === 'error') {
-    list.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못했습니다. ${escapeHtml(archiveError)}</div>`;
+    list.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못했습니다. ${escapeHtml(archiveError)}<div><button type="button" class="btn btn--small" data-archive-refresh>다시 시도</button></div></div>`;
     return;
   }
   if (!archiveItems.length) {
@@ -2494,7 +2652,7 @@ function renderArchive() {
         </button>` : '';
       return `
         <article class="shared-item archive-card" data-expression-id="${id}">
-          <div class="shared-item__text">"${escapeHtml(item.text)}"</div>
+          <div class="shared-item__text"${textLangAttr(item.lang)}>"${escapeHtml(item.text)}"</div>
           <div class="shared-item__header">
             <div class="shared-item__user">
               ${escapeHtml(item.user)}
@@ -2541,6 +2699,10 @@ document.querySelector('.page--archive')?.addEventListener('click', e => {
     renderArchive();
     return;
   }
+  if (e.target.closest('[data-archive-refresh]')) {
+    if (archiveState !== 'loading') loadArchive(archiveEventId);
+    return;
+  }
   const explore = e.target.closest('[data-archive-explore]');
   if (explore) {
     eventsMode = 'participate';
@@ -2579,6 +2741,13 @@ const LANG_BADGES = {
   en: { flag: 'EN', label: 'English' },
   unknown: { flag: '?', label: '미식별' }
 };
+
+/** 참여자 문장의 언어를 HTML lang 속성으로 (일본어·중국어 서체가 적용되도록). 한국어·알 수 없음은 페이지 기본(ko) */
+function textLangAttr(code) {
+  const map = { ja: 'ja', zh: 'zh-Hans', en: 'en' };
+  const c = String(code || '').toLowerCase();
+  return map[c] ? ` lang="${map[c]}"` : '';
+}
 
 function getLangBadge(code) {
   const key = typeof code === 'string' ? code.toLowerCase() : 'unknown';
@@ -2756,7 +2925,7 @@ function renderMemoryTab() {
     return;
   }
   if (sharedLoadState === 'error') {
-    box.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못해 분석할 수 없습니다. ${escapeHtml(sharedLoadError)}</div>`;
+    box.innerHTML = `<div class="shared-empty">공동 표현을 불러오지 못해 분석할 수 없습니다. ${escapeHtml(sharedLoadError)}${RETRY_SHARED_HTML}</div>`;
     return;
   }
   if (!expressionAnalysis || expressionAnalysis.total === 0) {
@@ -2982,7 +3151,7 @@ function renderMemoryMapSection(a) {
 function expressionQuote(item, extra) {
   return `
     <li class="cluster-member">
-      <span class="cluster-member__text">“${escapeHtml(item.text)}”</span>
+      <span class="cluster-member__text"${textLangAttr(item.lang)}>“${escapeHtml(item.text)}”</span>
       <span class="nlp-meta">— ${escapeHtml(item.user || '익명')} · ${getLangBadge(item.lang).label}${extra || ''}</span>
     </li>`;
 }
@@ -3008,7 +3177,7 @@ function renderMemoryClusters(a) {
           ${conceptChips ? `<div class="nlp-chips cluster-card__concepts">${conceptChips}</div>` : ''}
         </div>
         <blockquote class="cluster-card__quote">
-          “${escapeHtml(rep.text)}”
+          <span class="cluster-card__quote-text"${textLangAttr(rep.lang)}>“${escapeHtml(rep.text)}”</span>
           <cite>— ${escapeHtml(rep.user || '익명')} · 표현군의 다른 제안들과 가장 비슷한 제안 (우수작·정답이 아님)</cite>
         </blockquote>
         <div class="nlp-meta">${langs} · 표현군 안 평균 텍스트 유사도 ${formatNum(c.cohesion)}</div>
@@ -3198,17 +3367,285 @@ function renderMemoryMethod(a) {
 }
 
 /* ------------------------------------------------------------
+   기본 체험 — 관점 고르기(객관식) · 한 줄 소감 · 카드
+   · 객관식은 퀴즈가 아닙니다. 고른 관점은 정답 판정 없이 카드에 "내가 고른 관점"으로만 담깁니다.
+   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 공개하지 않습니다(공개는 심화 탐구의 공동 표현에서 별도 동의).
+   · 고른 관점은 '익명 통계에 보태기'에 체크했을 때만 서버(별도 테이블)로 보냅니다.
+   ------------------------------------------------------------ */
+
+function quickQuestions() { return Choices ? Choices.questionsFor(currentEventId) : []; }
+
+function gotoQuickStep(n) {
+  if (n === 4) { makeQuickCard(false); return; }
+  if (!(n >= 1 && n <= 3)) return;
+  if (!document.querySelector('.page--detail.active')) { navigateTo('detail'); setRouteHash(currentEventId); }
+  if (n === 1 && activeTab !== 'compare') switchTab('compare');
+  if (n === 3) choiceState.index = Math.max(0, quickQuestions().length - 1);
+  exploreStep = n;
+  setCardStatus('');
+  applyExploreStep();
+  scrollToQuickPanel();
+}
+
+/** 기본 체험: 질문(또는 소감 칸)이 화면 위쪽에 오도록 스크롤합니다 (단계 표시보다 '지금 할 일'이 먼저 보이게). */
+function scrollToQuickPanel() {
+  const target = exploreStep === 2 ? document.getElementById('choiceStep')
+    : exploreStep === 3 ? document.getElementById('reflectStep') : null;
+  if (!target) { scrollToStepTop(); return; }
+  const top = target.getBoundingClientRect().top + window.scrollY - 84;   // 상단 메뉴 높이만큼 여유
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+/** 화면 아래 '다음' 버튼 (기본 체험) */
+function renderQuickCta(bar) {
+  const key = 'q' + exploreStep;
+  bar.querySelectorAll('[data-step-main]').forEach(b => { b.hidden = b.dataset.stepMain !== key; });
+  const qs = quickQuestions();
+  const q = qs[choiceState.index];
+  const label = document.getElementById('choiceNextLabel');
+  if (label && q) {
+    const last = choiceState.index >= qs.length - 1;
+    label.textContent = !choiceState.answers[q.id] || choiceState.answers[q.id] === Choices.SKIP
+      ? (last ? '고르지 않고 소감 쓰기' : '고르지 않고 다음 질문')
+      : (last ? '한 줄 소감 쓰러 가기' : '다음 질문');
+  }
+  const back = bar.querySelector('[data-step-back]');
+  if (back) back.hidden = exploreStep === 1;
+  const stepLabel = document.getElementById('stepCtaStep');
+  if (stepLabel) {
+    const extra = exploreStep === 2 && qs.length ? ` · 질문 ${choiceState.index + 1}/${qs.length}` : '';
+    stepLabel.textContent = `STEP ${exploreStep}/4 · ${QUICK_STEPS[exploreStep - 1].short}${extra}`;
+  }
+  const hint = document.getElementById('stepCtaHint');
+  if (hint) { hint.textContent = ''; hint.hidden = true; }
+  const cardStatus = document.getElementById('cardStatus');
+  if (cardStatus) cardStatus.hidden = exploreStep !== 3 || !cardStatus.textContent;
+}
+
+/** 기본 체험의 '다음' — 고르지 않았으면 그 질문은 건너뛴 것으로 남깁니다(막지 않음). */
+function quickAdvance() {
+  if (exploreStep === 1) { gotoQuickStep(2); return; }
+  if (exploreStep === 2) {
+    const qs = quickQuestions();
+    const q = qs[choiceState.index];
+    if (q && !choiceState.answers[q.id]) choiceState.answers[q.id] = Choices.SKIP;
+    if (choiceState.index < qs.length - 1) {
+      choiceState.index += 1;
+      renderChoiceStep();
+      renderFlowProgress();
+      scrollToQuickPanel();
+      setTimeout(() => document.querySelector('#choiceStep [data-choice-option]')?.focus({ preventScroll: true }), 300);
+    } else {
+      gotoQuickStep(3);
+    }
+  }
+}
+
+function quickBack() {
+  if (exploreStep === 2 && choiceState.index > 0) {
+    choiceState.index -= 1;
+    renderChoiceStep();
+    renderFlowProgress();
+    scrollToQuickPanel();
+    return;
+  }
+  gotoQuickStep(exploreStep - 1);
+}
+
+/** 선택지 순서를 참여자마다 돌립니다(앞 선택지를 더 고르는 경향을 줄이기 위해). 이 창에서는 같은 순서를 유지합니다. */
+function choiceOffset(qid, n) {
+  if (choiceState.offsets[qid] == null) choiceState.offsets[qid] = Math.floor(Math.random() * Math.max(1, n));
+  return choiceState.offsets[qid];
+}
+
+function renderChoiceStep() {
+  const box = document.getElementById('choiceStep');
+  if (!box || !Choices) return;
+  const qs = quickQuestions();
+  const q = qs[choiceState.index];
+  if (!q) { box.innerHTML = ''; return; }
+  const picked = choiceState.answers[q.id];
+  const options = Choices.rotate(q.options, choiceOffset(q.id, q.options.length));
+  const dots = qs.map((x, i) => `<i class="${i === choiceState.index ? 'is-current' : ''}${choiceState.answers[x.id] && choiceState.answers[x.id] !== Choices.SKIP ? ' is-done' : ''}"></i>`).join('');
+  box.innerHTML = `
+    <div class="step-head">
+      <p class="step-head__kicker">STEP 2 · 관점 고르기 <span class="choice-step__count">질문 ${choiceState.index + 1}/${qs.length}</span></p>
+      <div class="choice-step__dots" aria-hidden="true">${dots}</div>
+      <h3 class="step-head__q" id="choicePrompt">${escapeHtml(q.prompt)}</h3>
+      <p class="step-head__desc">정답은 없어요. 내가 가장 중요하다고 생각하는 것 <strong>하나</strong>를 골라 주세요.</p>
+    </div>
+    <div class="choice-options" role="radiogroup" aria-labelledby="choicePrompt">
+      ${options.map(o => {
+        const on = picked === o.id;
+        return `<button type="button" class="choice-option${on ? ' is-selected' : ''}" role="radio" aria-checked="${on}" tabindex="${on || (!picked || picked === Choices.SKIP) && o === options[0] ? '0' : '-1'}" data-choice-option="${escapeAttr(o.id)}">
+          <span class="choice-option__mark" aria-hidden="true">${on ? '✓' : ''}</span><span class="choice-option__label">${escapeHtml(o.label)}</span></button>`;
+      }).join('')}
+    </div>
+    <p class="choice-step__note">선택지는 이 사건의 세 나라 기록과 연표에 나온 내용으로 만들었어요. 순서는 사람마다 다르게 보여요.</p>`;
+  renderStepCta();
+}
+
+function pickChoice(optionId) {
+  const q = quickQuestions()[choiceState.index];
+  if (!q || !Choices.isValidAnswer(currentEventId, q.id, optionId)) return;
+  choiceState.answers[q.id] = optionId;
+  choiceState.sent = false;           // 다시 고르면 새 응답으로 봅니다
+  renderChoiceStep();
+  renderFlowProgress();
+  document.querySelector(`#choiceStep [data-choice-option="${CSS.escape ? CSS.escape(optionId) : optionId}"]`)?.focus({ preventScroll: true });
+}
+
+/** 선택지 사이 화살표 키 이동 (라디오 묶음) */
+function handleChoiceKey(e) {
+  const btn = e.target.closest('[data-choice-option]');
+  if (!btn || !/^Arrow(Up|Down|Left|Right)$/.test(e.key)) return;
+  e.preventDefault();
+  const all = [...document.querySelectorAll('#choiceStep [data-choice-option]')];
+  const i = all.indexOf(btn);
+  const next = all[(i + (/Up|Left/.test(e.key) ? all.length - 1 : 1)) % all.length];
+  pickChoice(next.dataset.choiceOption);
+}
+
+function chosenSummary() {
+  return Choices ? Choices.summarize(currentEventId, choiceState.answers) : [];
+}
+
+function renderReflectStep() {
+  const recap = document.getElementById('reflectRecap');
+  if (recap) {
+    const rows = chosenSummary();
+    const picked = rows.filter(r => !r.skipped);
+    recap.innerHTML = `
+      <p class="reflect-recap__label">내가 고른 관점 <button type="button" class="before-card__link" data-step-goto="2">바꾸기</button></p>
+      ${picked.length
+        ? `<ul class="reflect-recap__list">${picked.map(r => `<li><small>${escapeHtml(r.question)}</small>${escapeHtml(r.answer)}</li>`).join('')}</ul>`
+        : '<p class="nlp-meta">아직 고른 관점이 없어요. 고르지 않아도 카드는 만들어져요.</p>'}`;
+  }
+  const input = document.getElementById('reflectInput');
+  if (input && input.value !== choiceState.reflection) input.value = choiceState.reflection;
+  const count = document.getElementById('reflectCount');
+  if (count && input) count.textContent = String(input.value.length);
+  const consent = document.getElementById('choiceShareConsent');
+  if (consent) consent.disabled = !chosenSummary().some(r => !r.skipped);
+}
+
+function makeQuickCard(skipReflection) {
+  const event = currentEvent();
+  if (!event || !Card || !Choices) { setCardStatus('카드 모듈을 불러오지 못했습니다.', 'error'); return; }
+  const input = document.getElementById('reflectInput');
+  const typed = (input ? input.value : choiceState.reflection || '').trim();
+  choiceState.reflection = skipReflection ? '' : typed;
+  choiceState.reflectionSkipped = !!skipReflection || !typed;
+  const summary = chosenSummary();
+  if (!choiceState.reflection && !summary.some(r => !r.skipped)) {
+    // 아무것도 고르지 않고 쓰지도 않았다면, 막지 않고 무엇을 하면 되는지만 알려줍니다.
+    setCardStatus('고른 관점도, 한 줄 소감도 없어 카드에 담을 내용이 없어요. 관점을 하나 고르거나 한 문장만 적어 주세요.', 'error');
+    if (exploreStep !== 3) gotoQuickStep(3);
+    input?.focus({ preventScroll: true });
+    return;
+  }
+  setCardStatus('');
+  if (cardState.eventId !== currentEventId) resetCardState();
+  cardState.mode = 'quick';
+  cardState.choices = summary;
+  cardState.before = '';
+  cardState.after = choiceState.reflection;
+  cardState.published = !!(flow && flow.submitted);
+  cardState.options = Card.discoveryOptions(event, eventNlp);
+  cardState.picked = cardState.picked.filter(id => cardState.options.some(o => o.id === id));
+  markFlow({ cardMade: true });
+  const consent = document.getElementById('choiceShareConsent');
+  const share = !!(consent && consent.checked && !consent.disabled);
+  openCardPage();
+  if (share && !choiceState.sent) sendChoices(); else renderChoiceOthers(null);
+}
+
+async function sendChoices() {
+  const eventId = currentEventId;
+  const rows = Choices.rowsForStorage(eventId, choiceState.answers);
+  const res = Store ? await Store.insertChoices(rows) : { ok: false, unavailable: true };
+  if (eventId !== currentEventId) return;
+  choiceState.sent = !!res.ok;
+  const msg = res.ok
+    ? '고른 관점을 익명 통계에 보탰어요. (선택지 이름만 보냈어요)'
+    : res.unavailable
+      ? '지금은 통계 저장을 준비 중이라 보내지 않았어요. 카드는 그대로예요.'
+      : `통계에 보내지 못했어요. 카드는 그대로예요. ${res.error || ''}`;
+  renderChoiceOthers(msg);
+}
+
+/** 카드 화면: 다른 참여자들이 고른 관점 (객관식 집계 · 질문별 응답 5명 미만이면 숨김) */
+async function renderChoiceOthers(statusMsg) {
+  const box = document.getElementById('choiceOthers');
+  if (!box) return;
+  if (cardState.mode !== 'quick' || !Choices) { box.hidden = true; box.innerHTML = ''; return; }
+  const eventId = currentEventId;
+  const status = statusMsg ? `<p class="choice-others__status" role="status">${escapeHtml(statusMsg)}</p>` : '';
+  box.hidden = false;
+  box.innerHTML = `${status}<p class="nlp-meta">다른 참여자들의 선택을 불러오는 중…</p>`;
+  const res = Store ? await Store.fetchChoiceCounts(eventId) : { available: false, rows: [] };
+  if (eventId !== currentEventId || !document.getElementById('choiceOthers')) return;
+  if (!res.available) {
+    box.innerHTML = status;
+    box.hidden = !status;
+    return;
+  }
+  const mine = choiceState.answers;
+  const qs = Choices.questionsFor(eventId);
+  const shares = Choices.shareOf(eventId, res.rows);
+  const body = shares.map((sh, i) => {
+    const q = qs[i];
+    if (sh.hidden) return `<div class="choice-others__q"><p class="choice-others__prompt">${escapeHtml(q.short)}</p><p class="nlp-meta">아직 응답이 적어(5명 미만) 결과를 보여주지 않아요.</p></div>`;
+    return `<div class="choice-others__q"><p class="choice-others__prompt">${escapeHtml(q.short)} <small>(${sh.total}명)</small></p>
+      <ul class="choice-others__list">${sh.options.map(o => `
+        <li class="${mine[q.id] === o.id ? 'is-mine' : ''}">
+          <span class="choice-others__label">${escapeHtml(o.card)}${mine[q.id] === o.id ? ' <strong>· 내 선택</strong>' : ''}</span>
+          <span class="nlp-bar"><span class="nlp-bar__fill" style="width:${Math.round(o.share * 100)}%"></span></span>
+          <span class="nlp-meta">${Math.round(o.share * 100)}%</span>
+        </li>`).join('')}</ul></div>`;
+  }).join('');
+  box.innerHTML = `${status}
+    <h3 class="choice-others__title">다른 참여자들은 어떤 관점을 골랐을까?</h3>
+    <p class="nlp-meta">‘익명 통계에 보태기’에 동의한 참여자의 객관식 선택만 모은 것입니다(공동 표현과 따로 집계). 많이 고른 관점이 옳다는 뜻은 아니에요.</p>
+    ${body}`;
+}
+
+/** 기본 체험 → 심화 탐구 (기존 4단계). 3이면 공동 표현 쓰기로 바로 갑니다. */
+function switchToDeep(step) {
+  setExploreMode('deep');
+  if (Number(step) === 3) {
+    const area = document.getElementById('userNarrative');
+    const reflect = (document.getElementById('reflectInput')?.value || '').trim();
+    if (area && !area.value.trim() && reflect) { area.value = reflect; updateDraftPanel(); }
+    gotoStep(3);
+  } else {
+    gotoStep(2);
+  }
+}
+
+function switchToQuick() {
+  if (!Choices || !Choices.hasChoices(currentEventId)) return;
+  setExploreMode('quick');
+  switchTab('compare');
+  gotoQuickStep(choiceState.maxStep >= 2 ? 2 : 1);
+}
+
+/* ------------------------------------------------------------
    My Memory Card — 개인 결과 카드
    · 참여자가 직접 쓴 탐구 전·후 문장, 직접 고른 발견·질문, 실제로 열어 본 탐구 단계만 담습니다.
    · 카드 내용은 서버로 보내지 않고 이 창의 메모리에만 둡니다(새로고침·새 참여자로 시작하면 사라짐).
    ------------------------------------------------------------ */
 
 const cardMemo = {};                   // 사건 id → 제출 직전의 { before, after, published } (제출 후에도 카드를 만들 수 있게)
-const cardState = { eventId: null, options: [], picked: [], custom: '', question: '', model: null, before: '', after: '' };
+const DEFAULT_CARD_THEME = Themes ? Themes.DEFAULT_THEME : 'classic';
+// theme·format은 '어떤 모양으로 저장할지'만 뜻합니다 (문장 내용 아님). 사건을 바꿔도 유지하고, 새 참여자로 시작하면 기본값으로 돌아갑니다.
+const cardState = { eventId: null, mode: 'classic', choices: [], options: [], picked: [], custom: '', question: '', model: null, before: '', after: '', theme: DEFAULT_CARD_THEME, format: 'feed' };
 let cardDraftTimer = null;
 
 function resetCardState() {
   cardState.eventId = currentEventId;
+  cardState.mode = 'classic';
+  cardState.choices = [];
   cardState.options = [];
   cardState.picked = [];
   cardState.custom = '';
@@ -3271,6 +3708,8 @@ function makeMemoryCard() {
   }
   setCardStatus('');
   if (cardState.eventId !== currentEventId) resetCardState();
+  cardState.mode = 'classic';
+  cardState.choices = [];
   cardState.before = sent.before;
   cardState.after = sent.after;
   cardState.published = sent.published;
@@ -3282,6 +3721,7 @@ function makeMemoryCard() {
 
 function openCardPage() {
   renderDiscoveryOptions();
+  renderCardDesign();
   renderCardPreview();
   renderFlowProgress();
   navigateTo('card');
@@ -3298,6 +3738,8 @@ function currentCardModel() {
   }
   return Card.buildCardModel({
     event,
+    mode: cardState.mode,
+    choices: cardState.choices,
     before: cardState.before,
     after: cardState.after,
     discoveries: cardState.picked.map(id => cardState.options.find(o => o.id === id)).filter(Boolean),
@@ -3376,6 +3818,18 @@ function renderAfterRecall() {
     : '';
 }
 
+/** 카드(화면) — 기본 체험: 고른 관점(객관식)과 직접 쓴 소감을 다른 칸·다른 이름으로 */
+function quickCardSections(m, section) {
+  const choices = m.choices.length
+    ? `<ul class="memory-card__choices">${m.choices.map(c => `<li><small>${escapeHtml(c.question)}</small><span>${escapeHtml(c.answer)}</span></li>`).join('')}</ul>`
+    : '<p class="memory-card__muted">고른 관점이 없어요. (질문을 모두 건너뜀)</p>';
+  const reflection = m.after
+    ? `<blockquote class="memory-card__quote memory-card__quote--after tier-${m.tiers.after}">“${escapeHtml(m.after)}”</blockquote>`
+    : '<p class="memory-card__muted">소감은 남기지 않았어요.</p>';
+  return `${section('memory-card__picked', '내가 고른 관점 · 객관식', choices)}
+    ${section('memory-card__after memory-card__reflect', '나의 한 줄 소감 · 직접 쓴 문장', reflection)}`;
+}
+
 function renderCardPreview() {
   const box = document.getElementById('memoryCard');
   if (!box || !Card) return;
@@ -3388,8 +3842,11 @@ function renderCardPreview() {
       ${m.change.kept.length ? `<div><dt>계속 쓴 말</dt><dd>${m.change.kept.map(escapeHtml).join(' · ')}</dd></div>` : ''}
     </dl>` : (m.change ? '<p class="memory-card__muted">탐구 전과 같은 단어로 다시 썼어요.</p>' : '');
   box.setAttribute('tabindex', '-1');
+  applyCardTheme(box);
   box.innerHTML = `
-    <div class="memory-card__band" aria-hidden="true"><i class="is-korea"></i><i class="is-japan"></i><i class="is-china"></i></div>
+    <canvas class="memory-card__art" aria-hidden="true"></canvas>
+    <div class="memory-card__panel">
+    ${Themes ? '' : '<div class="memory-card__band" aria-hidden="true"><i class="is-korea"></i><i class="is-japan"></i><i class="is-china"></i></div>'}
     <header class="memory-card__head">
       <span class="memory-card__brand">SHARED MEMORY</span>
       <span class="memory-card__no">MY MEMORY CARD · ${escapeHtml(m.date)}</span>
@@ -3402,11 +3859,11 @@ function renderCardPreview() {
       <span class="memory-card__seal" aria-hidden="true">${escapeHtml(m.mark)}</span>
     </div>
     ${m.question ? `<p class="memory-card__question">${escapeHtml(m.question)}</p>` : ''}
-    ${section('memory-card__before', '탐구 전 · 나의 첫 생각', m.before
+    ${m.mode === 'quick' ? quickCardSections(m, section) : `${section('memory-card__before', '탐구 전 · 나의 첫 생각', m.before
       ? `<blockquote class="memory-card__quote memory-card__quote--before tier-${m.tiers.before}">“${escapeHtml(m.before)}”</blockquote>`
       : '<p class="memory-card__muted">탐구 전 문장을 남기지 않았어요.</p>')}
     <div class="memory-card__arrow" aria-hidden="true">↓</div>
-    ${section('memory-card__after', '탐구 후 · 나의 한 문장', `<blockquote class="memory-card__quote memory-card__quote--after tier-${m.tiers.after}">“${escapeHtml(m.after)}”</blockquote>${change}`)}
+    ${section('memory-card__after', '탐구 후 · 나의 한 문장', `<blockquote class="memory-card__quote memory-card__quote--after tier-${m.tiers.after}">“${escapeHtml(m.after)}”</blockquote>${change}`)}`}
     ${m.fifth ? section('memory-card__fifth', '다섯 번째 서술자 · 내 문장이 담은 것', `
       <ul class="memory-card__fifth-list">
         ${m.fifth.filled.map(f => `<li><strong>${escapeHtml(f.label)}</strong> — ${f.where.map(escapeHtml).join('·')}에는 없던 요소</li>`).join('')}
@@ -3419,34 +3876,210 @@ function renderCardPreview() {
       ${m.stamps.map(st => `<li class="${st.done ? 'is-done' : ''}"><span class="memory-card__stamp" aria-hidden="true">${st.mark}</span><span>${st.label}</span><span class="sr-only">${st.done ? ' — 완료' : ' — 하지 않음'}</span></li>`).join('')}
     </ul>
     <footer class="memory-card__foot">
-      <p>참여자가 직접 쓴 문장으로 만든 카드입니다. 정답이나 점수를 뜻하지 않습니다.</p>
+      <p>${m.mode === 'quick' ? '고른 관점과 직접 쓴 문장으로 만든 카드예요. 정답이나 점수가 아닙니다.' : '참여자가 직접 쓴 문장으로 만든 카드입니다. 정답이나 점수를 뜻하지 않습니다.'}</p>
       <p class="memory-card__sign"><span class="memory-card__logo" aria-hidden="true">共</span> Shared Memory · 동북아 역사 공동 기억 프로젝트</p>
-    </footer>`;
+    </footer>
+    </div>
+    <canvas class="memory-card__art memory-card__art--over" aria-hidden="true"></canvas>`;
   const share = document.querySelector('[data-card-action="share"]');
   if (share) share.hidden = !(navigator.share && navigator.canShare);
+  scheduleCardArt();
+  ensureCardFonts(m, cardState.theme, 'feed').then(scheduleCardArt);
+  if (cardState.format === 'story') renderStoryPreview();
+}
+
+/* ------------------------------------------------------------
+   카드 디자인 (아트 컬렉션 테마 · 4:5 카드 / 9:16 인스타 스토리)
+   · 그림은 card-themes.js가 그립니다. 화면 카드는 HTML 글자 뒤·앞에 같은 그림을 캔버스로 깔고,
+     저장 이미지는 drawCard가 같은 함수로 그려 모양이 어긋나지 않습니다.
+   ------------------------------------------------------------ */
+
+function currentTheme() { return Themes ? Themes.getTheme(cardState.theme) : null; }
+
+/** 화면 카드에 테마 색(글자·선·강조)과 그림 띠 크기를 CSS 변수로 넣습니다. */
+function applyCardTheme(box) {
+  const t = currentTheme();
+  if (!t) return;
+  const C = t.colors;
+  box.dataset.theme = t.id;
+  const vars = {
+    '--ink': C.ink, '--ink-soft': C.soft, '--ink-mute': C.mute, '--line': C.line, '--accent': C.accent,
+    '--mc-bg': C.bg, '--mc-paper': C.paper, '--mc-seal': C.seal || C.accent, '--mc-on-accent': C.onAccent,
+    '--mc-font-title': t.fonts.title.family, '--mc-title-weight': String(t.fonts.title.weight),
+    '--mc-font-quote': t.fonts.quote.family, '--mc-quote-weight': String(t.fonts.quote.weight),
+    '--mc-top': (t.feed.top / 1080).toFixed(4), '--mc-side': (t.feed.side / 1080).toFixed(4), '--mc-bottom': (t.feed.bottom / 1080).toFixed(4)
+  };
+  Object.keys(vars).forEach(k => box.style.setProperty(k, vars[k]));
+}
+
+let cardArtFrame = 0;
+function scheduleCardArt() {
+  if (cardArtFrame) cancelAnimationFrame(cardArtFrame);
+  cardArtFrame = requestAnimationFrame(() => { cardArtFrame = 0; paintCardArt(); });
+}
+
+/** 화면 카드의 배경 그림(종이 패널 포함)과 패널 위로 넘어오는 장식을 그립니다. */
+function paintCardArt() {
+  const box = document.getElementById('memoryCard');
+  const t = currentTheme();
+  if (!box || !t) return;
+  const under = box.querySelector('.memory-card__art:not(.memory-card__art--over)');
+  const over = box.querySelector('.memory-card__art--over');
+  const panel = box.querySelector('.memory-card__panel');
+  const cw = box.clientWidth, ch = box.clientHeight;
+  if (!under || !over || !panel || !cw || !ch) return;
+  const scale = cw / 1080;
+  const W = 1080, H = ch / scale;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const br = box.getBoundingClientRect(), pr = panel.getBoundingClientRect();
+  const P = { x: (pr.left - br.left) / scale, y: (pr.top - br.top) / scale, w: pr.width / scale, h: pr.height / scale };
+  const cs = getComputedStyle(panel);
+  const pad = Math.min(parseFloat(cs.paddingLeft) || 16, parseFloat(cs.paddingTop) || 16);
+  const ins = Math.max(6, pad - 4) / scale;
+  const m = cardState.model || {};
+  const opts = { format: 'feed', seed: m.eventId || 'card', panel: P, mark: m.mark, inner: { x: P.x + ins, y: P.y + ins, w: P.w - ins * 2, h: P.h - ins * 2 } };
+  try {
+    [under, over].forEach(cv => { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); });
+    const cu = under.getContext('2d');
+    cu.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    Themes.paintUnder(cu, t.id, W, H, opts);
+    const co = over.getContext('2d');
+    co.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    Themes.paintOver(co, t.id, W, H, opts);
+    box.dataset.art = 'ready';
+  } catch (e) {
+    console.error('카드 그림 오류:', e);
+    delete box.dataset.art;
+  }
+}
+
+/** 디자인 고르기(썸네일)와 형식 버튼·저장 버튼 문구를 지금 선택에 맞춥니다. */
+function renderCardDesign() {
+  const wrap = document.getElementById('cardThemes');
+  if (wrap && Themes) {
+    if (!wrap.children.length) {
+      wrap.innerHTML = Themes.list().map(t => `
+        <button type="button" class="card-theme" role="radio" data-card-theme="${escapeAttr(t.id)}" aria-checked="false" tabindex="-1">
+          <canvas class="card-theme__thumb" aria-hidden="true"></canvas>
+          <span class="card-theme__name">${escapeHtml(t.name)}</span>
+          <span class="card-theme__sub">${escapeHtml(t.sub)}</span>
+        </button>`).join('');
+      // 썸네일은 한 번만, 화면이 그려진 뒤 차례로 그립니다.
+      const thumbs = Array.from(wrap.querySelectorAll('.card-theme__thumb'));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      thumbs.forEach((cv, k) => setTimeout(() => {
+        try { Themes.renderThumb(cv, Themes.ORDER[k], cv.clientWidth || 80, cv.clientHeight || 100, dpr); } catch (e) { /* 썸네일 없이도 이름으로 고를 수 있음 */ }
+      }, 60 + k * 40));
+    }
+    wrap.querySelectorAll('[data-card-theme]').forEach(b => {
+      const on = b.dataset.cardTheme === cardState.theme;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+      b.classList.toggle('is-selected', on);
+    });
+  }
+  const t = currentTheme();
+  const note = document.getElementById('cardThemeNote');
+  if (note) {
+    note.textContent = t && t.inspiration ? `${t.name} — ${t.inspiration}에서 영감을 받아 직접 그린 창작 장식입니다.` : '';
+    note.hidden = !note.textContent;
+  }
+  const story = cardState.format === 'story';
+  document.querySelectorAll('[data-card-format]').forEach(b => {
+    const on = b.dataset.cardFormat === cardState.format;
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on ? 0 : -1;
+    b.classList.toggle('is-selected', on);
+  });
+  const saveLabel = document.querySelector('[data-card-save-label]');
+  if (saveLabel) saveLabel.textContent = story ? '스토리 이미지 저장' : '이미지로 저장';
+  const share = document.querySelector('[data-card-action="share"]');
+  if (share) share.textContent = story ? '인스타 스토리로 공유' : '공유하기';
+  const hint = document.getElementById('cardStoryHint');
+  if (hint) hint.hidden = !story;
+  const card = document.getElementById('memoryCard');
+  const preview = document.getElementById('storyPreview');
+  if (card) card.hidden = story;
+  if (preview) preview.hidden = !story;
+}
+
+function setCardTheme(id) {
+  if (!Themes || !Themes.THEMES[id] || id === cardState.theme) return;
+  cardState.theme = id;
+  setCardActionStatus('');
+  renderCardDesign();
+  renderCardPreview();
+}
+
+function setCardFormat(format) {
+  const f = format === 'story' ? 'story' : 'feed';
+  if (f === cardState.format) return;
+  cardState.format = f;
+  setCardActionStatus('');
+  renderCardDesign();
+  if (f === 'story') renderStoryPreview(); else scheduleCardArt();
+}
+
+/** 라디오 묶음(디자인·형식)에서 화살표 키로 고르기 */
+function handleCardRadioKey(e) {
+  const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  if (!(e.key in keys)) return;
+  const btn = e.target.closest('[data-card-theme], [data-card-format]');
+  if (!btn) return;
+  const group = Array.from(btn.parentElement.querySelectorAll(btn.dataset.cardTheme ? '[data-card-theme]' : '[data-card-format]'));
+  const next = group[(group.indexOf(btn) + keys[e.key] + group.length) % group.length];
+  e.preventDefault();
+  if (next.dataset.cardTheme) setCardTheme(next.dataset.cardTheme); else setCardFormat(next.dataset.cardFormat);
+  next.focus();
+}
+
+let storyPreviewToken = 0;
+/** 인스타 스토리 미리보기: 저장될 이미지와 똑같이 그립니다. (글꼴을 불러온 뒤 다시 그림) */
+function renderStoryPreview() {
+  const cv = document.getElementById('storyCanvas');
+  if (!cv || !Card) return;
+  const token = ++storyPreviewToken;
+  const draw = () => {
+    if (token !== storyPreviewToken) return;
+    const m = cardState.model || currentCardModel();
+    try {
+      const info = Card.drawCard(cv, m, { theme: cardState.theme, format: 'story' });
+      cv.setAttribute('aria-label', `인스타 스토리용 My Memory Card 이미지 (${currentTheme() ? currentTheme().name : ''} 디자인). ${m.title} — 탐구 후 나의 한 문장: “${m.after}”${info.truncated ? ' (이미지에서는 일부 생략)' : ''}`);
+    } catch (e) { console.error('스토리 미리보기 오류:', e); }
+  };
+  draw();
+  ensureCardFonts(cardState.model, cardState.theme, 'story').then(draw);
+}
+
+/**
+ * 카드 그림에 쓸 서체를 실제로 그릴 글자와 함께 불러옵니다. (테마별 서체 조합 · Memory Card fontLoads)
+ * 글자 범위별로 나뉜 웹폰트(Google Fonts·Pretendard)는 글자를 넘겨야 한글·한자 조각까지 받습니다.
+ * 불러오지 못하면(학교망 차단 등) 3초 뒤 기기 기본 서체로 그립니다.
+ */
+async function ensureCardFonts(model, themeId, format) {
+  try {
+    if (!document.fonts || !document.fonts.load || !Card || !Card.fontLoads) return;
+    const reqs = Card.fontLoads(model || cardState.model || currentCardModel(), { theme: themeId || cardState.theme, format: format || cardState.format });
+    await Promise.race([
+      Promise.all(reqs.map(r => document.fonts.load(r.font, r.text).catch(() => []))),
+      new Promise(r => setTimeout(r, 3000))
+    ]);
+  } catch (e) { /* 기본 서체 */ }
 }
 
 async function cardCanvas() {
   const canvas = document.createElement('canvas');
-  // 웹 글꼴이 준비된 뒤에 그려야 이미지의 글꼴이 화면과 같습니다. (불러오지 못하면 기본 글꼴로 그림)
-  try {
-    if (document.fonts && document.fonts.load) {
-      await Promise.race([
-        Promise.all([
-          document.fonts.load("900 64px 'Noto Serif KR'"), document.fonts.load("700 40px 'Noto Serif KR'"),
-          document.fonts.load("400 28px 'Noto Sans KR'"), document.fonts.load("600 28px 'Cormorant Garamond'")
-        ]),
-        new Promise(r => setTimeout(r, 2500))
-      ]);
-    }
-  } catch (e) { /* 기본 글꼴 */ }
-  const info = Card.drawCard(canvas, cardState.model || currentCardModel());
+  const model = cardState.model || currentCardModel();
+  await ensureCardFonts(model, cardState.theme, cardState.format);
+  const info = Card.drawCard(canvas, model, { theme: cardState.theme, format: cardState.format });
   return { canvas, info };
 }
 
+/** 저장 파일 이름: 사건 · 날짜 · 디자인 (스토리는 -story) */
 function cardFileName() {
   const m = cardState.model || {};
-  return `shared-memory-card-${m.eventId || 'event'}-${(m.date || '').replace(/\./g, '')}.png`;
+  const story = cardState.format === 'story' ? '-story' : '';
+  return `shared-memory-card-${m.eventId || 'event'}-${(m.date || '').replace(/\./g, '')}-${cardState.theme}${story}.png`;
 }
 
 async function saveCardImage() {
@@ -3477,7 +4110,7 @@ async function shareCardImage() {
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     const file = new File([blob], cardFileName(), { type: 'image/png' });
     if (!navigator.canShare || !navigator.canShare({ files: [file] })) { await saveCardImage(); return; }
-    await navigator.share({ files: [file], title: 'My Memory Card — Shared Memory' });
+    await navigator.share({ files: [file], title: cardState.format === 'story' ? 'My Memory Card — Shared Memory (스토리)' : 'My Memory Card — Shared Memory' });
     setCardActionStatus('');
   } catch (e) {
     if (e && e.name === 'AbortError') return;      // 사용자가 공유 창을 닫음
@@ -3681,6 +4314,7 @@ function draftInProgress() {
   const val = id => (document.getElementById(id)?.value || '').trim();
   if (val('userNarrative')) items.push('작성 중인 문장');
   if (val('userReason')) items.push('작성 이유');
+  if (val('reflectInput')) items.push('작성 중인 한 줄 소감');
   if (val('beforeInput') || (Store && Store.participantStorageKeys().some(k =>
     /^sm_before_(?!skip_|prior_|done_)/.test(k) && (Store.storageGet(k) || '').trim()))) {
     items.push('아직 제출하지 않은 탐구 전 문장');
@@ -3703,9 +4337,15 @@ function resetParticipantUiState(options) {
   }
   const beforeInput = document.getElementById('beforeInput');
   if (beforeInput) beforeInput.value = '';
+  // 기본 체험: 앞사람이 고른 관점·소감·통계 동의를 지우고, 열려 있던 사건은 처음 단계로 돌립니다.
+  resetChoiceState(currentEventId);
+  if (Choices && Choices.hasChoices(currentEventId)) { setExploreMode('quick'); exploreStep = 1; if (currentEvent()) applyExploreStep(); }
   // 카드: 이전 참여자의 문장이 남지 않도록 메모리·화면에서 모두 지웁니다 (제출 직전 전환이어도 카드 메모는 지움).
   Object.keys(cardMemo).forEach(k => { delete cardMemo[k]; });
   resetCardState();
+  cardState.theme = DEFAULT_CARD_THEME;
+  cardState.format = 'feed';
+  renderCardDesign();
   // 공개 동의는 지금 쓰는 사람의 것이므로, 제출 직전 전환(keepDraft)에서는 그대로 둡니다.
   const consentBox = document.getElementById('publishConsent');
   if (consentBox && !keepDraft) consentBox.checked = false;
@@ -3890,6 +4530,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // My Memory Card · QR 시트
   document.getElementById('makeCardButton')?.addEventListener('click', makeMemoryCard);
+  document.getElementById('quickCardButton')?.addEventListener('click', () => makeQuickCard(false));
+  document.getElementById('choiceStep')?.addEventListener('keydown', handleChoiceKey);
+  document.getElementById('reflectInput')?.addEventListener('input', e => {
+    choiceState.reflection = e.target.value;
+    const count = document.getElementById('reflectCount');
+    if (count) count.textContent = String(e.target.value.length);
+  });
+  // 첫 화면 큰 사건 카드: 연령대·긴 설명 없이 바로 기본 체험 STEP 1
+  document.querySelector('.quick-picks')?.addEventListener('click', e => {
+    const pick = e.target.closest('[data-quick-event]');
+    if (!pick) return;
+    eventsMode = 'participate';
+    openEventDetail(pick.dataset.quickEvent, { quick: true });
+  });
   document.querySelector('.page--card')?.addEventListener('click', e => {
     const action = e.target.closest('[data-card-action]');
     if (action) { handleCardAction(action.dataset.cardAction); return; }
@@ -3901,9 +4555,21 @@ document.addEventListener('DOMContentLoaded', () => {
       gotoStep(stepGoto.dataset.stepGoto);
       return;
     }
+    const theme = e.target.closest('[data-card-theme]');
+    if (theme) { setCardTheme(theme.dataset.cardTheme); return; }
+    const format = e.target.closest('[data-card-format]');
+    if (format) { setCardFormat(format.dataset.cardFormat); return; }
     const chip = e.target.closest('[data-discovery]');
     if (chip) toggleDiscovery(chip.dataset.discovery);
   });
+  document.querySelector('.page--card')?.addEventListener('keydown', handleCardRadioKey);
+  // 화면 카드 크기가 바뀌면(글자 입력·화면 회전) 그림을 다시 맞춥니다.
+  const cardBox = document.getElementById('memoryCard');
+  if (cardBox && window.ResizeObserver) new ResizeObserver(() => { if (cardBox.innerHTML) scheduleCardArt(); }).observe(cardBox);
+  // 처음 열 때 서체가 늦게 도착하면(장식 속 한자·인장) 그림을 다시 그립니다.
+  if (document.fonts && document.fonts.addEventListener) {
+    document.fonts.addEventListener('loadingdone', () => { if (document.querySelector('.page--card.active') && cardState.model) scheduleCardArt(); });
+  }
   document.getElementById('customDiscovery')?.addEventListener('input', e => {
     cardState.custom = e.target.value;
     clearTimeout(cardDraftTimer);
@@ -3982,6 +4648,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.page--detail')?.addEventListener('click', e => {
     const goto = e.target.closest('[data-goto-tab]');
     if (goto) { gotoTab(goto.dataset.gotoTab); return; }
+    if (e.target.closest('[data-shared-refresh]')) { loadSharedNarratives(); return; }
     const source = e.target.closest('[data-goto-source]');
     if (source) { gotoSource(source.dataset.gotoSource); return; }
     const evidence = e.target.closest('[data-evidence-term]');
@@ -3997,9 +4664,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('[data-prior-action="edit"]')) { priorEditing = true; renderBeforeCard(); return; }
     const aiRun = e.target.closest('[data-ai-run]');
     if (aiRun) { fourthRunChoice[aiRun.dataset.aiLang] = Number(aiRun.dataset.aiRun); renderFourthTab(currentEvent()); return; }
+    const aiShow = e.target.closest('[data-ai-show]');
+    if (aiShow) { fourthLangShown = aiShow.dataset.aiShow; renderFourthTab(currentEvent()); return; }
+    if (e.target.closest('[data-quick-next]')) { quickAdvance(); return; }
+    const choiceOpt = e.target.closest('[data-choice-option]');
+    if (choiceOpt) { pickChoice(choiceOpt.dataset.choiceOption); return; }
+    if (e.target.closest('[data-reflect-skip]')) { makeQuickCard(true); return; }
+    const deep = e.target.closest('[data-deep-switch]');
+    if (deep) { switchToDeep(deep.dataset.deepSwitch); return; }
+    if (e.target.closest('[data-quick-return]')) { switchToQuick(); return; }
     const stepGoto = e.target.closest('[data-step-goto]');
     if (stepGoto) { gotoStep(stepGoto.dataset.stepGoto); return; }
-    if (e.target.closest('[data-step-back]')) { gotoStep(exploreStep - 1); return; }
+    if (e.target.closest('[data-step-back]')) { if (exploreMode === 'quick') quickBack(); else gotoStep(exploreStep - 1); return; }
     const discovery = e.target.closest('[data-discovery-step]');
     if (discovery) { toggleDiscovery(discovery.dataset.discoveryStep); return; }
     const ageFilter = e.target.closest('[data-age-filter]');

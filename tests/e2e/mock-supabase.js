@@ -6,7 +6,7 @@
   'use strict';
   const KEY = '__mock_db';
   let memory = null;                      // sessionStorage를 쓸 수 없는 환경(테스트)용
-  const empty = () => ({ shared_expressions: [], expression_participants: [], expression_empathy: [], nextId: 100 });
+  const empty = () => ({ shared_expressions: [], expression_participants: [], expression_empathy: [], exploration_choices: [], nextId: 100 });
   function load() {
     try { const v = sessionStorage.getItem(KEY); if (v) return JSON.parse(v); } catch (e) { /* 메모리 사용 */ }
     return memory ? JSON.parse(JSON.stringify(memory)) : empty();
@@ -15,13 +15,16 @@
     memory = JSON.parse(JSON.stringify(db));
     try { sessionStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* 메모리에만 */ }
   }
-  window.__mockDb = { read: load, failInsert: false, calls: [] };
+  window.__mockDb = { read: load, failInsert: false, failLoad: false, calls: [] };
 
   function insert(table, rows) {
     const db = load();
     window.__mockDb.calls.push({ op: 'insert', table, rows });
     let result;
-    if (window.__mockDb.failInsert && table === 'shared_expressions') {
+    if (window.__mockDb.noChoiceTable && table === 'exploration_choices') {
+      // 객관식 SQL을 아직 실행하지 않은 운영 DB와 같은 응답
+      result = { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.exploration_choices' in the schema cache" } };
+    } else if (window.__mockDb.failInsert && table === 'shared_expressions') {
       result = { data: null, error: { code: 'NETWORK', message: 'Failed to fetch' } };
     } else {
       const saved = rows.map(r => Object.assign({}, r, table === 'shared_expressions'
@@ -53,6 +56,10 @@
     const db = load();
     window.__mockDb.calls.push({ op: 'rpc', name, args });
     const rows = db.shared_expressions.filter(r => !args || !args.p_event_key || r.event_key === args.p_event_key);
+    if (name === 'public_expressions' && window.__mockDb.failLoad) {
+      // supabase-config.js의 제한 시간이 지나 요청을 멈춘 경우와 같은 오류
+      return Promise.resolve({ data: null, error: { code: '', message: 'TimeoutError: request timeout' } });
+    }
     if (name === 'public_expressions') {
       return Promise.resolve({ data: rows.slice().reverse().map(r => Object.assign({ age_group_suppressed: false }, r)), error: null });
     }
@@ -64,6 +71,15 @@
     if (name === 'participation_summary') {
       const keys = new Set(db.expression_participants.map(p => p.participant_key));
       return Promise.resolve({ data: [{ participants: keys.size, completed_participants: keys.size, expressions: db.shared_expressions.length }], error: null });
+    }
+    if (name === 'choice_counts') {
+      if (window.__mockDb.noChoiceTable) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+      const list = (db.exploration_choices || []).filter(c => c.event_key === args.p_event_key);
+      const totals = {}, by = {};
+      list.forEach(c => { totals[c.question_id] = (totals[c.question_id] || 0) + 1; const k = c.question_id + '|' + c.option_id; by[k] = (by[k] || 0) + 1; });
+      // 서버와 같이 질문별 응답이 5건 미만이면 돌려주지 않음
+      const data = Object.keys(by).filter(k => totals[k.split('|')[0]] >= 5).map(k => ({ question_id: k.split('|')[0], option_id: k.split('|')[1], n: by[k] }));
+      return Promise.resolve({ data, error: null });
     }
     if (name === 'age_group_participants') {
       const by = {};

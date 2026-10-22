@@ -175,3 +175,36 @@ test('카드 모델: 다섯 번째 서술자 칸은 내용이 있을 때만, 개
   assert.equal(Card.buildCardModel(Object.assign({}, base, { after: '', fifth: many })).fifth, null, '탐구 후 문장이 없으면 칸 없음');
   assert.equal(Card.fifthNarrator({ filled: [{ label: '이름만', where: [] }] }), null, '어느 서술에 없었는지 모르면 표시하지 않음');
 });
+
+test('실제 기록(2026-10-22): 편집자 핵심 빈자리는 모두 계산 결과와 맞고, 사건마다 관찰이 있다', () => {
+  eventsData.forEach(e => {
+    const keys = data.keyGaps[e.id] || [];
+    const r = NA.analyzeEvent(e, aiData.records, data);
+    assert.ok(keys.length >= 1 && keys.length <= 2, `${e.id}: 핵심 빈자리는 1~2개`);
+    assert.equal(r.keyGaps.length, keys.length, `${e.id}: 계산상 빈자리가 아닌 keyGaps가 있음`);
+    assert.ok((data.observations[e.id] || []).length >= 1, `${e.id}: 관찰 없음`);
+    (data.observations[e.id] || []).forEach(t => assert.doesNotMatch(t, /편향|왜곡|거짓말/, `${e.id}: 판정어 대신 사실형으로`));
+  });
+});
+
+test('가장 먼저 쓴 이름: 글에서 가장 앞에 나온 사건 이름을 센다', () => {
+  const names = data.names.imjin;
+  assert.equal(NA.firstNameIn('FAKE_文禄・慶長の役(韓国では壬辰倭乱)', names), 'bunroku-keicho');
+  assert.equal(NA.firstNameIn('FAKE_韓国では壬辰倭乱、日本では文禄・慶長の役', names), 'imjin-waeran');
+  assert.equal(NA.firstNameIn('FAKE_이름 없음', names), null);
+  const r = NA.analyzeEvent(byId('imjin'), aiData.records, data);
+  const first = key => r.names.byNarrator[key].filter(x => x.first === 3).map(x => x.id);
+  assert.deepEqual(first('ai-ko'), ['imjin-waeran']);
+  assert.deepEqual(first('ai-ja'), ['bunroku-keicho']);
+  assert.deepEqual(first('ai-zh'), ['wanli-war']);
+});
+
+test('거짓 빈자리 보정: 개념 사전에 없는 실제 표기(conceptExtraForms)·사건 요소 표기를 찾는다', () => {
+  const imjin = NA.analyzeEvent(byId('imjin'), [1, 2, 3].map(n => fakeRecord('imjin', 'zh', n, 'FAKE_朝鲜遭受了严重破坏。')), data);
+  assert.equal(imjin.rows.find(x => x.id === 'concept:damage').cells['ai-zh'].hits, 3);
+  const modern = NA.analyzeEvent(byId('modern'), [1, 2, 3].map(n => fakeRecord('modern', 'ja', n, 'FAKE_1910年に日本に併合されました。')), data);
+  assert.equal(modern.rows.find(x => x.id === 'focus:annexation').cells['ai-ja'].hits, 3);
+  // 공동 표현 분석이 쓰는 개념 사전은 그대로 (보정 표기는 이 화면에서만)
+  const lexDamage = require('../shared-memory-analyzer.js').CONCEPTS.find(c => c.id === 'damage');
+  assert.ok(Object.values(lexDamage.forms).every(list => list.indexOf('严重破坏') < 0));
+});

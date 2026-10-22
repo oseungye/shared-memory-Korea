@@ -16,6 +16,15 @@ async function downloadPng(page) {
   return { name: dl.suggestedFilename(), info: pngSize(fs.readFileSync(file)) };
 }
 
+/** QR 링크는 기본 체험으로 열립니다. 탐구 전 문장이 있는 심화 탐구는 화면의 '심화 탐구' 링크 → 진행 표시 STEP 1로 갑니다. */
+async function toDeepBefore(page) {
+  if (await page.$eval('.page--detail', el => el.dataset.mode) === 'quick') {
+    await page.click('[data-deep-switch="2"]');
+    await page.click('#flowProgress [data-step-goto="1"]');
+  }
+  await page.waitForSelector('#beforeInput');
+}
+
 run('memory-card', async ({ browser, base, check, mockPage }) => {
   /* ---------- 1. 휴대폰에서 QR 링크로 바로 진입 → 카드까지 (공개 없이) ---------- */
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true, hasTouch: true, isMobile: true });
@@ -30,6 +39,7 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
   await page.goto(base + 'index.html#/e/zainichi');
   await page.waitForSelector('.page--detail.active');
   check('모바일: 가로 스크롤 없음 (사건 화면)', await noHScroll(page));
+  await toDeepBefore(page);
 
   const BEFORE = '잘 모르지만 <일본>에 사는 한국 사람들';
   const AFTER = '재일조선인은 식민지 지배와 전후 일본 사회 속에서 형성된 공동체이며, 차별과 국적 문제를 함께 기억해야 한다.';
@@ -85,7 +95,40 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
 
   const png = await downloadPng(page);
   check('이미지로 저장: PNG 파일 1080px 폭, 4:5 이상 높이', png.info.png && png.info.width === 1080 && png.info.height >= 1350 && png.info.height <= 1920, JSON.stringify(png));
-  check('저장 파일 이름에 사건 id', /^shared-memory-card-zainichi-\d{8}\.png$/.test(png.name), png.name);
+  check('저장 파일 이름에 사건 id · 디자인(기본: 고문서)', /^shared-memory-card-zainichi-\d{8}-archive\.png$/.test(png.name), png.name);
+
+  // 카드 디자인 (아트 컬렉션) · 인스타 스토리
+  const themes = await page.$$eval('[data-card-theme]', els => els.map(e => ({ id: e.dataset.cardTheme, on: e.getAttribute('aria-checked') })));
+  check('카드 디자인 5종, 기본은 고문서 (하나만 선택)', themes.length === 5 && themes[0].id === 'archive' && themes[0].on === 'true' && themes.filter(t => t.on === 'true').length === 1, JSON.stringify(themes));
+  check('화면 카드에 테마 그림이 그려짐', await page.$eval('#memoryCard', el => el.dataset.art === 'ready' && el.dataset.theme === 'archive'));
+  await page.click('[data-card-theme="ukiyoe"]');
+  check('디자인을 바꿔도 문장은 그대로', await page.$eval('#memoryCard', el => el.dataset.theme) === 'ukiyoe' &&
+    await page.$eval('.memory-card__quote--after', el => el.textContent) === `“${AFTER}”` && (await page.$$eval('.memory-card__list li', els => els.length)) === 3);
+  await page.focus('[data-card-theme="ukiyoe"]');
+  await page.keyboard.press('ArrowRight');
+  check('화살표 키로 디자인 고르기 (라디오 묶음)', await page.$eval('#memoryCard', el => el.dataset.theme) === 'sansu' && await page.evaluate(() => document.activeElement.dataset.cardTheme) === 'sansu');
+  const themed = await downloadPng(page);
+  check('고른 디자인으로 저장 (파일 이름에 디자인)', themed.info.width === 1080 && /^shared-memory-card-zainichi-\d{8}-sansu\.png$/.test(themed.name), themed.name);
+  await page.click('[data-card-format="story"]');
+  check('인스타 스토리: 미리보기 표시 · 저장 버튼 문구 바뀜', await page.isVisible('#storyCanvas') && !(await page.isVisible('#memoryCard')) &&
+    /스토리 이미지 저장/.test(await page.textContent('[data-card-action="png"]')) && await page.isVisible('#cardStoryHint'));
+  check('스토리 미리보기 대체 텍스트에 탐구 후 문장 전체', (await page.getAttribute('#storyCanvas', 'aria-label')).includes(AFTER));
+  await page.evaluate(() => {
+    window.__fontCalls = [];
+    const orig = document.fonts.load.bind(document.fonts);
+    document.fonts.load = (f, t) => { window.__fontCalls.push([f, t || '']); return orig(f, t); };
+  });
+  const story = await downloadPng(page);
+  const fontCalls = await page.evaluate(() => window.__fontCalls);
+  check('이미지 저장 전 테마 서체를 실제로 그릴 글자와 함께 불러옴 (청록산수: 고운바탕 문장 · Noto Serif SC 인장)',
+    fontCalls.some(([f, t]) => /Gowun Batang/.test(f) && [...'재일조선인차별'].every(ch => t.includes(ch))) &&
+    fontCalls.some(([f]) => /Noto Serif SC/.test(f)) && fontCalls.some(([f]) => /Pretendard/.test(f)), JSON.stringify(fontCalls.map(c => c[0].slice(0, 30))));
+  check('스토리 이미지: 1080×1920 PNG (9:16)', story.info.png && story.info.width === 1080 && story.info.height === 1920, JSON.stringify(story));
+  check('스토리 파일 이름', /^shared-memory-card-zainichi-\d{8}-sansu-story\.png$/.test(story.name), story.name);
+  check('모바일: 가로 스크롤 없음 (스토리 미리보기)', await noHScroll(page));
+  check('디자인 선택도 저장소에 남지 않음', await page.evaluate(() => !Object.keys(localStorage).some(k => /card|theme/i.test(k))));
+  await page.click('[data-card-format="feed"]');
+  check('카드(4:5)로 돌아오면 화면 카드 다시 표시', await page.isVisible('#memoryCard .memory-card__title') && !(await page.isVisible('#storyCanvas')));
 
   await page.emulateMedia({ media: 'print' });
   check('인쇄 화면: 카드만 보이고 메뉴·버튼·다듬기 숨김', await page.isVisible('#memoryCard') && !(await page.isVisible('.nav')) &&
@@ -122,13 +165,15 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
   await page.waitForSelector('.page--home.active');
   check('새 참여자로 시작하면 카드 화면·내용 지움', await page.$eval('#memoryCard', el => el.innerHTML.trim() === '') && !(await page.isVisible('.page--card.active')));
   check('새 참여자로 시작하면 사건 링크 주소도 지움', await page.evaluate(() => location.hash === ''));
+  check('새 참여자로 시작하면 카드 디자인·형식도 기본값 (고문서 · 4:5)', await page.evaluate(() => cardState.theme === 'archive' && cardState.format === 'feed'));
   await page.evaluate(() => { location.hash = '#/e/zainichi'; });
   await page.waitForSelector('.page--detail.active');
   if (await page.isVisible('#participantGate')) await page.click('[data-gate-choice="continue"]');
   check('새 참여자는 STEP 1부터 시작 (탭은 STEP 2부터 보임)', await page.$eval('.page--detail', el => el.dataset.step) === '1' && !(await page.isVisible('.tab[data-tab="shared"]')));
   await page.click('#flowProgress [data-step-goto="3"]');   // 진행 표시로 STEP 3에 바로 이동 (단계 이동은 막지 않음)
-  await page.click('#makeCardButton');
-  check('다음 참여자는 이전 참여자의 문장으로 카드를 만들 수 없음', /탐구 후 나의 한 문장/.test(await page.$eval('#cardStatus', el => el.textContent)));
+  // QR은 기본 체험: 이 단계의 카드 버튼을 눌러도 앞사람의 선택·문장이 없으므로 카드를 만들지 않습니다.
+  await page.click('#quickCardButton');
+  check('다음 참여자는 이전 참여자의 문장으로 카드를 만들 수 없음', /카드에 담을 내용이 없어요/.test(await page.$eval('#cardStatus', el => el.textContent)) && !(await page.isVisible('.page--card.active')));
   check('모바일 흐름에서 페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   await mobile.close();
 
@@ -141,6 +186,7 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
   await page.waitForSelector('.page--detail.active');
   check('?e=imjin 형식 링크도 지원', await page.$eval('.detail__title', el => el.textContent.trim()) === '임진왜란');
 
+  await toDeepBefore(page);
   const LONG_BEFORE = '탐구 전 '.repeat(120).trim();
   const LONG_AFTER = ('임진왜란은 동아시아 세 나라가 모두 관여한 국제 전쟁이었고 많은 사람이 피해를 입었다. ').repeat(14).trim().slice(0, 1000);
   await page.fill('#beforeInput', LONG_BEFORE);

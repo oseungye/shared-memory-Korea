@@ -18,7 +18,10 @@ test('아카이브에는 공개 동의 분리 배포 이후 제안만 들어간�
 });
 
 test('숨김 목록의 제안은 아카이브와 목록 어디에도 나오지 않는다', async () => {
-  assert.deepEqual(Store.HIDDEN_EXPRESSION_IDS, [], '배포 상태에서는 숨김 목록이 비어 있어야 함 (숨길 때만 id 추가)');
+  // 배포 상태의 숨김 목록은 운영자가 확인한 정수 id만 (README '부적절 게시물 관리 방침')
+  const deployed = Store.HIDDEN_EXPRESSION_IDS.slice();
+  assert.ok(deployed.every(Number.isInteger), String(deployed));
+  assert.deepEqual(deployed, [11, 14], '시범 운영 빈칸 잔존 제안 2건만 숨김');
   Store.HIDDEN_EXPRESSION_IDS.push(42);
   try {
     assert.equal(Store.isHidden(42), true);
@@ -31,7 +34,7 @@ test('숨김 목록의 제안은 아카이브와 목록 어디에도 나오지 �
     const r = await Store.loadExpressions('imjin');
     assert.deepEqual(r.data.map(x => x.id), [41]);
   } finally {
-    Store.HIDDEN_EXPRESSION_IDS.length = 0;
+    Store.HIDDEN_EXPRESSION_IDS.splice(0, Store.HIDDEN_EXPRESSION_IDS.length, ...deployed);
     delete global.db;
   }
 });
