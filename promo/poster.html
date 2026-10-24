@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Memory — QR 참여 포스터 (A4)</title>
+  <!-- 서체: Google Fonts (SIL OFL 1.1). 인터넷이 없으면 기본 서체로 표시되므로, 인쇄 전 미리보기에서 확인하세요. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700;900&family=Noto+Serif+JP:wght@700&family=Noto+Serif+SC:wght@700&display=block" />
+  <link rel="stylesheet" href="promo.css" />
+  <style>
+    /* ---------- 포스터 전용 배치 ---------- */
+    .poster .masthead { margin-bottom: 5.5mm; }
+    .poster__kicker { margin-bottom: 2.6mm; }
+    .poster__title { font-size: 43pt; margin-bottom: 4mm; }
+    .poster__intro { font-size: 12.2pt; line-height: 1.58; margin-bottom: 5mm; }
+    .poster__intro strong { color: var(--ink); font-weight: 700; }
+    .poster .names { margin-bottom: 1.8mm; }
+    .poster__names-note { font-size: 7.8pt; color: var(--mute); margin-bottom: 5.5mm; }
+
+    /* 참여 과정 — 가로 3단 */
+    .steps { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; margin-bottom: 6mm; }
+    .step { border-top: 0.3mm solid var(--ink); padding-top: 2.6mm; position: relative; }
+    .step .num { display: block; font-size: 15pt; line-height: 1; margin-bottom: 1.8mm; }
+    .step__title { font-family: var(--f-serif); font-weight: 900; font-size: 14.4pt; line-height: 1.25; letter-spacing: -0.01em; }
+    .step__desc { font-size: 8.6pt; line-height: 1.55; color: var(--ink-soft); margin-top: 1.4mm; }
+
+    /* 아래: Memory Card 예시 + QR */
+    .poster__bottom { display: grid; grid-template-columns: 50mm minmax(0, 1fr); gap: 7mm; align-items: center; margin-top: auto; }
+    .poster__card { position: relative; margin: 0; }
+    .poster__card img { display: block; width: 100%; height: auto; border-radius: 0.8mm; box-shadow: 0 1.4mm 4.5mm rgba(60, 40, 20, 0.28); }
+    .poster__card figcaption { font-size: 6.8pt; color: var(--mute); margin-top: 1.8mm; text-align: center; }
+    .poster__card-tag {
+      position: absolute; top: -2.4mm; left: -2.4mm;
+      background: var(--red); color: var(--paper); font-size: 7pt; font-weight: 700; letter-spacing: 0.1em;
+      padding: 0.9mm 2.4mm; border-radius: 0.6mm;
+    }
+    .poster .cta { grid-template-columns: 54mm minmax(0, 1fr); gap: 6mm; padding: 5mm 6mm 5mm 5mm; align-self: stretch; }
+    .poster .cta__qr { width: 54mm; grid-row: span 4; }
+    .poster .cta__label { align-self: end; }
+    .poster .cta__url { align-self: start; }
+    .poster .cta__head { font-family: var(--f-serif); font-weight: 900; font-size: 15pt; line-height: 1.32; }
+    .poster .cta .promise { font-size: 12.2pt; line-height: 1.5; white-space: nowrap; flex-wrap: nowrap; }
+    .poster .cta__promise { display: grid; gap: 0.4mm; }
+    .poster .cta__url { font-size: 7.6pt; line-height: 1.45; white-space: nowrap; }
+    .poster .steps__more { font-size: 7.4pt; color: var(--mute); margin-top: -3.6mm; margin-bottom: 5mm; }
+    .poster .fine { margin-top: 3.4mm; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>A4 세로 · 인쇄 창에서 <b>여백 없음</b>, <b>배경 그래픽 켜기</b></span>
+    <button type="button" onclick="window.print()">인쇄 · PDF로 저장</button>
+    <a href="notice.html">안내문 보기 →</a>
+  </div>
+
+  <main class="sheet poster" aria-label="Shared Memory QR 참여 포스터">
+    <span class="sheet__vertical" aria-hidden="true"><span lang="ja">記憶</span> · 기억 · <span lang="zh-Hans">记忆</span></span>
+
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand__seal" aria-hidden="true">共</span>
+        <div>
+          <div class="brand__name">SHARED MEMORY</div>
+          <div class="brand__sub">동아시아 역사 공동 기억 프로젝트</div>
+        </div>
+      </div>
+      <p class="award">2026 대한민국 고등학생 AI·SW 개발 공모전<strong>본선 진출작</strong></p>
+    </header>
+
+    <p class="kicker poster__kicker">AN INTERACTIVE HISTORY INQUIRY</p>
+    <h1 class="title poster__title">우리는 정말<br /><em>같은 역사</em>를<br />기억하고 있을까?</h1>
+
+    <p class="lead poster__intro">
+      한국·일본·중국의 역사 서술과 <strong>AI의 답변</strong>을 나란히 비교하고,<br />
+      나의 관점을 남기는 <strong>참여형 역사 탐구 프로젝트</strong>입니다.
+    </p>
+
+    <div class="names" aria-label="1592년 같은 전쟁의 서로 다른 이름">
+      <div class="names__item names__item--korea"><div class="names__label">한국</div><div class="names__value">임진왜란</div></div>
+      <div class="names__item names__item--japan"><div class="names__label">일본</div><div class="names__value" lang="ja">文禄・慶長の役</div></div>
+      <div class="names__item names__item--china"><div class="names__label">중국</div><div class="names__value" lang="zh-Hans">万历朝鲜战争</div></div>
+      <div class="names__item names__item--ai"><div class="names__label">AI</div><div class="names__value">?</div></div>
+    </div>
+    <p class="poster__names-note">1592년 같은 전쟁, 나라마다 다른 이름. 이름 하나에도 역사를 바라보는 시선이 담겨 있습니다.</p>
+
+    <ol class="steps" aria-label="참여 과정">
+      <li class="step"><span class="num">01</span>
+        <p class="step__title">역사 서술 비교</p>
+        <p class="step__desc">같은 사건에 대한 한국·일본·중국의 서술을 나란히 읽어요.</p></li>
+      <li class="step"><span class="num">02</span>
+        <p class="step__title">관점 선택</p>
+        <p class="step__desc">정답 없는 질문 3개에서 내 생각에 가까운 관점을 골라요. 한 줄 소감은 원할 때만.</p></li>
+      <li class="step"><span class="num">03</span>
+        <p class="step__title">나만의 Memory Card</p>
+        <p class="step__desc">고른 관점과 소감이 담긴 카드를 이미지로 저장해요.</p></li>
+    </ol>
+    <p class="steps__more">AI의 답변·단어 분석·사료는 ‘심화 탐구’에서 이어서 볼 수 있어요.</p>
+
+    <section class="poster__bottom">
+      <figure class="poster__card">
+        <span class="poster__card-tag">예시</span>
+        <img src="assets/memory-card-sample.png" alt="실제 앱에서 만든 My Memory Card 예시 — 임진왜란, 내가 고른 관점과 한 줄 소감이 담긴 카드" />
+        <figcaption>실제 앱에서 만든 My Memory Card</figcaption>
+      </figure>
+      <div class="cta" aria-label="참여하기">
+        <div class="cta__qr"><img src="assets/qr-shared-memory.svg" alt="Shared Memory 참여 QR 코드 — https://oseungye.github.io/shared-memory-Korea/" /></div>
+        <p class="cta__label">SCAN TO JOIN</p>
+        <p class="cta__head">휴대폰 카메라로 찍고<br />바로 시작하세요</p>
+        <div class="cta__promise" aria-label="3–5분 · 익명 · 로그인 불필요 · 정답 없음">
+          <p class="promise"><span>3–5분</span><span>익명</span></p>
+          <p class="promise"><span>로그인 불필요</span><span>정답 없음</span></p>
+        </div>
+        <p class="cta__url">oseungye.github.io/<br />shared-memory-Korea</p>
+      </div>
+    </section>
+
+    <p class="fine">이름·연락처·학교를 묻지 않습니다. 고른 관점과 한 줄 소감은 이름 없이 저장되어 프로젝트 분석에 쓰이며, 다른 참여자에게 공개되지 않습니다. 공개 아카이브에는 직접 동의한 문장만 올라갑니다.</p>
+  </main>
+</body>
+</html>

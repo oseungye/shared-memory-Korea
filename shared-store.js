@@ -15,6 +15,7 @@
   const EMPATHY_RPC = 'empathy_counts';
   const PARTICIPANT_TABLE = 'expression_participants';
   const SUMMARY_RPC = 'participation_summary';
+  const ESTIMATE_RPC = 'participation_estimate';
   const AGE_RPC = 'age_group_participants';
   const LIST_RPC = 'public_expressions';
   const CHOICE_TABLE = 'exploration_choices';   // 기본 체험 객관식 응답 (공동 표현과 별도 테이블)
@@ -485,6 +486,24 @@
   }
 
   /**
+   * 참여자 수 중 '추정치'(서버 기록이 남지 않던 시기의 참여자를 로그로 센 값) → { available, estimated, countedUntil }
+   * 첫 화면이 서버 기록과 추정치를 나눠 보여 주는 데 씁니다. 함수가 없으면(SQL 실행 전) available=false.
+   */
+  async function fetchParticipationEstimate() {
+    const c = client();
+    if (!c || typeof c.rpc !== 'function') return { available: false };
+    try {
+      const res = await c.rpc(ESTIMATE_RPC);
+      if (res.error) return { available: false };
+      const r = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (!r) return { available: false };
+      return { available: true, estimated: Number(r.estimated) || 0, countedUntil: r.counted_until || null };
+    } catch (e) {
+      return { available: false };
+    }
+  }
+
+  /**
    * 사건별·연령대별 참여자 수 → { available, counts: {ageGroup: n}, suppressed: [ageGroup] }
    * 서버는 5명 미만인 연령대의 수를 null 로 돌려줍니다(소표본 보호). 이 경우 0으로 두고 suppressed 에 기록해
    * 화면에서는 "5명 미만"으로만 표시합니다.
@@ -520,6 +539,7 @@
     fetchEmpathyCounts,
     addEmpathy,
     fetchParticipationSummary,
+    fetchParticipationEstimate,
     fetchAgeGroupParticipants,
     insertChoices,
     insertReflection,
