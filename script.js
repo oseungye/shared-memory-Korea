@@ -3552,6 +3552,13 @@ function makeQuickCard(skipReflection) {
   const typed = (input ? input.value : choiceState.reflection || '').trim();
   choiceState.reflection = skipReflection ? '' : typed;
   choiceState.reflectionSkipped = !!skipReflection || !typed;
+  // 소감은 이름 없이 저장되므로, 나를 알아볼 수 있는 내용이 있으면 저장·카드 만들기 전에 고치게 합니다.
+  if (choiceState.reflection && Guide.checkPrivateText && !Guide.checkPrivateText(choiceState.reflection).ok) {
+    setCardStatus(Guide.PRIVATE_TEXT_MESSAGE, 'error');
+    if (exploreStep !== 3) gotoQuickStep(3);
+    input?.focus({ preventScroll: true });
+    return;
+  }
   const summary = chosenSummary();
   if (!choiceState.reflection && !summary.some(r => !r.skipped)) {
     // 아무것도 고르지 않고 쓰지도 않았다면, 막지 않고 무엇을 하면 되는지만 알려줍니다.

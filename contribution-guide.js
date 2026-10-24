@@ -193,9 +193,31 @@
 
   const PUBLIC_TEXT_MESSAGE = '공개되는 문장·이유에는 링크·이메일·전화번호를 넣을 수 없어요. 개인정보나 광고가 함께 공개되지 않도록 지운 뒤 등록해 주세요.';
 
+  /**
+   * 한 줄 소감 확인 — 소감은 동의 상자 없이 이름 없이 저장되므로(비공개), 개인을 알아볼 수 있는 내용이 섞이지 않게 막습니다.
+   * 공개 문장 확인(링크·이메일·전화번호)에 더해, 확실한 형태만 봅니다:
+   *   · 이름 밝히기("제 이름은 …", "내 이름은 …")
+   *   · 학교 이름("○○고등학교", "○○중", "○○여고"처럼 학교 종류 바로 앞에 이름이 붙은 경우)
+   *   · 학년·반·번호("2학년 3반", "3반 12번")
+   * "학교에서 배운 것과 달랐다", "고등학교 교과서"처럼 학교를 말하는 일반 문장은 막지 않습니다.
+   */
+  function checkPrivateText(text) {
+    const s = typeof text === 'string' ? text : '';
+    const pub = checkPublicText(s);
+    if (!pub.ok) return pub;
+    if (/(?:제|내|저의|나의)\s*이름은/.test(s)) return { ok: false, reason: 'name' };
+    if (/[가-힣]{2,}(?:고등학교|중학교|초등학교|여자고등학교|여고|여중|고교)(?![가-힣])/.test(s) ||
+        /(?:^|[^가-힣])[가-힣]{2,}(?:고|중|초)(?:\s*\d+\s*학년)/.test(s)) return { ok: false, reason: 'school' };
+    if (/\d+\s*학년\s*\d+\s*반|\d+\s*반\s*\d+\s*번/.test(s)) return { ok: false, reason: 'class' };
+    return { ok: true };
+  }
+
+  const PRIVATE_TEXT_MESSAGE = '소감은 이름 없이 저장돼요. 이름·학교·학년/반·전화번호·이메일·링크처럼 나를 알아볼 수 있는 내용은 지운 뒤 카드를 만들어 주세요.';
+
   return {
     STYLES, TEMPLATES, REASONS, BLANK,
     checkPublicText, PUBLIC_TEXT_MESSAGE,
+    checkPrivateText, PRIVATE_TEXT_MESSAGE,
     findPlaceholderIssues, placeholderMessage,
     TERM_RULES, checkHistoricalTerms,
     checkNickname, NICKNAME_MESSAGE
