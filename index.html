@@ -236,7 +236,7 @@
         </div>
         <p class="intro__more">
           <a href="#" data-page="archive">다른 사람들이 남긴 공동 표현 보기 (Shared Archive) →</a>
-          <a href="#" data-page="qr">수업·전시용 사건별 QR 만들기 →</a>
+          <a href="#" data-page="qr">학교 포스터·수업용 QR 만들기 →</a>
           <a href="#" data-page="about">이 프로젝트가 가지는 의미 보기 →</a>
         </p>
       </div>
@@ -686,7 +686,7 @@
         <details class="faq__item"><summary>학생 데이터는 어떻게 보호하나요?</summary>
           <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개 키와 행 수준 보안(RLS)으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다. 첫 화면의 참여자 수를 세기 위해, 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 <strong>사건 이름과 이 브라우저의 무작위 키만</strong> 한 번 기록합니다. 기본 체험에서 카드를 만들면 <strong>고른 관점(객관식)과 한 줄 소감을 이름 없이</strong> 저장해 프로젝트 분석에 씁니다. 소감은 다른 참여자에게 공개하지 않으며 운영자만 볼 수 있습니다. 소감에는 이름·학교·연락처를 쓰지 말아 주세요.</p></details>
         <details class="faq__item"><summary>실제 수업에서는 어떻게 쓰나요?</summary>
-          <p><strong>QR로 5분 체험:</strong> 첫 화면의 ‘수업·전시용 사건별 QR 만들기’에서 사건별 QR을 인쇄해 나눠 주면, 학생은 QR을 찍어 바로 그 사건의 탐구를 시작하고 마지막에 My Memory Card를 저장합니다. <strong>한 차시 수업:</strong> 한 차시(약 20–30분) 기준으로, ① 탐구 전 한 문장 → ② 세 나라의 서술 읽기 → ③ ‘어떻게 다를까?’에서 공통점·차이점 확인 → ④ 관련 사료 1개 확인 → ⑤ 내 한 문장 쓰기 → ⑥ 반 전체의 기억 보기 순서로 진행할 수 있습니다. 교사는 ⑥의 표현군과 탐구 전·후 변화를 토론 자료로 쓸 수 있습니다.</p></details>
+          <p><strong>QR로 5분 체험:</strong> 첫 화면의 ‘학교 포스터·수업용 QR 만들기’에서 포스터나 사건별 QR을 인쇄해 붙이거나 나눠 주면, 학생은 QR을 찍어 바로 그 사건의 탐구를 시작하고 마지막에 My Memory Card를 저장합니다. <strong>한 차시 수업:</strong> 한 차시(약 20–30분) 기준으로, ① 탐구 전 한 문장 → ② 세 나라의 서술 읽기 → ③ ‘어떻게 다를까?’에서 공통점·차이점 확인 → ④ 관련 사료 1개 확인 → ⑤ 내 한 문장 쓰기 → ⑥ 반 전체의 기억 보기 순서로 진행할 수 있습니다. 교사는 ⑥의 표현군과 탐구 전·후 변화를 토론 자료로 쓸 수 있습니다.</p></details>
         <details class="faq__item"><summary>My Memory Card에는 무엇이 담기고, 어디에 저장되나요?</summary>
           <p>사건과 역사적 질문, 참여자가 직접 쓴 탐구 전·후 문장, 직접 고른 ‘새롭게 발견한 관점’과 남은 질문, 실제로 열어 본 탐구 단계(세 나라 서술·비교 분석·사료)가 담깁니다. 문장을 고치거나 요약하지 않으며, 탐구 전·후 비교는 실제로 새로 쓴 단어와 계속 쓴 단어만 보여 줍니다. 카드 이미지는 참여자의 기기 안에서만 만들어지고 서버로 보내지 않습니다. 다만 기본 체험에서 고른 관점(객관식)과 한 줄 소감은 이름 없이 저장되어 프로젝트 분석에 쓰이며, 다른 참여자에게는 공개되지 않습니다. 공개 등록은 별도의 동의를 받을 때만 이루어지며, 공개하지 않아도 카드를 받을 수 있습니다.</p></details>
         <details class="faq__item"><summary>활동 전·후 변화가 교육 효과를 증명하나요?</summary>
@@ -801,18 +801,37 @@
     <section class="page page--qr" data-page-name="qr">
       <div class="page__header page__header--compact">
         <p class="page__eyebrow">QR · FOR CLASSROOMS &amp; MUSEUMS</p>
-        <h2 class="page__title">사건별 QR로 바로 시작하기</h2>
+        <h2 class="page__title">학교 포스터 · 사건별 QR</h2>
         <p class="page__desc">QR을 찍으면 첫 화면을 거치지 않고 해당 사건의 탐구가 바로 열립니다.<br />회원가입·로그인 없이 휴대폰 브라우저에서 약 5분 안에 체험하도록 구성했습니다.</p>
       </div>
       <div class="qr-guide no-print">
         <ol>
-          <li><strong>인쇄하기</strong> — 아래 ‘QR 시트 인쇄’로 사건별 QR을 학습지·전시 패널에 붙입니다.</li>
-          <li><strong>찍고 시작</strong> — 학생·관람객은 QR을 찍고, 화면 아래 버튼을 따라 STEP 1 내가 아는 역사 → STEP 2 세 나라 기록 비교 → STEP 3 나의 최종 표현 → STEP 4 Memory Card 순서로 진행합니다.</li>
+          <li><strong>인쇄하기</strong> — 학교 게시판에는 아래 <strong>‘학교 부착용 포스터’</strong>를, 학습지·전시 패널에는 ‘QR 시트’의 사건별 QR을 붙입니다.</li>
+          <li><strong>찍고 시작</strong> — 임진왜란·재일조선인 QR은 <strong>기본 체험</strong>(세 나라 기록 비교 → 관점 고르기 3문항 → 한 줄 소감 → My Memory Card)으로, 나머지 사건 QR은 심화 탐구 4단계로 바로 열립니다.</li>
           <li><strong>카드 받기</strong> — 마지막에 My Memory Card를 이미지로 저장합니다. 공개 등록은 각자 동의할 때만 합니다.</li>
         </ol>
         <p class="nlp-meta">공용 기기(교실 태블릿·전시용 기기)에서는 한 사람이 끝날 때마다 ‘새 참여자로 시작’을 눌러 주세요. 5분은 목표 시간이며, 실제 소요 시간은 참여자마다 다릅니다.</p>
         <button type="button" class="btn btn--small" data-qr-action="print">QR 시트 인쇄 · PDF로 저장</button>
       </div>
+      <!-- 학교 부착용 포스터 (A4 세로 · 벡터라 A3 확대 인쇄 가능) — script.js renderQrPoster -->
+      <section class="qr-poster-wrap" id="qrPosterWrap" aria-labelledby="qrPosterHeading">
+        <div class="qr-poster-controls no-print">
+          <h3 class="section-h section-h--small" id="qrPosterHeading">학교 부착용 포스터</h3>
+          <p class="nlp-meta">복도·게시판·도서관에 붙일 A4 포스터입니다. 미리보기 그대로 인쇄되며, 인쇄소에서 A3로 확대해도 QR과 글자가 깨지지 않습니다.</p>
+          <div class="qr-poster-controls__row" role="radiogroup" aria-label="QR을 찍으면 열릴 화면">
+            <button type="button" class="age-chip is-selected" role="radio" aria-checked="true" data-poster-target="imjin">임진왜란 바로 시작</button>
+            <button type="button" class="age-chip" role="radio" aria-checked="false" data-poster-target="zainichi">재일조선인 바로 시작</button>
+            <button type="button" class="age-chip" role="radio" aria-checked="false" data-poster-target="home">첫 화면 (두 사건 중 고르기)</button>
+          </div>
+          <label class="qr-poster-controls__label" for="posterFooter">포스터 맨 아래 문구 (선택)</label>
+          <input type="text" id="posterFooter" class="shared-form__input" maxlength="60" placeholder="예: 역사 동아리 ○○ · 11월 한 달간 참여 가능" />
+          <p class="nlp-meta">동아리 이름·기간처럼 운영 정보만 적어 주세요. 개인 연락처는 넣지 않는 것을 권합니다. 이 문구는 저장되지 않습니다.</p>
+          <button type="button" class="btn btn--primary qr-poster-controls__print" data-qr-action="print-poster">포스터 인쇄 · PDF로 저장 (A4)</button>
+        </div>
+        <article class="qr-poster" id="qrPoster" aria-label="학교 부착용 포스터 미리보기"><!-- JS --></article>
+      </section>
+
+      <h3 class="section-h section-h--small qr-sheet-heading no-print">사건별 QR 시트 (학습지·전시 패널용)</h3>
       <div class="qr-grid" id="qrGrid"><!-- JS --></div>
       <p class="qr-note">QR 코드는 이 기기에서 바로 만들며(외부 서비스 사용 안 함), 사이트 주소가 바뀌면 새로 인쇄해 주세요. ‘QR Code’는 DENSO WAVE의 등록상표입니다.</p>
     </section>

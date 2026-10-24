@@ -2745,6 +2745,54 @@ body.has-participant-gate { overflow: hidden; }
 .qr-card__link { display: block; font-size: var(--fs-2xs); color: var(--ink-mute); word-break: break-all; margin-top: 0.3rem; }
 .qr-card__actions { display: flex; gap: 0.8rem; margin-top: 0.4rem; }
 .qr-note { text-align: center; font-size: var(--fs-xs); color: var(--ink-mute); margin-top: 1.5rem; }
+
+/* 학교 부착용 포스터 (A4 세로) — 글자·QR 크기를 포스터 너비(cqw)에 맞춰, 화면 미리보기와 인쇄가 같은 비율로 보입니다 */
+.qr-poster-wrap { max-width: 1080px; margin: 0 auto 2.5rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 2rem; align-items: start; }
+.qr-poster-controls { background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 1.3rem 1.4rem; display: grid; gap: 0.6rem; }
+.qr-poster-controls__row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.qr-poster-controls__row .age-chip { min-height: 44px; }
+.qr-poster-controls__label { font-size: var(--fs-sm); font-weight: 600; margin-top: 0.4rem; }
+.qr-poster-controls__print { justify-self: start; min-height: 48px; margin-top: 0.4rem; }
+.qr-sheet-heading { max-width: 1080px; margin: 0 auto 1rem; }
+.qr-poster {
+  container-type: inline-size;
+  width: 100%; aspect-ratio: 210 / 297;
+  background: #fff; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow-paper, none);
+  padding: 7cqw 7cqw 5cqw;
+  display: flex; flex-direction: column; gap: 2.4cqw; overflow: hidden;
+  page: poster; break-inside: avoid;
+}
+.qr-poster__top { display: flex; align-items: center; gap: 2cqw; font-family: var(--font-latin); font-size: 2.3cqw; letter-spacing: 0.08em; color: var(--ink-soft); }
+.qr-poster__seal { display: inline-grid; place-items: center; width: 6.5cqw; height: 6.5cqw; background: var(--accent); color: #fff; border-radius: 1cqw; font-family: var(--font-serif); font-size: 4cqw; letter-spacing: 0; }
+.qr-poster__eyebrow { font-family: var(--font-serif); font-size: 2.6cqw; color: var(--accent); letter-spacing: 0.2em; margin-top: 1cqw; }
+.qr-poster__title { font-family: var(--font-display); font-weight: 700; font-size: 9.6cqw; line-height: 1.18; letter-spacing: -0.02em; word-break: keep-all; }
+.qr-poster__title em { font-style: normal; color: var(--accent); }
+.qr-poster__names { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 1.6cqw; }
+.qr-poster__names li { display: inline-flex; align-items: baseline; gap: 1.2cqw; padding: 1.1cqw 2.6cqw; border-radius: 99px; background: #f3ebdc; font-family: var(--font-serif); font-size: 3.2cqw; }
+.qr-poster__names small { font-family: var(--font-ui); font-size: 2.2cqw; color: var(--ink-mute); }
+.qr-poster__name--korea small::before, .qr-poster__name--japan small::before, .qr-poster__name--china small::before { content: '●'; margin-right: 0.6cqw; }
+.qr-poster__name--korea small::before { color: var(--korea); }
+.qr-poster__name--japan small::before { color: var(--japan); }
+.qr-poster__name--china small::before { color: var(--china); }
+.qr-poster__name--japan span { font-family: var(--font-ja); }
+.qr-poster__name--china span { font-family: var(--font-zh); }
+.qr-poster__name--ai { background: transparent !important; border: 0.3cqw dashed var(--accent); color: var(--accent); }
+.qr-poster__mark { display: inline-grid; place-items: center; width: 5cqw; height: 5cqw; background: var(--accent); color: #fff; border-radius: 0.8cqw; font-size: 3cqw; }
+.qr-poster__question { font-family: var(--font-serif); font-size: 3.6cqw; line-height: 1.5; color: var(--ink-soft); word-break: keep-all; }
+.qr-poster__main { display: grid; grid-template-columns: 42cqw 1fr; gap: 4.5cqw; align-items: center; margin-top: 1.5cqw; }
+.qr-poster__code svg { width: 42cqw; height: 42cqw; display: block; background: #fff; }
+.qr-poster__scan { text-align: center; font-size: 2.6cqw; font-weight: 700; color: var(--accent); margin-top: 0.8cqw; }
+.qr-poster__steps { margin: 0; padding-left: 4.6cqw; display: grid; gap: 2.2cqw; font-size: 3.2cqw; line-height: 1.4; word-break: keep-all; }
+.qr-poster__steps small { display: block; font-size: 2.4cqw; color: var(--ink-mute); }
+.qr-poster__steps li::marker { color: var(--accent); font-weight: 700; }
+.qr-poster__meta { margin-top: auto; font-size: 3.6cqw; font-weight: 700; letter-spacing: 0.02em; text-align: center; padding: 2cqw 0; border-top: 0.25cqw solid var(--ink); border-bottom: 0.25cqw solid var(--ink); }
+.qr-poster__foot { display: grid; gap: 0.8cqw; font-size: 2.2cqw; line-height: 1.5; color: var(--ink-mute); word-break: keep-all; }
+.qr-poster__url { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 2.1cqw; color: var(--ink-soft); word-break: break-all; }
+.qr-poster__org { font-size: 2.6cqw; font-weight: 700; color: var(--ink); }
+@media (max-width: 900px) {
+  .qr-poster-wrap { grid-template-columns: minmax(0, 1fr); }
+}
 .intro__more a + a { margin-left: 1.2rem; }
 
 /* ---------- 20-6. 반응형 ---------- */
@@ -2781,7 +2829,13 @@ body.has-participant-gate { overflow: hidden; }
   .page--qr .page__header { margin-bottom: 6mm; }
   .qr-grid { grid-template-columns: repeat(2, 1fr); gap: 6mm; }
   .qr-card { border-color: #999; }
+  /* QR 시트를 인쇄할 때는 포스터를 빼고, 포스터를 인쇄할 때는 포스터만 (A4 한 장) */
+  body:not(.printing-poster) .qr-poster-wrap { display: none !important; }
+  body.printing-poster .page--qr > :not(.qr-poster-wrap) { display: none !important; }
+  body.printing-poster .qr-poster-wrap { display: block; margin: 0; max-width: none; }
+  body.printing-poster .qr-poster { width: 186mm; height: 271mm; aspect-ratio: auto; border: none; box-shadow: none; border-radius: 0; }
 }
+@page poster { size: A4 portrait; margin: 12mm; }
 
 
 /* ============================================================

@@ -61,7 +61,7 @@ function navigateTo(pageName) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   // 사건 화면·카드 화면에서만 주소에 사건 링크(#/e/사건)를 남깁니다. 다른 화면으로 가면 지웁니다.
   if (pageName !== 'detail' && pageName !== 'card') setRouteHash(null);
-  if (pageName === 'qr') renderQrSheet();
+  if (pageName === 'qr') { renderQrSheet(); renderQrPoster(); }
 }
 
 /* ------------------------------------------------------------
@@ -4320,10 +4320,11 @@ function handleCardAction(action) {
    · QR은 vendor/qrcode-generator로 이 기기에서 만듭니다(외부 QR 서비스 사용 안 함).
    ------------------------------------------------------------ */
 
-function qrSvg(text) {
+function qrSvg(text, level) {
   if (typeof qrcode !== 'function') return '';
   try {
-    const qr = qrcode(0, 'M');         // 0 = 내용 길이에 맞는 크기 자동 선택, M = 오류 복원 15%
+    // 0 = 내용 길이에 맞는 크기 자동 선택, M = 오류 복원 15% (포스터는 Q = 25%: 벽에 붙인 종이의 얼룩·빛 반사 대비)
+    const qr = qrcode(0, level || 'M');
     qr.addData(text, 'Byte');
     qr.make();
     // 여백(quiet zone)은 4칸 이상이어야 휴대폰 카메라가 잘 읽습니다. 설명은 바깥 요소의 aria-label로 붙입니다(id 중복 방지).
@@ -4357,6 +4358,85 @@ function renderQrSheet() {
         </div>
       </article>`;
   }).join('');
+}
+
+/* ------------------------------------------------------------
+   학교 부착용 포스터 (A4 세로) — QR 페이지
+   · 사건 이름·세 나라 명칭·질문은 events-data.js에서 가져옵니다. 포스터 문구만 여기 둡니다.
+   · QR은 qrSvg(벡터)라 A3로 확대 인쇄해도 깨지지 않습니다. 맨 아래 문구는 저장하지 않습니다.
+   ------------------------------------------------------------ */
+
+let posterTarget = 'imjin';
+
+const POSTER_COPY = {
+  imjin: { title: '같은 전쟁,<br /><em>세 개의 이름.</em>', start: '임진왜란' },
+  zainichi: { title: '이 역사는<br /><em>누구의 역사일까?</em>', start: '재일조선인' },
+  home: { title: '우리는 정말 같은 역사를<br /><em>기억하고 있을까?</em>', start: '임진왜란 · 재일조선인 중 하나' }
+};
+
+function posterNames(target) {
+  if (target === 'home') {
+    return ['imjin', 'zainichi'].map(id => eventsData.find(e => e.id === id)).filter(Boolean)
+      .map(e => `<li><span class="qr-poster__mark">${escapeHtml(e.mark || '')}</span>${escapeHtml(e.title)} <small>${escapeHtml(e.era)}</small></li>`).join('');
+  }
+  const e = eventsData.find(x => x.id === target);
+  if (!e) return '';
+  return [['korea', '한국', e.title, 'ko'], ['japan', '일본', e.titleJP, 'ja'], ['china', '중국', e.titleCN, 'zh-Hans']]
+    .filter(([, , name]) => name)
+    .map(([cls, label, name, lang]) => `<li class="qr-poster__name qr-poster__name--${cls}"><small>${label}</small><span lang="${lang}">${escapeHtml(name)}</span></li>`).join('') +
+    '<li class="qr-poster__name qr-poster__name--ai"><small>AI</small>?</li>';
+}
+
+function renderQrPoster() {
+  const box = document.getElementById('qrPoster');
+  if (!box || !Card) return;
+  const target = POSTER_COPY[posterTarget] ? posterTarget : 'imjin';
+  const base = siteBaseUrl();
+  const link = target === 'home' ? base : Card.eventLink(base, target);
+  const event = eventsData.find(e => e.id === target);
+  const copy = POSTER_COPY[target];
+  const footer = (document.getElementById('posterFooter')?.value || '').trim().slice(0, 60);
+  const question = event ? event.question : '한국·일본·중국의 기록과 AI의 답을 나란히 읽고, 내 생각을 남겨 보세요.';
+  box.dataset.target = target;
+  box.innerHTML = `
+    <header class="qr-poster__top"><span class="qr-poster__seal" aria-hidden="true">共</span><span>SHARED MEMORY · 동아시아 역사 공동 기억 프로젝트</span></header>
+    <p class="qr-poster__eyebrow">記憶 · 기억 · 记忆</p>
+    <h2 class="qr-poster__title">${copy.title}</h2>
+    <ul class="qr-poster__names${target === 'home' ? ' qr-poster__names--events' : ''}">${posterNames(target)}</ul>
+    <p class="qr-poster__question">${escapeHtml(question)}</p>
+    <div class="qr-poster__main">
+      <div class="qr-poster__qr">
+        <div class="qr-poster__code" role="img" aria-label="Shared Memory ${escapeAttr(copy.start)} 바로가기 QR 코드">${qrSvg(link, 'Q') || '<span class="nlp-meta">QR을 만들지 못했습니다</span>'}</div>
+        <p class="qr-poster__scan">휴대폰 카메라로 찍어 보세요</p>
+      </div>
+      <ol class="qr-poster__steps">
+        <li><strong>세 나라의 기록</strong>을 나란히 읽고</li>
+        <li><strong>내 관점</strong>을 골라요 <small>(3문항 · 정답 없음)</small></li>
+        <li><strong>한 줄 소감</strong>을 남기면 <small>(건너뛰어도 돼요)</small></li>
+        <li><strong>나만의 Memory Card</strong> 완성 <small>(이미지·인스타 스토리로 저장)</small></li>
+      </ol>
+    </div>
+    <p class="qr-poster__meta">3–5분 · 익명 · 로그인 없음 · 정답 없음</p>
+    <footer class="qr-poster__foot">
+      <p>이름·연락처는 묻지 않아요. 고른 관점과 한 줄 소감은 이름 없이 저장되어 프로젝트 분석에 쓰이며, 다른 사람에게 공개되지 않아요.</p>
+      <p class="qr-poster__url">${escapeHtml(link)}</p>
+      ${footer ? `<p class="qr-poster__org">${escapeHtml(footer)}</p>` : ''}
+    </footer>`;
+  document.querySelectorAll('[data-poster-target]').forEach(b => {
+    const on = b.dataset.posterTarget === target;
+    b.classList.toggle('is-selected', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+
+/** 포스터만 인쇄합니다 (QR 시트·안내는 숨김). 인쇄 창이 닫히면 원래대로. */
+function printQrPoster() {
+  renderQrPoster();
+  document.body.classList.add('printing-poster');
+  const done = () => { document.body.classList.remove('printing-poster'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  window.print();
+  if (!('onafterprint' in window)) setTimeout(done, 1000);   // afterprint를 지원하지 않는 브라우저 대비
 }
 
 async function copyQrLink(link, button) {
@@ -4813,8 +4893,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.page--qr')?.addEventListener('click', e => {
     const copy = e.target.closest('[data-qr-copy]');
     if (copy) { copyQrLink(copy.dataset.qrCopy, copy); return; }
+    const target = e.target.closest('[data-poster-target]');
+    if (target) { posterTarget = target.dataset.posterTarget; renderQrPoster(); return; }
+    if (e.target.closest('[data-qr-action="print-poster"]')) { printQrPoster(); return; }
     if (e.target.closest('[data-qr-action="print"]')) window.print();
   });
+  document.getElementById('posterFooter')?.addEventListener('input', renderQrPoster);
   document.getElementById('userNarrative')?.addEventListener('input', () => {
     clearTimeout(cardDraftTimer);
     cardDraftTimer = setTimeout(renderFlowProgress, 400);
