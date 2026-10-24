@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shared Memory — 프로젝트 소개 · 참여 안내 (A4)</title>
+  <!-- 서체: Google Fonts (SIL OFL 1.1). 인터넷이 없으면 기본 서체로 표시되므로, 인쇄 전 미리보기에서 확인하세요. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700;900&family=Noto+Serif+JP:wght@700&family=Noto+Serif+SC:wght@700&display=block" />
+  <link rel="stylesheet" href="promo.css" />
+  <style>
+    /* ---------- 안내문 전용 배치 ---------- */
+    .notice .masthead { margin-bottom: 4.4mm; }
+    .notice__kicker { margin-bottom: 3mm; }
+    .notice__title { font-size: 27pt; margin-bottom: 4mm; }
+    .notice__letter { font-size: 10.2pt; line-height: 1.72; margin-bottom: 5.5mm; padding-left: 5mm; border-left: 0.7mm solid var(--red); }
+    .notice__letter p + p { margin-top: 1.4mm; }
+    .notice__letter [lang] { font-weight: 700; }
+
+    .points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; margin-bottom: 4.6mm; border-top: 0.3mm solid var(--ink); padding-top: 3.2mm; }
+    .point .num { display: block; font-size: 15pt; line-height: 1; margin-bottom: 1.6mm; }
+    .point__title { font-family: var(--f-serif); font-weight: 900; font-size: 12pt; line-height: 1.3; margin-bottom: 1.6mm; }
+    .point__text { font-size: 8.3pt; line-height: 1.6; color: var(--ink-soft); }
+
+    .guide { display: grid; grid-template-columns: 1fr 1fr; gap: 0 7mm; background: var(--ivory); border: 0.25mm solid var(--line); border-radius: 1.2mm; padding: 3.6mm 5.5mm 3.8mm; margin-bottom: 4.4mm; }
+    .guide__head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 3mm; border-bottom: 0.3mm solid var(--ink); padding-bottom: 2mm; margin-bottom: 1.5mm; }
+    .guide__head h2 { font-family: var(--f-serif); font-weight: 900; font-size: 12.4pt; }
+    .guide dl { display: grid; grid-template-columns: 16mm 1fr; gap: 1.1mm 3mm; align-content: start; padding-top: 1.5mm; }
+    .guide dt { font-size: 8pt; font-weight: 700; color: var(--red); padding-top: 0.3mm; }
+    .guide dd { font-size: 8.3pt; line-height: 1.52; color: var(--ink-soft); }
+    .guide dd strong { color: var(--ink); }
+    .flow { display: flex; flex-wrap: wrap; gap: 0.4mm 1.6mm; }
+    .flow span:not(:last-child)::after { content: '→'; margin-left: 1.6mm; color: var(--red-soft); }
+
+    .feedback { display: grid; grid-template-columns: 1fr auto; gap: 6mm; align-items: end; margin-bottom: 4.4mm; }
+    .feedback h2 { font-family: var(--f-serif); font-weight: 900; font-size: 12pt; margin-bottom: 1mm; }
+    .feedback p { font-size: 8.5pt; line-height: 1.58; color: var(--ink-soft); }
+    .feedback__where { font-size: 8.4pt; color: var(--ink); margin-top: 2.4mm; display: flex; gap: 2mm; align-items: baseline; }
+    .feedback__where span[contenteditable] { flex: 1; min-width: 60mm; border-bottom: 0.3mm solid var(--ink-soft); min-height: 5.5mm; padding: 0 1mm; }
+    .thanks { text-align: right; }
+    .thanks p { font-family: var(--f-serif); font-size: 10.4pt; line-height: 1.6; color: var(--ink); }
+    .thanks .sign { font-size: 9pt; color: var(--red); margin-top: 1.6mm; font-weight: 600; }
+
+    .notice .cta { grid-template-columns: 30mm 1fr auto; gap: 6mm; padding: 3.2mm 6mm 3.2mm 3.2mm; margin-top: auto; }
+    .notice .cta__label { margin-bottom: 1mm; }
+    .notice .cta__head { font-family: var(--f-serif); font-weight: 900; font-size: 13.6pt; line-height: 1.3; }
+    .notice .cta .promise { font-size: 10pt; margin-top: 1.6mm; }
+    .notice .cta__side { text-align: right; }
+    .notice .fine { margin-top: 2.6mm; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>A4 세로 · 인쇄 창에서 <b>여백 없음</b>, <b>배경 그래픽 켜기</b> · 점선 칸은 눌러서 고칠 수 있어요</span>
+    <button type="button" onclick="window.print()">인쇄 · PDF로 저장</button>
+    <a href="poster.html">← 포스터 보기</a>
+  </div>
+
+  <main class="sheet notice" aria-label="Shared Memory 프로젝트 소개 및 참여 안내">
+    <span class="sheet__vertical" aria-hidden="true"><span lang="ja">記憶</span> · 기억 · <span lang="zh-Hans">记忆</span></span>
+
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand__seal" aria-hidden="true">共</span>
+        <div>
+          <div class="brand__name">SHARED MEMORY</div>
+          <div class="brand__sub">동아시아 역사 공동 기억 프로젝트</div>
+        </div>
+      </div>
+      <p class="award">2026 대한민국 고등학생 AI·SW 개발 공모전<strong>본선 진출작</strong></p>
+    </header>
+
+    <p class="kicker notice__kicker">A NOTE FROM THE STUDENT DEVELOPER</p>
+    <h1 class="title notice__title">같은 역사, 서로 다른 기억을<br /><em>함께 들여다봐 주세요</em></h1>
+
+    <div class="lead notice__letter">
+      <p>안녕하세요. Shared Memory를 만든 학생 개발자입니다.</p>
+      <p>1592년의 같은 전쟁을 한국에서는 <span lang="ko">임진왜란</span>, 일본에서는 <span lang="ja">文禄・慶長の役</span>, 중국에서는 <span lang="zh-Hans">万历朝鲜战争</span>이라고 부릅니다. 이름 하나에도 역사를 바라보는 시선이 담겨 있다면, 서로의 기록을 나란히 읽어 보는 것만으로도 우리는 조금 다르게 생각하게 되지 않을까요? 이 질문에서 Shared Memory가 시작되었습니다.</p>
+    </div>
+
+    <section class="points">
+      <article class="point">
+        <span class="num">01</span>
+        <h2 class="point__title">왜 만들었나요</h2>
+        <p class="point__text">동아시아 세 나라는 같은 역사를 서로 다른 이름과 강조점으로 기억합니다. 세 서술을 같은 화면에서, 같은 방법으로 비교해 그 차이와 공통점을 직접 확인할 수 있도록 만들었습니다. 누가 옳은지 판정하지 않습니다.</p>
+      </article>
+      <article class="point">
+        <span class="num">02</span>
+        <h2 class="point__title">무엇을 경험하나요</h2>
+        <p class="point__text">서술마다 어떤 단어를 고르고 무엇을 앞세우는지 살펴보고, AI의 답변도 정답이 아닌 ‘또 하나의 서술’로 비판적으로 읽어 봅니다. 사실을 지우지 않으면서 서로 다른 관점을 함께 담는 방법을 생각해 보는 것이 목표입니다.</p>
+      </article>
+      <article class="point">
+        <span class="num">03</span>
+        <h2 class="point__title">왜 여러분의 참여가 필요한가요</h2>
+        <p class="point__text">지금 실제 학생들의 참여로 이 도구의 교육적 가능성과 사용성을 확인하고 있습니다. 여러분이 고른 관점과 한 줄 소감, 써 보며 느낀 점은 공모전 본선 발표를 준비하는 데 가장 큰 도움이 됩니다.</p>
+      </article>
+    </section>
+
+    <section class="guide" aria-labelledby="guideTitle">
+      <div class="guide__head"><h2 id="guideTitle">참여 안내</h2><span class="kicker">HOW TO JOIN</span></div>
+      <dl>
+        <dt>소요 시간</dt><dd><strong>약 3–5분</strong></dd>
+        <dt>참여 방식</dt><dd><strong>자율 · 익명</strong> · 로그인 불필요 · 정답 없음. 중간에 그만두어도 괜찮아요.</dd>
+        <dt>참여 순서</dt><dd class="flow"><span>QR 찍기</span><span>사건 고르기</span><span>세 나라 서술 비교</span><span>관점 3문항</span><span>Memory Card 저장</span></dd>
+      </dl>
+      <dl>
+        <dt>저장되는 것</dt><dd>고른 관점과 한 줄 소감(선택)은 <strong>이름 없이</strong> 저장되어 프로젝트 분석에 쓰이며, 다른 참여자에게 공개되지 않아요. 참여자 수를 세기 위해 사건 이름과 브라우저의 무작위 번호만 기록해요.</dd>
+        <dt>받지 않는 것</dt><dd>이름·연락처·학교. Memory Card 이미지는 내 휴대폰 안에서만 만들어져요. 공개 아카이브에는 직접 동의한 문장만 올라가요.</dd>
+      </dl>
+    </section>
+
+    <section class="feedback">
+      <div>
+        <h2>써 보니 어땠나요?</h2>
+        <p>헷갈렸던 화면, 더 알고 싶은 역사, 불편했던 점까지 무엇이든 좋습니다. 솔직한 의견이 다음 버전을 만듭니다.</p>
+        <p class="feedback__where">의견 전하는 곳 <span contenteditable="true" aria-label="의견 전하는 곳 (인쇄 전에 적거나 비워 두고 손으로 쓰세요)"></span></p>
+      </div>
+      <div class="thanks">
+        <p>바쁜 학교생활 중에<br />시간을 내어 주셔서 고맙습니다.</p>
+        <p class="sign" contenteditable="true">— Shared Memory 학생 개발자 드림</p>
+      </div>
+    </section>
+
+    <section class="cta" aria-label="참여하기">
+      <div class="cta__qr"><img src="assets/qr-shared-memory.svg" alt="Shared Memory 참여 QR 코드 — https://oseungye.github.io/shared-memory-Korea/" /></div>
+      <div>
+        <p class="cta__label">SCAN TO JOIN</p>
+        <p class="cta__head">지금, 3–5분만 함께해 주세요</p>
+        <p class="promise"><span>3–5분</span><span>익명</span><span>로그인 불필요</span><span>정답 없음</span></p>
+      </div>
+      <div class="cta__side"><p class="cta__url">oseungye.github.io/<br />shared-memory-Korea</p></div>
+    </section>
+
+    <p class="fine">Shared Memory는 고등학생이 개발한 교육용 웹사이트입니다. 세 나라의 서술은 비교를 위해 프로젝트에서 요약한 것이며 각 나라의 모든 교과서나 역사 인식을 대표하지 않습니다.</p>
+  </main>
+</body>
+</html>

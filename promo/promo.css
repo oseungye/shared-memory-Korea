@@ -1,0 +1,141 @@
+/* ============================================================
+   Shared Memory — 학교 게시용 홍보물 디자인 시스템 (포스터 · 안내문 공통)
+   · A4 세로(210 × 297mm). 화면 미리보기와 인쇄가 같은 크기(mm)로 보입니다.
+   · 색: 아이보리 · 먹색 · 짙은 적갈색. 서체: Noto Serif KR(제목) · Noto Sans KR(본문) · Cinzel(영문 머리글)
+     일본어·중국어 이름은 Noto Serif JP / SC. 모두 Google Fonts(SIL OFL 1.1).
+   · 앱(style.css)과 같은 계열의 색·서체를 쓰지만, 앱 코드와는 독립된 파일입니다.
+   ============================================================ */
+
+:root {
+  --ivory: #f6f0e4;
+  --paper: #fbf7ef;
+  --ink: #1e1b17;
+  --ink-soft: #46403a;
+  --mute: #776e64;
+  --red: #7a2b20;          /* 짙은 적갈 (주 강조) */
+  --red-soft: #a2493a;
+  --line: #d7cbb8;
+  --line-strong: #b9a991;
+  --korea: #b5363f;
+  --japan: #2f3f78;
+  --china: #b98a1b;
+
+  --f-serif: 'Noto Serif KR', 'Nanum Myeongjo', serif;
+  --f-sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --f-latin: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+  --f-ja: 'Noto Serif JP', var(--f-serif);
+  --f-zh: 'Noto Serif SC', var(--f-serif);
+}
+
+@page { size: A4 portrait; margin: 0; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  background: #d9d4cb;
+  font-family: var(--f-sans);
+  color: var(--ink);
+  font-size: 10pt;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+@media print { body { background: none; } }
+
+/* ---------- 종이 (A4) ---------- */
+.sheet {
+  position: relative;
+  width: 210mm; height: 297mm;
+  margin: 10mm auto;
+  background: var(--paper);
+  overflow: hidden;
+  box-shadow: 0 2mm 8mm rgba(40, 30, 20, 0.25);
+  padding: 15mm 15mm 11mm;
+  display: flex; flex-direction: column;
+}
+@media print { .sheet { margin: 0; box-shadow: none; break-after: page; } }
+
+/* 안쪽 테두리 (전시 패널의 액자선) */
+.sheet::before {
+  content: ''; position: absolute; inset: 7mm;
+  border: 0.35mm solid var(--line-strong);
+  pointer-events: none;
+}
+/* 오른쪽 위 세로 머리글 (기억 · 記憶 · 记忆) */
+.sheet__vertical {
+  position: absolute; top: 46mm; right: 9.6mm;
+  writing-mode: vertical-rl;
+  font-family: var(--f-serif); font-size: 8pt; letter-spacing: 0.5em; color: var(--red-soft);
+}
+
+/* ---------- 머리줄: 로고 · 프로젝트명 · 본선 진출 표시 ---------- */
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 6mm; padding-bottom: 4.5mm; border-bottom: 0.3mm solid var(--ink); }
+.brand { display: flex; align-items: center; gap: 3.2mm; }
+.brand__seal {
+  width: 12mm; height: 12mm; display: grid; place-items: center;
+  background: var(--red); color: var(--paper);
+  font-family: var(--f-serif); font-weight: 700; font-size: 20pt; line-height: 1;
+  border-radius: 1.2mm;
+}
+.brand__name { font-family: var(--f-latin); font-weight: 600; font-size: 14pt; letter-spacing: 0.14em; line-height: 1.1; }
+.brand__sub { font-size: 7.6pt; color: var(--ink-soft); letter-spacing: 0.06em; margin-top: 0.8mm; }
+.award {
+  text-align: right; font-size: 7.4pt; line-height: 1.45; color: var(--red);
+  border-left: 0.3mm solid var(--line-strong); padding-left: 4mm;
+}
+.award strong { display: block; font-family: var(--f-serif); font-weight: 900; font-size: 11pt; letter-spacing: 0.04em; color: var(--red); }
+
+/* ---------- 공통 글자 ---------- */
+.kicker { font-family: var(--f-latin); font-size: 8pt; letter-spacing: 0.28em; color: var(--red); }
+.kicker--ko { font-family: var(--f-serif); letter-spacing: 0.4em; }
+.title { font-family: var(--f-serif); font-weight: 900; letter-spacing: -0.025em; line-height: 1.16; color: var(--ink); }
+.title em { font-style: normal; color: var(--red); }
+.lead { font-family: var(--f-serif); color: var(--ink-soft); }
+.rule { border: 0; border-top: 0.25mm solid var(--line); }
+.num { font-family: var(--f-latin); font-weight: 600; color: var(--red); letter-spacing: 0.05em; }
+.sheet [lang="ja"] { font-family: var(--f-ja); }
+.sheet [lang="zh-Hans"] { font-family: var(--f-zh); }
+
+/* ---------- 같은 사건, 서로 다른 이름 (네 칸 띠) ---------- */
+.names { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 0.3mm solid var(--ink); border-bottom: 0.3mm solid var(--ink); }
+.names__item { padding: 2.6mm 3mm 2.8mm; border-left: 0.25mm solid var(--line); }
+.names__item:first-child { border-left: 0; padding-left: 0; }
+.names__label { display: flex; align-items: center; gap: 1.4mm; font-size: 7pt; letter-spacing: 0.08em; color: var(--mute); }
+.names__label::before { content: ''; width: 1.8mm; height: 1.8mm; border-radius: 50%; background: currentColor; }
+.names__item--korea .names__label::before { background: var(--korea); }
+.names__item--japan .names__label::before { background: var(--japan); }
+.names__item--china .names__label::before { background: var(--china); }
+.names__item--ai .names__label::before { background: transparent; border: 0.3mm solid var(--red); }
+.names__value { font-family: var(--f-serif); font-weight: 700; font-size: 12.5pt; line-height: 1.3; margin-top: 0.8mm; white-space: nowrap; }
+.names__item--ai .names__value { color: var(--red); font-family: var(--f-latin); }
+
+/* ---------- 참여 조건 띠 (3–5분 · 익명 · 로그인 불필요 · 정답 없음) ---------- */
+.promise { display: flex; flex-wrap: wrap; gap: 0 3.4mm; font-family: var(--f-sans); font-weight: 700; letter-spacing: 0.02em; }
+.promise span + span::before { content: '·'; margin-right: 3.4mm; color: var(--red-soft); font-weight: 400; }
+
+/* ---------- QR 띠 (먹색 바탕) ---------- */
+.cta {
+  display: grid; align-items: center;
+  background: var(--ink); color: var(--paper);
+  border-radius: 1.5mm;
+}
+.cta__qr { background: #fff; padding: 2.4mm; border-radius: 1mm; line-height: 0; }
+.cta__qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.cta__label { font-size: 8pt; letter-spacing: 0.14em; color: #e7c9b5; }
+.cta .promise { color: var(--paper); }
+.cta .promise span + span::before { color: #d79c87; }
+.cta__url { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 8pt; color: #cbbfae; letter-spacing: 0.02em; }
+
+/* ---------- 작은 글씨 (개인정보 안내 등) ---------- */
+.fine { font-size: 7.2pt; line-height: 1.6; color: var(--mute); }
+
+/* ---------- 화면에서만 보이는 도구줄 ---------- */
+.toolbar {
+  position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; justify-content: center; align-items: center;
+  padding: 10px; background: rgba(30, 27, 23, 0.92); color: #f6f0e4; font-size: 13px;
+}
+.toolbar button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #f6f0e4; background: transparent; color: inherit; cursor: pointer; }
+.toolbar a { color: #e7c9b5; }
+@media print { .toolbar { display: none !important; } }
+[contenteditable="true"] { outline: 1px dashed transparent; }
+@media screen { [contenteditable="true"]:hover, [contenteditable="true"]:focus { outline-color: var(--red-soft); } }
