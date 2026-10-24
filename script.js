@@ -4491,10 +4491,27 @@ function countParticipation() {
 async function loadParticipantCount() {
   const el = document.getElementById('participantCount');
   if (!el || !Store || !Store.fetchParticipationSummary) return;
-  const r = await Store.fetchParticipationSummary();
+  const [r, est] = await Promise.all([
+    Store.fetchParticipationSummary(),
+    Store.fetchParticipationEstimate ? Store.fetchParticipationEstimate() : { available: false }
+  ]);
   if (!r.available || !r.participants) { el.hidden = true; return; }
-  el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}</strong>명이 Shared Memory에 참여했습니다.`;
+  el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}</strong>명이 Shared Memory에 참여했습니다.` +
+    participantCountBreakdown(r.participants, est);
   el.hidden = false;
+}
+
+/**
+ * 참여자 수에 추정치가 섞여 있으면 "서버 기록 n명 + 기록 전 추정 m명"으로 나눠 보여 줍니다.
+ * 추정치는 참여 기록을 시작하기 전(서버에 행이 남지 않던 시기) 참여자를 API 요청 로그로 센 값입니다(README 9장).
+ */
+function participantCountBreakdown(total, est) {
+  if (!est || !est.available || !(est.estimated > 0) || est.estimated >= total) return '';
+  const recorded = total - est.estimated;
+  const d = est.countedUntil ? new Date(est.countedUntil) : null;
+  const until = d && !isNaN(d.getTime()) ? `(${d.getMonth() + 1}/${d.getDate()} 이전)` : '';
+  return `<span class="hero__count-detail">서버에 기록된 참여 ${recorded.toLocaleString('ko-KR')}명 + ` +
+    `기록을 시작하기 전${until} 접속 기록으로 추정한 ${est.estimated.toLocaleString('ko-KR')}명</span>`;
 }
 
 /* ------------------------------------------------------------

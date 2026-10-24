@@ -579,6 +579,16 @@ npm test                                            # 기록 형식 확인 (질�
 - `participation_baseline`은 RLS가 켜져 있고 사이트(anon)에서 읽기·쓰기가 불가합니다. 고치거나 빼는 방법은 SQL 파일 끝에 있습니다.
 - 로컬 PostgreSQL 16에서 운영과 같은 모양의 데이터로 실행 확인: 18 → 70, 다시 실행해도 70, 같은 키 중복·조회 시도는 거부됨.
 
+#### 참여자 수 구분 표기 — [`supabase/2026-10-participation-estimate.sql`](supabase/2026-10-participation-estimate.sql) (적용 완료 2026-10-24, 마이그레이션 `participation_estimate_function`)
+
+첫 화면 참여자 수에 섞인 **추정치**를 서버 기록과 나눠 보여 줍니다. 합계(`participation_summary`)는 그대로입니다.
+
+- 새 함수 `participation_estimate()` → `(estimated, counted_until)`: `participation_baseline`의 합계와 기준 시각만 돌려줍니다(추정 방법 원문 `note`는 공개하지 않음). 추가만 하며, anon에만 EXECUTE.
+- 화면: “현재 **78**명이 Shared Memory에 참여했습니다.” 아래에 “서버에 기록된 참여 26명 + 기록을 시작하기 전(10/23 이전) 접속 기록으로 추정한 52명”(2026-10-24 기준 값). 함수가 없거나 추정치가 0이면 예전처럼 합계만 표시합니다.
+- FAQ ‘첫 화면의 참여자 수는 어떻게 세나요?’에 세는 방법과 추정의 한계를 적었습니다.
+- **발표 자료에서는** 서버 기록 숫자와 추정치를 구분하고, 기준 시각을 함께 적으세요.
+- 검증: `tests/participation-estimate.test.js`(공개 범위·권한·읽기), `tests/e2e/participation-count.e2e.js`(나눠 표시·기준 날짜·360px·함수 없을 때 합계만).
+
 ### RLS와 보안
 
 - 브라우저에는 **publishable(anon) 키만** 있습니다. `service_role` 키·비밀 키를 절대 코드에 넣지 마세요.
