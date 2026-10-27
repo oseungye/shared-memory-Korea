@@ -6,7 +6,8 @@
      → 학생 답 → 호출 2 (마무리 + 근거 칩). 호출은 최대 2회, 그 뒤 입력을 잠급니다.
    · 호출은 Supabase Edge Function `ask-ai`(db.functions.invoke)가 대신합니다. 키는 브라우저에 없습니다.
    · 실패·타임아웃·429·503·거절({fallback:true})이면 재시도 없이 dialogue[사건][1]·[2]의 미리 써 둔 질문으로 이어갑니다. db가 없으면 처음부터 폴백.
-   · 이 사이트는 대화를 저장하지 않습니다(답은 Anthropic으로 전송됨). 학생 답은 전송 전에 빈 답·600자 초과·전화번호·이메일을 막습니다.
+   · 시작 전에 외부 AI 전송 동의(선택)를 받습니다. 동의하지 않으면 함수를 부르지 않고 미리 써 둔 질문으로만 진행합니다.
+   · 이 사이트는 대화를 저장하지 않습니다(동의한 경우 답은 Anthropic으로 전송됨). 학생 답은 전송 전에 빈 답·600자 초과·전화번호·이메일을 막습니다.
    · 제한 시간은 supabase-config.js의 fetchWithTimeout 15초가 담당합니다(별도 타이머 없음).
    · 근거 칩: narrative(비교 탭 나라 카드) · ai(네 번째 서술자 언어 카드·회차) · source(사료 카드)로 이동·강조. 대상이 없으면 무시.
    · 순수 부분(nextState·validateAnswer)은 Node 테스트에서 require로 불러옵니다. 화면 부분은 브라우저에서만 동작합니다.
@@ -21,6 +22,9 @@
   const MAX_ANSWER = 600;
   const FALLBACK_NOTE = 'AI가 응답하지 않아 준비한 질문으로 이어갑니다.';
   const NOTICE = '이 사이트는 답을 저장하지 않습니다. 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리됩니다. 이름·개인정보는 쓰지 마세요.';
+  // 외부 AI 전송은 따로 동의한 경우에만 합니다. 동의하지 않아도 미리 준비한 질문으로 끝까지 할 수 있습니다(호출 없음).
+  const CONSENT_LABEL = '내 답을 AI 서비스(Anthropic, 미국 회사)로 보내 AI의 반응을 받는 데 동의합니다. (선택 · 만 14세 미만은 선생님·보호자의 안내에 따라 사용하세요)';
+  const NO_CONSENT_NOTE = '외부 AI로 보내지 않고, 준비한 질문으로 이어갑니다.';
   const NATION = { korea: '한국 측 서술', japan: '일본 측 서술', china: '중국 측 서술' };
   const LANG = { ko: '한국어', ja: '일본어', zh: '중국어' };
 
@@ -106,7 +110,9 @@
         <h4 class="section-h section-h--small" id="askAiTitle">이번엔 AI가 묻습니다</h4>
         <p class="ask-ai__desc">세 나라의 서술과 AI 답변을 읽었다면, 이제 AI가 두 번 짧게 묻습니다. 주어가 누구였는지, 무엇이 빠졌는지 직접 말해 보세요. 정답 판정은 없습니다.</p>
         <p class="ask-ai__notice">${esc(NOTICE)}</p>
-        ${idle ? `<button type="button" class="btn btn--primary ask-ai__start" data-ask-start>시작</button>` : `
+        ${idle ? `
+        <label class="ask-ai__consent"><input type="checkbox" id="askAiConsent"> <span>${esc(CONSENT_LABEL)}</span></label>
+        <button type="button" class="btn btn--primary ask-ai__start" data-ask-start>시작</button>` : `
         <ol class="ask-ai__log" aria-live="polite">${state.log.map(entryHtml).join('')}</ol>
         ${waiting ? `<p class="ask-ai__status" role="status" aria-live="polite">AI가 읽고 있습니다…</p>` : ''}
         ${canAnswer ? `
@@ -140,6 +146,8 @@
   function start() {
     const d = dialogueFor(state.eventId);
     if (!d) return;
+    const consent = document.getElementById('askAiConsent');
+    state.consent = !!(consent && consent.checked);       // 이 대화에서만 쓰고 저장하지 않음
     state.step = nextState(state.step, 'start');
     state.log.push({ type: 'ai', preset: true, question: d[0].q, evidence: d[0].evidence });
     state.history.push({ role: 'assistant', content: d[0].q });
@@ -161,7 +169,8 @@
     state.history.push({ role: 'user', content: v.text });
     render();
     const requestId = state.requestId = ++seq;
-    callFunction({ eventId: state.eventId, turn, history: state.history.slice() }).then(res => {
+    const ask = state.consent ? callFunction({ eventId: state.eventId, turn, history: state.history.slice() }) : Promise.resolve(null);
+    ask.then(res => {
       if (!state || state.requestId !== requestId) return;          // 사건이 바뀌었거나 초기화됨
       const preset = d[turn];                                        // 폴백용: [1] 두 번째 질문, [2] 마무리
       if (res) {
@@ -169,7 +178,7 @@
         state.log.push({ type: 'ai', reply: res.reply, question, evidence: res.evidence });
         state.history.push({ role: 'assistant', content: question ? `${res.reply}\n\n${question}` : res.reply });
       } else {
-        state.log.push({ type: 'note', text: FALLBACK_NOTE });
+        state.log.push({ type: 'note', text: state.consent ? FALLBACK_NOTE : NO_CONSENT_NOTE });
         // [1]은 두 번째 질문, [2]는 더 답할 수 없는 자리라 질문이 아닌 마무리 글
         state.log.push(turn === 1
           ? { type: 'ai', preset: true, question: preset.q, evidence: preset.evidence }
@@ -241,7 +250,7 @@
     if (!event || !dialogueFor(event.id)) { state = null; el.innerHTML = ''; return; }
     listen(el);
     if (state && state.eventId === event.id) return;
-    state = { eventId: event.id, step: 'idle', turn: 0, log: [], history: [], requestId: 0 };
+    state = { eventId: event.id, step: 'idle', turn: 0, log: [], history: [], requestId: 0, consent: false };
     render();
   }
 
@@ -252,5 +261,5 @@
     if (el) el.innerHTML = '';
   }
 
-  return { nextState, validateAnswer, mount, reset, MAX_ANSWER, FALLBACK_NOTE, NOTICE, PII };
+  return { nextState, validateAnswer, mount, reset, MAX_ANSWER, FALLBACK_NOTE, NOTICE, CONSENT_LABEL, NO_CONSENT_NOTE, PII };
 });

@@ -2,7 +2,7 @@
    실행: node tests/e2e/ask-ai.e2e.js   (전체: npm run test:e2e)
    · 1) 폴백 경로: 테스트 실행기가 외부 요청을 모두 막으므로 함수 호출은 항상 실패 → 미리 써 둔 질문으로 끝까지 진행 (CI와 같은 조건)
    · 2) 성공 경로: page.route로 함수 응답을 모의 → 반응·근거 칩·두 번째 질문, 칩 클릭 이동(서술 카드·AI 카드 회차·사료 카드), 마무리 후 입력 잠김, 호출 2회
-   · 3) 기본 체험(quick)에서는 보이지 않음 · 4) 모바일 폭 */
+   · 3) 기본 체험(quick)에서는 보이지 않음 · 4) 모바일 폭 · 5) 외부 AI 전송에 동의하지 않으면 호출 없이 준비한 질문으로 */
 'use strict';
 const { run } = require('./harness');
 const core = require('../../supabase/functions/ask-ai/core.mjs');
@@ -41,6 +41,7 @@ run('ask-ai', async ({ browser, base, check, mockPage, presetContinue }) => {
   check('블록: 안내 문구와 시작 버튼만', /이 사이트는 답을 저장하지 않습니다\. 답은 AI 서비스\(Anthropic\)로 전송되어/.test(await page.textContent('#askAi')) && await page.isVisible('#askAi [data-ask-start]') && !(await page.$('#askAiInput')));
   check('시작 전 함수 호출 없음', (await calls(page)) === 0);
   check('블록은 기억의 빈자리 아래', await page.evaluate(() => document.getElementById('memoryGaps').compareDocumentPosition(document.getElementById('askAi')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  await page.check('#askAiConsent');
   await click(page, '#askAi [data-ask-start]');
   check('첫 질문은 미리 준비한 질문 (호출 없음)', /주어와 동사는 무엇이었나요/.test(await page.textContent('#askAi .ask-turn--ai')) && /미리 준비한 질문/.test(await page.textContent('#askAi')) && (await calls(page)) === 0);
   check('첫 질문에 정적 근거 칩', (await page.$$eval('#askAi .ask-chip', els => els.length)) === 2);
@@ -76,6 +77,7 @@ run('ask-ai', async ({ browser, base, check, mockPage, presetContinue }) => {
   if (await page2.$eval('.page--detail', el => el.dataset.mode) === 'quick') await page2.click('[data-deep-switch="2"]');
   await page2.click('#flowProgress [data-step-goto="2"]');
   await page2.click('.tab[data-tab="fourth"]');
+  await page2.check('#askAiConsent');
   await click(page2, '#askAi [data-ask-start]');
   await answer(page2, '일본어 답변은 ‘군대를 보냈다’라고 썼어요.');
   await page2.waitForSelector('#askAi .ask-turn--ai:nth-of-type(3)');
@@ -110,6 +112,7 @@ run('ask-ai', async ({ browser, base, check, mockPage, presetContinue }) => {
   await page2.click('.tab[data-tab="fourth"]');
   check('사건을 바꾸면 처음(시작 버튼)으로', await page2.isVisible('#askAi [data-ask-start]') && !(await page2.$('#askAi .ask-turn')));
   // turn 1 응답에 question이 없으면 사전 두 번째 질문으로 이어감 (반응은 AI 것, 질문은 준비한 것)
+  await page2.check('#askAiConsent');
   await click(page2, '#askAi [data-ask-start]');
   await answer(page2, '일본 측 서술에는 조선인 피해자가 없었어요.');
   await page2.waitForSelector('#askAi .ask-turn--ai:nth-of-type(3)');
@@ -131,6 +134,7 @@ run('ask-ai', async ({ browser, base, check, mockPage, presetContinue }) => {
   await page3.waitForSelector('#askAi .ask-ai');
   // 모바일 에뮬레이션에서는 긴 페이지 아래쪽에서 시각 뷰포트가 레이아웃 뷰포트와 어긋나(visualViewport.offsetTop≠0) Playwright의
   // 포인터 판정이 다른 요소를 가리킵니다. 포인터 동작은 위 데스크톱 컨텍스트에서 확인했으므로 여기서는 DOM click으로 흐름·레이아웃만 봅니다.
+  await page3.$eval('#askAiConsent', el => { el.checked = true; });
   await page3.$eval('#askAi [data-ask-start]', el => el.click());
   await page3.fill('#askAiInput', '모바일에서 쓴 답이에요.');
   await page3.$eval('#askAi button[type="submit"]', el => el.click());
@@ -140,4 +144,22 @@ run('ask-ai', async ({ browser, base, check, mockPage, presetContinue }) => {
   check('모바일: 입력칸이 화면 폭 안', await page3.$eval('#askAiInput', el => el.getBoundingClientRect().right <= window.innerWidth));
   check('페이지 오류 없음 (모바일)', page3.__errors.length === 0, page3.__errors.join(' / '));
   await ctx3.close();
+
+  // 5) 외부 AI 전송에 동의하지 않으면: 함수 호출 0회, 준비한 질문으로 끝까지 (성공 응답을 모의해 두어도 부르지 않음)
+  const ctx5 = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx5.addInitScript(presetContinue);
+  const page5 = await openFourth(ctx5, 'imjin');
+  let routed = 0;
+  await page5.route(FN, r => { routed++; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(REPLY_1) }); });
+  check('동의: 기본은 체크 해제 (선택 사항)', await page5.$eval('#askAiConsent', el => !el.checked) &&
+    /Anthropic, 미국 회사/.test(await page5.textContent('#askAi .ask-ai__consent')) && /만 14세 미만/.test(await page5.textContent('#askAi .ask-ai__consent')));
+  await click(page5, '#askAi [data-ask-start]');
+  await answer(page5, '일본어 답변은 군대를 보냈다고 썼어요.');
+  await page5.waitForSelector('#askAi .ask-turn--note');
+  check('동의 없음: 외부 AI로 보내지 않는다는 안내 + 사전 두 번째 질문', /외부 AI로 보내지 않고/.test(await page5.textContent('#askAi .ask-turn--note')) && /백성·의병/.test(await page5.textContent('#askAi')));
+  await answer(page5, '중국어 답변에는 백성이 없었어요.');
+  await page5.waitForSelector('#askAi .ask-ai__done');
+  check('동의 없음: 끝까지 진행해도 함수 호출 0회 (네트워크·가짜 DB 모두)', routed === 0 && (await calls(page5)) === 0, `route ${routed} · invoke ${await calls(page5)}`);
+  check('페이지 오류 없음 (동의 없음)', page5.__errors.length === 0, page5.__errors.join(' / '));
+  await ctx5.close();
 });

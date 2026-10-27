@@ -322,8 +322,9 @@ npm test                                            # 기록 형식 확인 (질�
 | 근거 칩 | `narrative`(비교 탭의 그 나라 카드로 이동·강조) · `ai`(네 번째 서술자 언어 카드·회차 전환) · `source`(사료 카드) — 대상이 없으면 무시 |
 | 폴백 | 함수 실패·시간 초과(15~20초)·429(한도)·503(끔)·모델 거절(`{fallback:true}`)·`db` 없음 → “AI가 응답하지 않아 준비한 질문으로 이어갑니다” + `fourth-narrator-data.js`의 `dialogue`(사건마다 3개, **초안 — 운영자 확정 전**) 중 다음 질문·정적 칩. 흐름은 끊기지 않고, CI(외부 차단)는 이 경로를 자동 검증합니다 |
 | 개인정보 | 블록 상단에 “이 사이트는 답을 저장하지 않습니다. 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리됩니다. 이름·개인정보는 쓰지 마세요.” 전송 전 빈 답·600자 초과·이메일·전화번호 차단. 대화는 저장·로그하지 않음(함수에 `console.log` 없음 — 테스트가 검사). 공동 표현·참여 문장은 보내지 않습니다 |
-| 한도 | IP당 시간당 300회, 전체 하루 1,000회 — `ask_ai_calls`(IP 원문은 저장하지 않음 — `ASK_AI_IP_SALT`로 솔트한 해시·시각, 솔트 설정 권장; 서비스 롤 전용, 7일 뒤 정리; `supabase/2026-10-ask-ai-limit.sql`). 허용 Origin은 배포 주소·localhost만 |
-| 운영 | 배포·secret·SQL·끄는 법(`ASK_AI_ENABLED=false` → 503 → 폴백)·비용: [`docs/ask-ai-runbook.md`](docs/ask-ai-runbook.md) |
+| 한도 | IP당 시간당 200회, 전체 하루 250회, 한 대화 최대 2회 — `ask_ai_calls`(IP 원문은 저장하지 않음 — `ASK_AI_IP_SALT`로 솔트한 해시·시각, 솔트 설정 권장; 서비스 롤 전용, 7일 뒤 정리; `supabase/2026-10-ask-ai-limit.sql`). 허용 Origin은 배포 주소·localhost만 |
+| 동의·켜기 | 외부 AI 전송은 시작 전 동의(선택)한 경우에만 — 동의하지 않으면 호출 없이 준비한 질문으로. 함수는 secret `ASK_AI_ENABLED`가 정확히 `true`일 때만 동작(없으면 꺼짐) |
+| 운영 | 배포·secret·SQL·끄는 법(`ASK_AI_ENABLED`를 `true`가 아닌 값으로 → 503 → 폴백)·비용: [`docs/ask-ai-runbook.md`](docs/ask-ai-runbook.md) |
 
 **검증** — `tests/ask-ai.test.js`(입력 검증·system prompt·스키마·근거 id 대조·폴백 규칙·상태기·답 검사·dialogue 실재·data.json 동기화·배선·비밀 키 없음·SQL 규칙), `tests/e2e/ask-ai.e2e.js`(폴백 경로 끝까지, 함수 응답 모의 성공 경로의 칩 렌더·클릭 이동·호출 2회·저장 없음, 기본 체험 비노출, 모바일).
 

@@ -3980,6 +3980,8 @@ h3, h4 { font-weight: 600; }
 .ask-ai .step-head__kicker { margin-bottom: 0.2rem; }
 .ask-ai__desc { color: var(--ink-soft); line-height: var(--lh-body); margin: 0.4rem 0 0.8rem; }
 .ask-ai__notice { font-size: var(--fs-sm); color: var(--ink-mute); border: 1px dashed var(--line); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0 0 1rem; }
+.ask-ai__consent { display: flex; gap: 0.5rem; align-items: flex-start; font-size: var(--fs-sm); color: var(--ink-soft); line-height: var(--lh-body); margin: 0 0 0.9rem; cursor: pointer; }
+.ask-ai__consent input { width: 1.15rem; height: 1.15rem; margin-top: 0.2rem; flex-shrink: 0; accent-color: var(--accent); }
 .ask-ai__start { min-height: 44px; }
 .ask-ai__log { list-style: none; display: grid; gap: 0.7rem; margin: 0 0 1rem; padding: 0; }
 .ask-turn { padding: 0.8rem 1rem; border-radius: var(--radius-lg); background: var(--bg-soft); }
