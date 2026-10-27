@@ -85,7 +85,16 @@
       const keys = new Set([...exprKeys, ...pings.map(g => g.participant_key)]);
       const firstPing = pings.length ? pings.map(g => g.created_at).sort()[0] : null;
       const choiceSubmissions = new Set((db.exploration_choices || []).filter(c => !firstPing || c.created_at < firstPing).map(c => c.event_key + '|' + c.created_at)).size;
-      return Promise.resolve({ data: [{ participants: keys.size + choiceSubmissions, completed_participants: exprKeys.size, expressions: db.shared_expressions.length }], error: null });
+      // 2026-10-count-everyone.sql: 기록 시작 전 추정치(participation_baseline)를 더함
+      const baseline = (db.participation_baseline || []).reduce((n, b) => n + b.participants, 0);
+      return Promise.resolve({ data: [{ participants: keys.size + choiceSubmissions + baseline, completed_participants: exprKeys.size, expressions: db.shared_expressions.length }], error: null });
+    }
+    if (name === 'participation_estimate') {
+      // 2026-10-participation-estimate.sql (함수가 아직 없는 상황은 noEstimateFn 으로 흉내)
+      if (window.__mockDb.noEstimateFn) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+      const list = db.participation_baseline || [];
+      return Promise.resolve({ data: [{ estimated: list.reduce((n, b) => n + b.participants, 0),
+        counted_until: list.length ? list.map(b => b.counted_until).sort().pop() : null }], error: null });
     }
     if (name === 'choice_counts') {
       if (window.__mockDb.noChoiceTable) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });

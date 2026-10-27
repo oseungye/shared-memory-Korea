@@ -90,4 +90,29 @@ run('participation-count', async ({ browser, base, check, mockPage }) => {
     /SQL 실행 전의 소감/.test(await page.$eval('#memoryCard', el => el.textContent)) && !/저장하지 못했어요/.test(await page.$eval('#choiceOthers', el => el.textContent)));
   check('페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   await ctx.close();
+
+  /* ---------- 기록 시작 전 추정치는 서버 기록과 나눠서 표시 (2026-10-participation-estimate.sql) ---------- */
+  const est = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  await est.addInitScript(() => {
+    if (sessionStorage.getItem('__mock_db')) return;
+    sessionStorage.setItem('__mock_db', JSON.stringify({
+      shared_expressions: [], expression_participants: [], expression_empathy: [], exploration_choices: [], exploration_reflections: [],
+      participation_pings: [{ event_key: 'imjin', participant_key: 'p_estimate_a1', created_at: '2026-10-24T01:00:00Z' },
+        { event_key: 'imjin', participant_key: 'p_estimate_b2', created_at: '2026-10-24T02:00:00Z' }],
+      participation_baseline: [{ source: 'quick_card_screens_logs', participants: 52, counted_until: '2026-10-23T13:25:00Z' }],
+      nextId: 100
+    }));
+  });
+  const ep = await mockPage(est);
+  await ep.goto(base + 'index.html');
+  check('추정치 포함 합계는 그대로 (2 + 52 = 54)', (await shownCount(ep)) === 54);
+  const detail = await ep.$eval('#participantCount', el => el.textContent);
+  check('서버 기록 2명과 추정 52명을 나눠 표시', /서버에 기록된 참여 2명/.test(detail) && /추정한 52명/.test(detail), detail);
+  check('추정 기준 날짜 표시 (10/23 이전)', /10\/23 이전/.test(detail), detail);
+  check('모바일 360px: 참여자 수 줄이 화면 안에 (가로 넘침 없음)', await ep.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await ep.evaluate(() => { window.__mockDb.noEstimateFn = true; });
+  const noFn = await ep.evaluate(() => { loadParticipantCount(); return new Promise(r => setTimeout(() => r(document.getElementById('participantCount').textContent), 300)); });
+  check('추정 함수가 없으면(SQL 실행 전) 예전처럼 합계만', /현재 54명/.test(noFn) && !/추정/.test(noFn), noFn);
+  check('추정치 표시 화면에서 페이지 오류 없음', ep.__errors.length === 0, ep.__errors.join(' | '));
+  await est.close();
 });
