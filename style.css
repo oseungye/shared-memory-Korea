@@ -3967,3 +3967,44 @@ h3, h4 { font-weight: 600; }
 /* 단계 머리말·작은 라벨: 넓은 자간의 작은 글씨 */
 .step-head__kicker { letter-spacing: 0.08em; }
 .step-head__kicker { font-weight: 500; }
+
+/* ---------- 21-11. 질문하는 AI (ask-ai.js) — 네 번째 서술자 탭 맨 아래 ---------- */
+.ask-ai {
+  margin: 2rem 0 1rem;
+  padding: 1.2rem 1.4rem 1.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--ink);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+}
+.ask-ai .step-head__kicker { margin-bottom: 0.2rem; }
+.ask-ai__desc { color: var(--ink-soft); line-height: var(--lh-body); margin: 0.4rem 0 0.8rem; }
+.ask-ai__notice { font-size: var(--fs-sm); color: var(--ink-mute); border: 1px dashed var(--line); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0 0 1rem; }
+.ask-ai__start { min-height: 44px; }
+.ask-ai__log { list-style: none; display: grid; gap: 0.7rem; margin: 0 0 1rem; padding: 0; }
+.ask-turn { padding: 0.8rem 1rem; border-radius: var(--radius-lg); background: var(--bg-soft); }
+.ask-turn--student { background: var(--bg-main); margin-left: 2rem; }
+.ask-turn--note { background: transparent; border: 1px dashed var(--line); font-size: var(--fs-sm); color: var(--ink-mute); }
+.ask-turn__who { display: block; font-size: var(--fs-xs); letter-spacing: var(--ls-caps); color: var(--accent); font-weight: 700; margin-bottom: 0.25rem; }
+.ask-turn__who small { color: var(--ink-mute); font-weight: 400; letter-spacing: 0; }
+.ask-turn__text { margin: 0; line-height: var(--lh-body); white-space: pre-wrap; }
+.ask-turn__q { font-family: var(--font-serif); font-size: var(--fs-md); line-height: 1.6; margin: 0.4rem 0 0; color: var(--ink); }
+.ask-chips { margin-top: 0.55rem; }
+.ask-chip { border-color: var(--line); background: var(--bg-card); min-height: 32px; }
+.ask-chip:hover, .ask-chip:focus-visible { border-color: var(--accent); color: var(--accent); }
+.ask-ai__form { display: grid; gap: 0.45rem; }
+.ask-ai__label { font-size: var(--fs-sm); font-weight: 600; }
+.ask-ai__label small { color: var(--ink-mute); font-weight: 400; }
+.ask-ai__form textarea { width: 100%; min-height: 84px; font: inherit; line-height: var(--lh-body); padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; resize: vertical; background: var(--bg-card); }
+.ask-ai__form textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.ask-ai__row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.ask-ai__count { font-size: var(--fs-xs); color: var(--ink-mute); margin-left: auto; }
+.ask-ai__error { color: var(--accent); font-size: var(--fs-sm); margin: 0; }
+.ask-ai__status, .ask-ai__done { font-size: var(--fs-sm); color: var(--ink-mute); margin: 0.2rem 0 0; }
+.narrative-card.is-focused, .fourth-card.is-focused { box-shadow: 0 0 0 2px var(--accent); }
+.page--detail[data-mode="quick"] #askAi { display: none !important; }   /* 기본 체험에서는 보이지 않음 (탭도 숨김) */
+@media (max-width: 640px) {
+  .ask-ai { padding: 1rem 0.9rem 1.1rem; }
+  .ask-turn--student { margin-left: 0.8rem; }
+  .ask-ai__row .btn { flex: 1 1 auto; justify-content: center; }
+}

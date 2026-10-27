@@ -244,6 +244,7 @@ function openEventDetail(eventId, opts) {
   renderCompareSummary(event);
   fourthRunChoice = {};
   fourthLangShown = null;
+  if (window.AskAi) AskAi.reset();           // 사건이 바뀌면 '질문하는 AI' 대화를 비움 (저장하지 않음)
   renderFourthTab(event);
   renderSourcesTab();
   resetGuide(event);
@@ -369,6 +370,8 @@ function renderFourthTab(event) {
   }
   box.innerHTML = renderFourthNarrator(event, a);
   gapBox.innerHTML = renderMemoryGaps(a);
+  // ③ 질문하는 AI (ask-ai.js) — 같은 사건이면 진행 중인 대화를 유지합니다 (회차·언어 버튼으로 다시 그릴 때)
+  if (window.AskAi) AskAi.mount(event);
 }
 
 /**

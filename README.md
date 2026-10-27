@@ -91,7 +91,7 @@
 | 빈칸 검사 | 밑줄 3개 이상(문장 틀 사용 시 2개 이상, 전각 ＿ 포함)이 남거나 빈칸을 지우기만 한 경우(“이 사건은 로 시작되어,”) 제출을 막고 고칠 위치를 알려줌. 일반 문장의 밑줄 1개는 허용 (`findPlaceholderIssues`) |
 | 역사 용어 확인 | **임진왜란 + 대한민국/대한제국**만 안내(“1592년 당시 국호는 ‘조선’”). 같은 문장에 ‘오늘날·부른다·교과서’ 등이 있으면 안내하지 않음. 점수·정답 판정 없음, 한 번 더 누르면 그대로 등록 (`checkHistoricalTerms`) |
 | 닉네임 | “닉네임은 선택사항이며 다른 참여자에게 공개됩니다. 실명·학교명·학년/반·연락처 등 개인정보는 입력하지 마세요.” 연락처·이메일·학교명·학년/반 형태는 등록 차단 (`checkNickname`) |
-| 자주 묻는 질문 | 소개 페이지에 교사·심사위원용 질문 10개(서술 작성자, 대표성, 출처, AI 판정 여부, LLM 미사용 이유, 하드코딩 여부, 학생 데이터 보호, 수업 활용, 교육 효과 해석, 사료–분석 연결) |
+| 자주 묻는 질문 | 소개 페이지에 교사·심사위원용 질문(서술 작성자, 대표성, 출처, AI 판정 여부, LLM을 어디에 쓰는지 — 네 번째 서술자 기록 + ③ 질문하는 AI, 하드코딩 여부, 학생 데이터 보호, 수업 활용, 교육 효과 해석, 사료–분석 연결) |
 
 ### 3-3. 공용 기기 — 새 참여자로 시작 (2026-10)
 
@@ -254,7 +254,7 @@ QR코드로 들어와 약 5분 동안 한 사건을 탐구하고, **자신의 �
 
 세 나라의 서술처럼 **AI도 역사를 서술한다**는 관점에서, AI의 답을 정답이 아니라 비판적으로 읽을 ‘네 번째 서술자’로 다룹니다. 사건 화면 STEP 2의 탭 ‘AI는 어떻게 말할까?’(세 나라 서술 카드 아래 안내 버튼으로도 이동).
 
-**두 가지를 구분합니다.** ① AI 답변은 API로 **한 번 수집해 저장한 정적 기록**입니다(화면에서 AI를 부르지 않음). ② 그 답변을 비교하는 분석(이름·요소·빈자리)은 **규칙 기반 NLP**(문자열 일치·개념 사전, `narrator-analysis.js`)이며 AI를 쓰지 않습니다.
+**세 가지를 구분합니다.** ① AI 답변 카드는 API로 **한 번 수집해 저장한 정적 기록**입니다(카드를 보기 위해 AI를 부르지 않음). ② 그 답변을 비교하는 분석(이름·요소·빈자리)은 **규칙 기반 NLP**(문자열 일치·개념 사전, `narrator-analysis.js`)이며 AI를 쓰지 않습니다. ③ 탭 맨 아래 **‘질문하는 AI’**(3-6-1)만 학생이 ‘시작’을 누른 뒤 서버 함수를 거쳐 AI를 실시간으로 부릅니다(최대 2회, 저장 없음).
 
 #### 수집 기록 (2026-10-22, `ai-narratives-data.js`)
 
@@ -310,6 +310,25 @@ npm test                                            # 기록 형식 확인 (질�
 - API 키는 환경 변수 `ANTHROPIC_API_KEY`로만 읽습니다. 코드·파일·채팅에 붙여 넣지 마세요.
 - 질문을 바꾸면 `questionsVersion`을 올리고 기존 기록을 따로 보관한 뒤 다시 수집합니다(섞이지 않도록 스크립트가 멈춤).
 
+### 3-6-1. ③ 질문하는 AI — 두 번 주고받는 대화 (2026-10-26, 초안)
+
+세 나라 서술과 AI 답변(①②)을 본 뒤, **답을 썼던 그 AI가 이번엔 묻습니다.** 심화 탐구의 네 번째 서술자 탭 맨 아래 블록(`ask-ai.js`, `#askAi`)이며, 기본 체험(quick)에서는 탭과 함께 보이지 않습니다.
+
+| 항목 | 내용 |
+|---|---|
+| 흐름 | 첫 질문(미리 써 둔 것, 호출 없음) → 학생 답 → **호출 1**(짧은 반응 + 근거 칩 + 두 번째 질문) → 학생 답 → **호출 2**(짧은 마무리 + 근거 칩) → 입력 잠김. ‘시작’을 눌러야만 부르고, 자동 호출·스트리밍·재시도는 없습니다 |
+| 호출 경로 | 브라우저 → `db.functions.invoke('ask-ai')` → Supabase Edge Function `supabase/functions/ask-ai/`(Deno) → Anthropic API `claude-opus-5-5`(effort low, 서버 측 대체 모델 켬, JSON 스키마 구조화 출력). **API 키는 Supabase secret에만** 있고 브라우저·저장소에 없습니다 |
+| 근거 제한 | 함수의 system prompt에 사이트 자료(세 나라 서술·AI 답변 9건·사료 메타·편집자 관찰, `data.json` — `node tools/build-ask-ai-data.mjs`로 생성)를 전부 넣고, 응답의 근거 id가 그 자료에 있는 것만 통과시킵니다. 근거가 하나도 없으면 답을 보여 주지 않고 폴백. 전송 자료: 세 나라 요약 서술 전문, AI 답변 9건(한국어 텍스트+원문 앞 200자), 사료 id·제목·작성 주체·연도·관점·설명, 편집자 관찰·핵심 빈자리 note, 학생 답. 규칙: 나라 역할극·“편향됐다” 판정·학생 문장 대신 쓰기 금지, 자료 밖은 “이 사이트 자료로는 확인할 수 없다” |
+| 근거 칩 | `narrative`(비교 탭의 그 나라 카드로 이동·강조) · `ai`(네 번째 서술자 언어 카드·회차 전환) · `source`(사료 카드) — 대상이 없으면 무시 |
+| 폴백 | 함수 실패·시간 초과(15~20초)·429(한도)·503(끔)·모델 거절(`{fallback:true}`)·`db` 없음 → “AI가 응답하지 않아 준비한 질문으로 이어갑니다” + `fourth-narrator-data.js`의 `dialogue`(사건마다 3개, **초안 — 운영자 확정 전**) 중 다음 질문·정적 칩. 흐름은 끊기지 않고, CI(외부 차단)는 이 경로를 자동 검증합니다 |
+| 개인정보 | 블록 상단에 “이 사이트는 답을 저장하지 않습니다. 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리됩니다. 이름·개인정보는 쓰지 마세요.” 전송 전 빈 답·600자 초과·이메일·전화번호 차단. 대화는 저장·로그하지 않음(함수에 `console.log` 없음 — 테스트가 검사). 공동 표현·참여 문장은 보내지 않습니다 |
+| 한도 | IP당 시간당 300회, 전체 하루 1,000회 — `ask_ai_calls`(IP 원문은 저장하지 않음 — `ASK_AI_IP_SALT`로 솔트한 해시·시각, 솔트 설정 권장; 서비스 롤 전용, 7일 뒤 정리; `supabase/2026-10-ask-ai-limit.sql`). 허용 Origin은 배포 주소·localhost만 |
+| 운영 | 배포·secret·SQL·끄는 법(`ASK_AI_ENABLED=false` → 503 → 폴백)·비용: [`docs/ask-ai-runbook.md`](docs/ask-ai-runbook.md) |
+
+**검증** — `tests/ask-ai.test.js`(입력 검증·system prompt·스키마·근거 id 대조·폴백 규칙·상태기·답 검사·dialogue 실재·data.json 동기화·배선·비밀 키 없음·SQL 규칙), `tests/e2e/ask-ai.e2e.js`(폴백 경로 끝까지, 함수 응답 모의 성공 경로의 칩 렌더·클릭 이동·호출 2회·저장 없음, 기본 체험 비노출, 모바일).
+
+**한계** — 모델 응답은 매번 다를 수 있고 자료 밖 내용을 완전히 막지는 못합니다(근거 id 대조와 규칙으로 줄일 뿐). 폴백 질문 문구와 FAQ·README 문구는 초안입니다.
+
 ### 3-7. 기본 체험 — 객관식 관점 고르기 (2026-10)
 
 학생이 사용법 설명 없이 3–5분 안에 끝낼 수 있도록, **임진왜란·재일조선인**의 기본 동선을 객관식 중심으로 줄였습니다. 기존 기능(탐구 전 문장·AI 네 번째 서술자·NLP·사료·자유서술 공동 표현·공동 기억 지도·Shared Archive)은 **심화 탐구**로 그대로 남아 있고, 나머지 4개 사건은 기존 흐름 그대로입니다.
@@ -352,7 +371,7 @@ npm test                                            # 기록 형식 확인 (질�
 - [Supabase](https://supabase.com) (PostgreSQL + REST, 공개 publishable 키 + RLS)
 - Supabase JS **2.117.2** — 외부 CDN 대신 `vendor/supabase-js/`에 보관 (학교망에서 CDN이 막혀도 동작)
 - 서체 (모두 SIL OFL 1.1): 마루부리(네이버 한글) · Pretendard(공식 GitHub 배포본, jsDelivr) · Google Fonts(Noto Serif KR, 고운바탕, Zen Old Mincho, Noto Serif SC, Cormorant Garamond) — 3-4-2 참고
-- 자체 구현 NLP (외부 AI API·학습된 언어 모델 **사용하지 않음**)
+- 자체 구현 NLP (분석·판정에는 외부 AI API·학습된 언어 모델 **사용하지 않음**). 예외는 ③ 질문하는 AI 한 곳 — Supabase Edge Function(Deno, `npm:@anthropic-ai/sdk@0.135.0`)이 대신 호출하며 브라우저 쪽은 vanilla JS 그대로
 - 시각화: 외부 그래프 라이브러리 없이 SVG 직접 생성 (`memory-map.js`) — 원 몇 개와 선만 필요해 D3 등 수백 KB 의존성을 추가할 이유가 없고, GitHub Pages에서 그대로 동작하기 때문입니다.
 - 테스트: Node.js 내장 `node:test` (추가 설치 없음)
 
@@ -581,7 +600,7 @@ npm test                                            # 기록 형식 확인 (질�
 
 ### RLS와 보안
 
-- 브라우저에는 **publishable(anon) 키만** 있습니다. `service_role` 키·비밀 키를 절대 코드에 넣지 마세요.
+- 브라우저에는 **publishable(anon) 키만** 있습니다. `service_role` 키·비밀 키를 절대 코드에 넣지 마세요. Anthropic API 키는 Edge Function `ask-ai`의 Supabase secret에만 있고, 함수는 Origin 검사·호출 한도(`ask_ai_calls`, 서비스 롤 전용)로 보호합니다.
 - **Claude Code 프로젝트 설정**(`.claude/settings.json`): Supabase 조회 도구(목록·스키마·advisor)만 자동 허용하고, `execute_sql`·`apply_migration` 등 데이터·스키마·배포를 바꿀 수 있는 도구는 `ask`로 두어 실행 전에 확인을 받습니다(`tests/claude-settings.test.js`가 검사). 이 설정은 이 저장소에서 Claude Code를 쓸 때만 적용되며, 사용자·전역 설정, 세션 권한 모드, Supabase 대시보드·다른 도구에서의 변경까지 막지는 않습니다.
 - `shared_expressions`: 조회·등록만 허용, 수정·삭제 정책·권한 없음. 등록은 허용 컬럼·CHECK 제약 범위 안에서만.
 - `expression_empathy`: 등록만 허용, 조회 정책 없음. 집계는 함수로만.
@@ -621,10 +640,13 @@ contribution-guide.js       작성 가이드 문구 (표현 방식·문장 틀·
 nlp-analyzer.js             국가별 서술 NLP 분석
 shared-memory-analyzer.js   공동 표현 분석·군집·탐구 전/후·강조점·키워드 차트
 generation-analysis.js      연령대 필터·세대별 비교·소수 표본 기준·완료 참여 기준 (기존 분석 함수 재사용)
-fourth-narrator-data.js     네 번째 서술자 편집 데이터: AI 질문 원문(3개 언어)·사건 명칭·사건별 확인 요소·핵심 빈자리·편집자 관찰
+fourth-narrator-data.js     네 번째 서술자 편집 데이터: AI 질문 원문(3개 언어)·사건 명칭·사건별 확인 요소·핵심 빈자리·편집자 관찰·질문하는 AI 사전 질문(dialogue)
+ask-ai.js                   ③ 질문하는 AI: 상태기·입력 검사·Edge Function 호출·폴백·근거 칩 이동
 ai-narratives-data.js       AI 답변 기록 54건 (2026-10-22 수집, 손으로 고치지 않음)
 narrator-analysis.js        네 번째 서술자·기억의 빈자리 계산 (DOM 없음, Node 테스트 가능)
 tools/collect-ai-narratives.mjs  AI 답변 수집 스크립트 (Anthropic API, 로컬·클라우드 환경에서 실행)
+tools/build-ask-ai-data.mjs      질문하는 AI 함수용 data.json 생성 (사이트 데이터만, API 호출 없음)
+supabase/functions/ask-ai/       Edge Function: index.ts(Deno 핸들러) · core.mjs(검증·프롬프트·정규화) · data.json(근거 자료)
 memory-map.js               공동 기억 지도 SVG
 shared-store.js             Supabase 읽기·쓰기 (하위 호환)
 script.js                   화면 렌더링·이벤트 처리
@@ -634,6 +656,7 @@ tests/e2e/                  브라우저 E2E (Playwright · 가짜 Supabase)
 .github/workflows/test.yml  GitHub Actions 자동 테스트
 docs/fourth-narrator-findings.md  AI 답변 54건 분석 근거·검토 필요 항목·발표 요약
 docs/finals-demo-checklist.md     본선 시연 점검표
+docs/ask-ai-runbook.md            질문하는 AI 배포·운영 런북 (MCP 배포·secret·SQL·끄는 법·한도)
 ```
 
 ### 외부 라이브러리 (Supabase JS)
@@ -695,6 +718,7 @@ npm run test:e2e                         # tests/e2e/*.e2e.js 전체 실행 후 
 
 **가짜 DB(Mock Supabase) 테스트의 한계**: E2E는 `tests/e2e/mock-supabase.js`나 가로챈 HTTP 응답을 쓰므로 RLS 정책, 컬럼 단위 권한, CHECK 제약, RPC의 실제 SQL(소표본 가림 등)은 브라우저 테스트로 검증되지 않습니다. 이 부분은 단위 테스트의 SQL 파일 검사(`tests/prefinal-stabilization.test.js`)와 운영 반영 시 수동 확인으로 보완합니다. 실제 휴대폰·교실 네트워크 환경도 CI에서 재현되지 않습니다.
 
+- `tests/ask-ai.test.js` — ③ 질문하는 AI: 함수 순수 부분(입력 검증·system prompt·JSON 스키마·근거 id 대조·폴백)·화면 상태기·답 검사·dialogue·data.json 동기화·비밀 키 없음·SQL 규칙
 - `tests/nlp-analyzer.test.js` — 국가별 서술 분석 (기존)
 - `tests/generation-analysis.test.js` — age_group 없는 기존 데이터 호환·연령대 필터·prior_learning null·소수 표본 숨김·completed_flow·전체 필터 = 기존 분석 결과·단계적 저장(하위 호환)·비공개 참여자 연결
 - `tests/multilingual-zh.test.js` — 한/중/일/영 언어 판별, 한자만 있는 표현의 비확정 판별, 사용자 선택 언어 우선, 중국어 개념 매핑(간체·번체), 중국어 토큰화, 중↔한 개념 연결, 4개 언어 혼합 군집화, 기존 ko/ja/en·unknown 데이터 호환, zh 언어 필터, 결정성

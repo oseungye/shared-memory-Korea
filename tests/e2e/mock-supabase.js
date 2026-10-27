@@ -104,13 +104,24 @@
     return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
   }
 
+  // Edge Function 호출: 실제 supabase-js처럼 fetch를 보냅니다. 테스트 실행기는 외부 요청을 모두 막으므로 기본은 실패(→ 사이트는 폴백),
+  // 성공 경로는 테스트가 page.route로 이 주소의 응답을 만들어 확인합니다.
+  function invoke(name, opts) {
+    window.__mockDb.calls.push({ op: 'invoke', name, body: opts && opts.body });
+    return fetch('https://mock.supabase.test/functions/v1/' + name, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify((opts && opts.body) || {}), signal: opts && opts.signal
+    }).then(async r => r.ok ? { data: await r.json(), error: null } : { data: null, error: { name: 'FunctionsHttpError', status: r.status } })
+      .catch(e => ({ data: null, error: e }));
+  }
+
   window.supabase = {
     createClient() {
       return {
         from(table) {
           return { insert: rows => insert(table, rows), select: () => select(table).select() };
         },
-        rpc
+        rpc,
+        functions: { invoke }
       };
     }
   };

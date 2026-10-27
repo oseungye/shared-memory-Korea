@@ -354,7 +354,8 @@
       </div>
 
       <!-- 탭: 네 번째 서술자 · 기억의 빈자리 (narrator-analysis.js)
-           AI 답변은 실시간으로 묻지 않고 ai-narratives-data.js에 기록된 것만 보여줍니다. 기록이 없으면 '기록 전'과 질문 원문만 표시합니다. -->
+           AI 답변 카드는 실시간으로 묻지 않고 ai-narratives-data.js에 기록된 것만 보여줍니다. 기록이 없으면 '기록 전'과 질문 원문만 표시합니다.
+           탭 맨 아래 '③ 질문하는 AI'(#askAi, ask-ai.js)만 학생이 '시작'을 누르면 Edge Function(ask-ai)을 거쳐 AI를 부릅니다. (문구 초안 — 운영자 확정 전) -->
       <div class="tab-content" data-tab-content="fourth">
         <div class="step-head">
           <p class="step-head__kicker">STEP 2 · 네 번째 서술자</p>
@@ -367,6 +368,8 @@
         </p>
         <div id="fourthNarrator"><!-- JS --></div>
         <div id="memoryGaps"><!-- JS --></div>
+        <!-- ③ 질문하는 AI (ask-ai.js) — 심화 탐구에서만 보입니다. 기본 체험(data-mode=quick)에서는 이 탭 자체가 숨겨집니다. -->
+        <div id="askAi"><!-- JS --></div>
       </div>
 
       <!-- 탭 2: NLP 비교 분석 (nlp-analyzer.js가 서술 텍스트로부터 직접 계산) -->
@@ -673,8 +676,10 @@
           <p>아닙니다. 분석은 단어가 몇 번, 어느 서술에 쓰였는지를 계산해 표현 선택의 경향을 보여줄 뿐입니다. 어떤 서술이나 참여자의 문장이 옳다고 판정하거나 점수를 매기지 않습니다.</p></details>
         <details class="faq__item"><summary>AI(대형 언어 모델)는 어디에 쓰나요? 분석이나 판정에도 쓰나요?</summary>
           <p>분석과 판정에는 쓰지 않습니다. 세 나라 서술 비교와 참여 문장 분석은 TF-IDF·코사인 유사도·개념 사전으로 계산하므로, 결과가 어느 단어에서 나왔는지 하나하나 보여줄 수 있고 같은 입력이면 항상 같은 결과가 나옵니다.
-            AI는 ‘네 번째 서술자’로만 등장합니다. 같은 질문을 한국어·일본어·중국어로 AI(Claude)에게 물은 답을 모델 이름·날짜와 함께 기록해 두고, 학생이 세 나라의 서술처럼 비판적으로 읽어 보게 합니다.
-            사이트는 실시간으로 AI를 부르지 않으며, API 키를 브라우저에 두지 않고, 참여 문장을 외부 AI 서비스로 보내지 않습니다.</p></details>
+            AI는 ‘네 번째 서술자’로 등장합니다. 같은 질문을 한국어·일본어·중국어로 AI(Claude)에게 물은 답을 모델 이름·날짜와 함께 기록해 두고, 학생이 세 나라의 서술처럼 비판적으로 읽어 보게 합니다.
+            <!-- 아래 문구는 2026-10-26 초안 — 운영자 확정 전 -->
+            여기에 더해 심화 탐구의 ‘③ 질문하는 AI’에서는, 학생이 ‘시작’을 누른 뒤 쓴 답만 서버 함수를 거쳐 AI에게 보내고 짧은 질문을 두 번 받습니다. 이 사이트는 그 답을 저장하지 않지만, 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리되므로 이름·개인정보는 쓰지 말아야 합니다. 자동으로 부르지 않고, 공동 표현·참여 문장은 보내지 않습니다.
+            API 키는 브라우저에 두지 않고 서버(Supabase)에만 둡니다. AI가 응답하지 않으면 미리 써 둔 질문으로 이어집니다.</p></details>
         <details class="faq__item"><summary>AI는 언어마다 역사를 다르게 말하나요?</summary>
           <p>2026년 10월 22일 기록(claude-opus-5-5, 사건마다 한국어·일본어·중국어로 각 3회)에서는 <strong>내용의 공통점이 컸습니다.</strong> 예를 들어 히로시마 답변 9회는 모두 조선인 피해자를 말했습니다.
             뚜렷한 차이는 <strong>이름과 동사</strong>였습니다. 임진왜란을 가장 먼저 부른 이름은 한국어 ‘임진왜란’, 일본어 ‘文禄・慶長の役’, 중국어 ‘万历朝鲜之役’이었고, 전쟁의 시작을 일본어는 ‘군대를 보냈다(送りました)’, 한국어는 ‘침략했다·쳐들어왔다’로 썼습니다.
@@ -836,6 +841,7 @@
        버전·무결성 정보: vendor/supabase-js/VERSION.json -->
   <script src="./vendor/supabase-js/supabase.js"></script>
   <script src="./supabase-config.js"></script>
+  <script src="./ask-ai.js"></script>
   <script src="./events-data.js"></script>
   <script src="./sources-data.js"></script>
   <script src="./concept-lexicon.js"></script>
