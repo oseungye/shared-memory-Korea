@@ -216,6 +216,29 @@ test('index.html: #askAi 컨테이너는 네 번째 서술자 탭 안, ask-ai.js
   assert.equal(AskAi.NOTICE, '이 사이트는 답을 저장하지 않습니다. 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리됩니다. 이름·개인정보는 쓰지 마세요.');
 });
 
+test('외부 AI 전송 동의 문구·한도·켜기 조건 (ASK_AI_ENABLED가 정확히 true일 때만)', () => {
+  assert.match(AskAi.CONSENT_LABEL, /Anthropic/);
+  assert.match(AskAi.CONSENT_LABEL, /선택/);
+  assert.match(AskAi.NO_CONSENT_NOTE, /외부 AI로 보내지 않고/);
+  const fn = fs.readFileSync(path.join(ROOT, 'supabase/functions/ask-ai/index.ts'), 'utf8');
+  assert.match(fn, /const PER_IP_PER_HOUR = 200;/);
+  assert.match(fn, /const PER_DAY = 250;/);
+  assert.match(fn, /toLowerCase\(\) !== 'true'\) return json\(503/, '없거나 true가 아니면 꺼짐');
+  assert.equal(core.MAX_HISTORY, 4, '한 대화 최대 2회 호출 (turn 1·2)');
+});
+
+test('함수 자료 지문: index.ts의 DATA_SHA256은 data.json 파일의 SHA-256과 같고, 자료는 배포 사이트에서 받는다', async () => {
+  const tool = await import('../tools/build-ask-ai-data.mjs');
+  const fn = fs.readFileSync(path.join(ROOT, 'supabase/functions/ask-ai/index.ts'), 'utf8');
+  const onDisk = fs.readFileSync(path.join(ROOT, 'supabase/functions/ask-ai/data.json'), 'utf8');
+  const pinned = (fn.match(/const DATA_SHA256 = '([0-9a-f]{64})'/) || [])[1];
+  assert.equal(pinned, tool.sha256Of(onDisk), 'node tools/build-ask-ai-data.mjs 를 실행하세요 (DATA_SHA256 갱신)');
+  assert.match(fn, /const DATA_URL = 'https:\/\/oseungye\.github\.io\/shared-memory-Korea\/supabase\/functions\/ask-ai\/data\.json'/);
+  assert.match(fn, /sha256\(text\)\) !== DATA_SHA256\) return null/, '지문이 다르면 쓰지 않음');
+  assert.match(fn, /'x-ask-ai-data': DATA_SHA/);
+  assert.doesNotMatch(fn, /from '\.\/data\.json'/, '배포 파일은 index.ts·core.mjs 두 개');
+});
+
 test('script.js: 네 번째 서술자 탭을 그릴 때 AskAi.mount, 사건을 열 때 AskAi.reset', () => {
   const js = fs.readFileSync(path.join(ROOT, 'script.js'), 'utf8');
   assert.match(js, /AskAi\.mount\(event\)/);

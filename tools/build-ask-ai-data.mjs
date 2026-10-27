@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,9 +66,17 @@ export function build() {
 
 export function serialize(data) { return JSON.stringify(data, null, 2) + '\n'; }
 
+/** data.json의 SHA-256 — Edge Function(index.ts)의 DATA_SHA256과 같아야 함수가 사이트에서 받은 자료를 씁니다. */
+export function sha256Of(text) { return createHash('sha256').update(text, 'utf8').digest('hex'); }
+export const FUNCTION_FILE = path.join(ROOT, 'supabase', 'functions', 'ask-ai', 'index.ts');
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const text = serialize(build());
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, text);
-  console.log(`${path.relative(ROOT, OUT)} 생성 (${Buffer.byteLength(text)} bytes)`);
+  const sha = sha256Of(text);
+  const fn = fs.readFileSync(FUNCTION_FILE, 'utf8');
+  fs.writeFileSync(FUNCTION_FILE, fn.replace(/const DATA_SHA256 = '[0-9a-f]{64}'/, `const DATA_SHA256 = '${sha}'`));
+  console.log(`${path.relative(ROOT, OUT)} 생성 (${Buffer.byteLength(text)} bytes) · sha256 ${sha} → index.ts DATA_SHA256 갱신`);
+  console.log('함수가 새 자료를 쓰려면: 사이트(GitHub Pages) 배포 → index.ts 재배포 (docs/ask-ai-runbook.md 5절)');
 }
