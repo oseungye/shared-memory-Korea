@@ -20,6 +20,11 @@
                  비어 있으면 강조 없이 계산 결과만 보입니다.
    · observations : 편집자가 답변을 읽고 남긴 관찰 (사건 id → [문장]). "편향됐다" 같은 판정이 아니라
                  "일본어 답변 3회 중 2회는 '침략'이라는 말을 쓰지 않았다"처럼 사실형으로 씁니다.
+   · dialogue  : '③ 질문하는 AI'(ask-ai.js)가 쓰는 미리 써 둔 질문 (사건 id → [{ q, evidence }, 3개]).
+                 [0]은 첫 질문(AI를 부르지 않고 항상 이것으로 시작), [1]은 AI 호출이 실패·거절·한도 초과일 때 대신 쓰는 두 번째 질문, [2]는 같은 경우의 마무리 글(더 답할 수 없는 자리라 질문이 아닌 서술문 — 되짚기 + 하나 기억해 두기).
+                 evidence = 근거 칩 [{ kind: 'narrative'|'ai'|'source', id }] — narrative: 'korea'|'japan'|'china', ai: 'ko-1'…'zh-3'(언어-회차), source: sources-data.js의 id.
+                 판정·역할극 없이 "어디에 있고 어디에 없나"를 묻는 사실형 질문으로 씁니다. tools/build-ask-ai-data.mjs가 함수용 data.json에도 넣습니다.
+                 (2026-10-26 초안 — 운영자 확정 전)
 
    표기 규칙 (forms) — concept-lexicon.js와 같습니다.
      · 한국어·중국어·일본어는 부분 문자열로 찾습니다. 너무 짧은 한 글자(예: 明)는 다른 낱말 속에도 들어 있어 쓰지 않습니다.
@@ -147,6 +152,40 @@ const fourthNarratorData = {
     ],
     hiroshima: [
       { element: 'focus:korean-victims', narrator: 'japan', note: 'AI 답변은 세 언어 9회 모두 조선인(한반도 출신) 피해자를 말했지만, 이 프로젝트의 일본 측 요약 서술에는 없습니다.' }
+    ]
+  },
+
+  /* '③ 질문하는 AI' 미리 써 둔 질문 (2026-10-26 초안 — 운영자 확정 전). 위 observations·keyGaps에서 확인한 사실만 가리킵니다. */
+  dialogue: {
+    imjin: [
+      { q: 'AI의 일본어 답변에서 전쟁을 시작한 문장의 주어와 동사는 무엇이었나요? 한국어 답변과 비교해 보세요.', evidence: [{ kind: 'ai', id: 'ja-1' }, { kind: 'ai', id: 'ko-1' }] },
+      { q: '세 나라 서술과 AI 답변 중 ‘백성·의병’을 말하지 않은 쪽은 어디였나요?', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'ai', id: 'zh-1' }, { kind: 'source', id: 'imjin-jingbirok-01' }] },
+      { q: '지금까지 전쟁을 시작한 문장의 주어·동사와, 백성·의병이 어디에 있고 없는지를 봤습니다. 서술마다 앞세운 이름과 주어가 달랐다는 것 하나를 기억해 두세요.', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'source', id: 'imjin-keinen-01' }] }
+    ],
+    zainichi: [
+      { q: '세 나라 서술은 이 사람들을 각각 어떤 말로 부르나요? AI 답변이 가장 먼저 쓴 이름과 비교해 보세요.', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'narrative', id: 'japan' }, { kind: 'ai', id: 'ja-1' }] },
+      { q: '1952년에 일본 국적을 잃었다는 이야기는 어느 서술에 있고, 어디에 없나요?', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'ai', id: 'ko-1' }, { kind: 'source', id: 'zainichi-registration-01' }] },
+      { q: '부르는 이름과 1952년 국적 상실이 어느 서술에 있고 없는지를 봤습니다. 같은 사람들을 어떤 말로 부르느냐에 따라 보이는 것이 달라진다는 점을 기억해 두세요.', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'narrative', id: 'korea' }] }
+    ],
+    culture: [
+      { q: '세 나라 서술은 각각 자기 나라를 어떤 역할(발신지·중계·수용)로 두고 있나요?', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'narrative', id: 'japan' }, { kind: 'narrative', id: 'china' }] },
+      { q: '백제·도래인은 어느 서술에 나오고 어디에 없나요? AI 답변과도 비교해 보세요.', evidence: [{ kind: 'narrative', id: 'china' }, { kind: 'ai', id: 'zh-1' }, { kind: 'source', id: 'culture-nihonshoki-01' }] },
+      { q: '세 나라가 자기 역할을 어떻게 두는지와 백제·도래인이 어디에 없는지를 봤습니다. 문화가 오갔다는 문장의 주어가 서술마다 달랐다는 것을 기억해 두세요.', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'source', id: 'culture-samguksagi-01' }] }
+    ],
+    tribute: [
+      { q: '조공 관계를 한국 측과 중국 측 서술은 각각 어떤 말로 평가하나요? 같은 관계를 두고 어떤 단어가 다른가요?', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'narrative', id: 'china' }] },
+      { q: '‘불평등’이라는 말은 세 나라 서술과 AI 답변 중 어디에 나오나요?', evidence: [{ kind: 'ai', id: 'zh-1' }, { kind: 'ai', id: 'ja-1' }, { kind: 'source', id: 'tribute-huidian-01' }] },
+      { q: '같은 조공 관계를 두고 한국 측·중국 측이 고른 말과 ‘불평등’이 어디에 나오는지를 봤습니다. 일본 측 서술은 이 관계 바깥에 있었다고 말한다는 점을 함께 기억해 두세요.', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'source', id: 'tribute-zenrin-01' }] }
+    ],
+    modern: [
+      { q: '1910년 병합을 세 나라 서술과 AI 답변은 각각 어떤 동사로 썼나요? (‘빼앗겼다’·‘併合され’·‘被吞并’)', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'ai', id: 'ja-1' }, { kind: 'ai', id: 'zh-1' }] },
+      { q: '일본 측 서술에 없는 것은 무엇이었나요? AI 일본어 답변은 그것을 어떻게 말했나요?', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'ai', id: 'ja-1' }, { kind: 'source', id: 'modern-annex-01' }] },
+      { q: '1910년 병합을 쓴 동사와 일본 측 서술에 없는 것을 봤습니다. ‘침략’이라는 말이 어디에 있고 없는지도 함께 기억해 두세요.', evidence: [{ kind: 'ai', id: 'zh-1' }, { kind: 'narrative', id: 'china' }] }
+    ],
+    hiroshima: [
+      { q: '조선인 피해자는 세 나라 서술과 AI 답변 중 어디에 나오고, 어디에 없나요?', evidence: [{ kind: 'narrative', id: 'japan' }, { kind: 'ai', id: 'ja-1' }, { kind: 'ai', id: 'ko-1' }] },
+      { q: '강제로 끌려갔다는 사정을 말한 답변과 말하지 않은 답변의 차이는 무엇이었나요?', evidence: [{ kind: 'ai', id: 'ko-1' }, { kind: 'ai', id: 'ja-1' }, { kind: 'source', id: 'hiroshima-memorial-01' }] },
+      { q: '조선인 피해자가 어디에 나오고 없는지, 강제로 끌려간 사정을 누가 말했는지를 봤습니다. ‘피해자’에 누구까지 넣었는지 서술마다 달랐다는 것을 기억해 두세요.', evidence: [{ kind: 'narrative', id: 'korea' }, { kind: 'narrative', id: 'china' }, { kind: 'source', id: 'hiroshima-museum-01' }] }
     ]
   },
 

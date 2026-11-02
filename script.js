@@ -244,6 +244,7 @@ function openEventDetail(eventId, opts) {
   renderCompareSummary(event);
   fourthRunChoice = {};
   fourthLangShown = null;
+  if (window.AskAi) AskAi.reset();           // 사건이 바뀌면 '질문하는 AI' 대화를 비움 (저장하지 않음)
   renderFourthTab(event);
   renderSourcesTab();
   resetGuide(event);
@@ -369,6 +370,8 @@ function renderFourthTab(event) {
   }
   box.innerHTML = renderFourthNarrator(event, a);
   gapBox.innerHTML = renderMemoryGaps(a);
+  // ③ 질문하는 AI (ask-ai.js) — 같은 사건이면 진행 중인 대화를 유지합니다 (회차·언어 버튼으로 다시 그릴 때)
+  if (window.AskAi) AskAi.mount(event);
 }
 
 /**
@@ -605,7 +608,7 @@ const QUICK_STEPS = [
   { n: 1, id: 'qcompare', short: '세 나라 비교', title: '세 나라 기록 비교',
     todo: '세 나라의 기록을 차례로 읽어 보세요. 다 읽었다면 아래 버튼을 눌러요.' },
   { n: 2, id: 'qchoices', short: '관점 고르기', title: '내가 중요하게 보는 관점 고르기',
-    todo: '정답은 없어요. 질문마다 내가 가장 중요하다고 생각하는 것 하나를 누르면 다음 질문으로 넘어가요.' },
+    todo: '정답은 없어요. 질문마다 내가 가장 중요하다고 생각하는 것 하나를 고른 뒤 아래 ‘다음 질문’을 눌러요.' },
   { n: 3, id: 'qreflect', short: '한 줄 소감', title: '한 줄 소감',
     todo: '느낀 점을 한 문장으로 남겨요. 쓰지 않고 넘어가도 괜찮아요.' },
   { n: 4, id: 'card', short: 'Memory Card', title: 'My Memory Card',
@@ -621,9 +624,8 @@ function setExploreMode(mode) {
 }
 
 /* 기본 체험 상태 — 이 창의 메모리에만 둡니다(공용 기기 보호: 새로고침·새 참여자로 시작하면 사라짐) */
-const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, advanceTimer: 0 };
-const QUICK_ADVANCE_MS = 280;          // 선택지를 누른 뒤 고른 표시(✓)를 보여 주고 다음 질문으로 넘어가기까지
-const QUICK_TAP_GUARD_MS = 350;        // 새 질문이 뜬 직후의 터치는 무시 (서둘러 두 번 누른 손가락이 다음 질문을 고르지 않게)
+// submissionId: 같은 카드의 객관식·소감을 묶는 무작위 번호 · sentReflection: 마지막으로 저장한 소감 (같은 문장 중복 저장 방지)
+const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, submissionId: null, sentReflection: '' };
 
 function resetChoiceState(eventId) {
   choiceState.eventId = eventId || null;
@@ -634,11 +636,10 @@ function resetChoiceState(eventId) {
   choiceState.reflectionSkipped = false;
   choiceState.maxStep = 1;
   choiceState.sent = false;
-  clearTimeout(choiceState.advanceTimer);
+  choiceState.submissionId = null;
+  choiceState.sentReflection = '';
   const input = document.getElementById('reflectInput');
   if (input) input.value = '';
-  const consent = document.getElementById('choiceShareConsent');
-  if (consent) consent.checked = false;
   const count = document.getElementById('reflectCount');
   if (count) count.textContent = '0';
 }
@@ -2305,6 +2306,7 @@ async function submitSharedNarrative() {
 
   if (eventIdAtSubmit === currentEventId) {
     markFlow({ submitted: true, viewedResult: false });
+    countParticipation();
     const next = document.getElementById('submitNext');
     if (next) next.hidden = false;
     await loadSharedNarratives();
@@ -3370,8 +3372,9 @@ function renderMemoryMethod(a) {
 /* ------------------------------------------------------------
    기본 체험 — 관점 고르기(객관식) · 한 줄 소감 · 카드
    · 객관식은 퀴즈가 아닙니다. 고른 관점은 정답 판정 없이 카드에 "내가 고른 관점"으로만 담깁니다.
-   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 공개하지 않습니다(공개는 심화 탐구의 공동 표현에서 별도 동의).
-   · 고른 관점은 '익명 통계에 보태기'에 체크했을 때만 서버(별도 테이블)로 보냅니다.
+   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 다른 참여자에게 공개하지 않습니다(공개는 심화 탐구의 공동 표현에서 별도 동의).
+   · 카드를 만들면 고른 관점(별도 테이블)과 한 줄 소감(비공개 테이블)을 이름 없이 저장합니다.
+     두 기록은 같은 카드에서 나온 것임을 알 수 있도록 무작위 번호(submission_id)로만 묶습니다.
    ------------------------------------------------------------ */
 
 function quickQuestions() { return Choices ? Choices.questionsFor(currentEventId) : []; }
@@ -3382,6 +3385,8 @@ function gotoQuickStep(n) {
   if (!document.querySelector('.page--detail.active')) { navigateTo('detail'); setRouteHash(currentEventId); }
   if (n === 1 && activeTab !== 'compare') switchTab('compare');
   if (n === 3) choiceState.index = Math.max(0, quickQuestions().length - 1);
+  // 설문(객관식)에 하나라도 답하고 소감 단계에 오면 참여 1회로 셉니다 (답 내용은 보내지 않음).
+  if (n === 3 && chosenSummary().some(r => !r.skipped)) countParticipation();
   exploreStep = n;
   setCardStatus('');
   applyExploreStep();
@@ -3405,7 +3410,7 @@ function renderQuickCta(bar) {
   const q = qs[choiceState.index];
   const label = document.getElementById('choiceNextLabel');
   if (label && q) {
-    // 선택지를 누르면 바로 다음으로 넘어가므로, 이 버튼은 주로 '건너뛰기'입니다(이전으로 돌아온 질문에서는 '다음').
+    // 선택지를 고르면 체크만 하고 화면은 그대로 — 이 버튼을 눌러야 넘어갑니다. 고르지 않았으면 '건너뛰기'.
     const last = choiceState.index >= qs.length - 1;
     const unanswered = !choiceState.answers[q.id] || choiceState.answers[q.id] === Choices.SKIP;
     label.textContent = unanswered
@@ -3429,7 +3434,6 @@ function renderQuickCta(bar) {
 
 /** 기본 체험의 '다음' — 고르지 않았으면 그 질문은 건너뛴 것으로 남깁니다(막지 않음). */
 function quickAdvance() {
-  clearTimeout(choiceState.advanceTimer);
   if (exploreStep === 1) { gotoQuickStep(2); return; }
   if (exploreStep === 2) {
     const qs = quickQuestions();
@@ -3437,7 +3441,6 @@ function quickAdvance() {
     if (q && !choiceState.answers[q.id]) choiceState.answers[q.id] = Choices.SKIP;
     if (choiceState.index < qs.length - 1) {
       choiceState.index += 1;
-      choiceState.shownAt = Date.now();
       renderChoiceStep();
       renderFlowProgress();
       scrollToQuickPanel();
@@ -3449,7 +3452,6 @@ function quickAdvance() {
 }
 
 function quickBack() {
-  clearTimeout(choiceState.advanceTimer);
   if (exploreStep === 2 && choiceState.index > 0) {
     choiceState.index -= 1;
     renderChoiceStep();
@@ -3480,7 +3482,7 @@ function renderChoiceStep() {
       <p class="step-head__kicker">관점 고르기 <span class="choice-step__count">질문 ${choiceState.index + 1}/${qs.length}</span></p>
       <div class="choice-step__dots" aria-hidden="true">${dots}</div>
       <h3 class="step-head__q" id="choicePrompt">${escapeHtml(q.prompt)}</h3>
-      <p class="step-head__desc">정답은 없어요. 내가 가장 중요하다고 생각하는 것 <strong>하나</strong>를 누르면 바로 다음 질문으로 넘어가요.</p>
+      <p class="step-head__desc">정답은 없어요. 내가 가장 중요하다고 생각하는 것 <strong>하나</strong>를 고른 뒤 아래 ${choiceState.index >= qs.length - 1 ? '<strong>‘한 줄 소감 쓰러 가기’</strong>를' : '<strong>‘다음 질문’</strong>을'} 눌러 주세요. 넘어가기 전까지는 얼마든지 바꿀 수 있어요.</p>
     </div>
     <div class="choice-options" role="radiogroup" aria-labelledby="choicePrompt">
       ${options.map(o => {
@@ -3493,25 +3495,17 @@ function renderChoiceStep() {
   renderStepCta();
 }
 
-/**
- * @param {string} optionId
- * @param {boolean} [advance]  누르기(탭·클릭)로 골랐다면 고른 표시를 잠깐 보여 준 뒤 다음 질문으로 넘어갑니다.
- *   화살표 키로 옮겨 다닐 때는 넘어가지 않습니다(키보드 사용자가 선택지를 둘러볼 수 있게).
- */
-function pickChoice(optionId, advance) {
+/** 선택지를 고릅니다 — 체크 표시만 하고 화면은 그대로 둡니다(다음 질문으로는 아래 버튼으로). */
+function pickChoice(optionId) {
   const q = quickQuestions()[choiceState.index];
   if (!q || !Choices.isValidAnswer(currentEventId, q.id, optionId)) return;
   choiceState.answers[q.id] = optionId;
   choiceState.sent = false;           // 다시 고르면 새 응답으로 봅니다
+  choiceState.submissionId = null;
+  choiceState.sentReflection = '';
   renderChoiceStep();
   renderFlowProgress();
   document.querySelector(`#choiceStep [data-choice-option="${CSS.escape ? CSS.escape(optionId) : optionId}"]`)?.focus({ preventScroll: true });
-  clearTimeout(choiceState.advanceTimer);
-  if (!advance) return;
-  const at = choiceState.index;
-  choiceState.advanceTimer = setTimeout(() => {
-    if (exploreMode === 'quick' && exploreStep === 2 && choiceState.index === at) quickAdvance();
-  }, QUICK_ADVANCE_MS);
 }
 
 /** 선택지 사이 화살표 키 이동 (라디오 묶음) */
@@ -3544,8 +3538,6 @@ function renderReflectStep() {
   if (input && input.value !== choiceState.reflection) input.value = choiceState.reflection;
   const count = document.getElementById('reflectCount');
   if (count && input) count.textContent = String(input.value.length);
-  const consent = document.getElementById('choiceShareConsent');
-  if (consent) consent.disabled = !chosenSummary().some(r => !r.skipped);
 }
 
 /** 소감 칸이 비어 있으면 아래 버튼이 '소감 없이 카드 만들기'가 됩니다 (따로 '건너뛰기' 버튼을 두지 않음). */
@@ -3581,24 +3573,37 @@ function makeQuickCard(skipReflection) {
   cardState.options = Card.discoveryOptions(event, eventNlp);
   cardState.picked = cardState.picked.filter(id => cardState.options.some(o => o.id === id));
   markFlow({ cardMade: true });
-  const consent = document.getElementById('choiceShareConsent');
-  const share = !!(consent && consent.checked && !consent.disabled);
+  countParticipation();
   openCardPage();
-  if (share && !choiceState.sent) sendChoices(); else renderChoiceOthers(null);
+  saveQuickAnswers();
 }
 
-async function sendChoices() {
+/**
+ * 카드를 만들 때 고른 관점(객관식)과 한 줄 소감을 이름 없이 저장합니다.
+ * 같은 답·같은 소감으로 카드를 다시 만들면 다시 보내지 않고, 소감을 고쳐 다시 만들면 고친 소감만 새로 저장합니다.
+ * 저장에 실패해도 카드는 그대로 만들어집니다.
+ */
+async function saveQuickAnswers() {
   const eventId = currentEventId;
-  const rows = Choices.rowsForStorage(eventId, choiceState.answers);
-  const res = Store ? await Store.insertChoices(rows) : { ok: false, unavailable: true };
-  if (eventId !== currentEventId) return;
-  choiceState.sent = !!res.ok;
-  const msg = res.ok
-    ? '고른 관점을 익명 통계에 보탰어요. (선택지 이름만 보냈어요)'
-    : res.unavailable
-      ? '지금은 통계 저장을 준비 중이라 보내지 않았어요. 카드는 그대로예요.'
-      : `통계에 보내지 못했어요. 카드는 그대로예요. ${res.error || ''}`;
-  renderChoiceOthers(msg);
+  if (!Store || !Choices) { renderChoiceOthers(null); return; }
+  if (!choiceState.submissionId) choiceState.submissionId = Store.newSubmissionId();
+  const submissionId = choiceState.submissionId;
+  let choiceRes = { ok: true };
+  if (!choiceState.sent) {
+    const rows = Choices.rowsForStorage(eventId, choiceState.answers).map(r => Object.assign(r, { submission_id: submissionId }));
+    choiceRes = await Store.insertChoices(rows);
+    if (eventId !== currentEventId) return;
+    choiceState.sent = !!choiceRes.ok;
+  }
+  const reflection = (choiceState.reflection || '').trim();
+  let reflectRes = { ok: true };
+  if (reflection && reflection !== choiceState.sentReflection) {
+    reflectRes = await Store.insertReflection({ eventKey: eventId, submissionId, content: reflection });
+    if (eventId !== currentEventId) return;
+    if (reflectRes.ok) choiceState.sentReflection = reflection;
+  }
+  const failed = [choiceRes, reflectRes].find(r => !r.ok && !r.unavailable);
+  renderChoiceOthers(failed ? `기록을 저장하지 못했어요. 카드는 그대로예요. ${failed.error || ''}` : null);
 }
 
 /** 카드 화면: 다른 참여자들이 고른 관점 (객관식 집계 · 질문별 응답 5명 미만이면 숨김) */
@@ -3633,7 +3638,7 @@ async function renderChoiceOthers(statusMsg) {
   }).join('');
   box.innerHTML = `${status}
     <h3 class="choice-others__title">다른 참여자들은 어떤 관점을 골랐을까?</h3>
-    <p class="nlp-meta">‘익명 통계에 보태기’에 동의한 참여자의 객관식 선택만 모은 것입니다(공동 표현과 따로 집계). 많이 고른 관점이 옳다는 뜻은 아니에요.</p>
+    <p class="nlp-meta">참여자들이 고른 객관식 선택을 모은 것입니다(공동 표현과 따로 집계). 많이 고른 관점이 옳다는 뜻은 아니에요.</p>
     ${body}`;
 }
 
@@ -3680,6 +3685,7 @@ function resetCardState() {
   cardState.model = null;
   cardState.before = '';
   cardState.after = '';
+  clearCardImage();
   ['customDiscovery', 'myQuestion'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // STEP 3에서 바로 고를 수 있도록 발견 후보는 사건을 열 때 만들어 둡니다 (모두 사건 데이터·NLP 결과에서 옴).
   const event = currentEvent();
@@ -3743,6 +3749,7 @@ function makeMemoryCard() {
   cardState.options = Card.discoveryOptions(event, eventNlp);
   cardState.picked = cardState.picked.filter(id => cardState.options.some(o => o.id === id));
   markFlow({ cardMade: true });
+  countParticipation();
   openCardPage();
 }
 
@@ -3947,6 +3954,7 @@ function applyCardTheme(box) {
 
 let cardArtFrame = 0;
 function scheduleCardArt() {
+  prepareCardImage();
   if (cardArtFrame) cancelAnimationFrame(cardArtFrame);
   cardArtFrame = requestAnimationFrame(() => { cardArtFrame = 0; paintCardArt(); });
 }
@@ -4072,6 +4080,7 @@ function renderStoryPreview() {
   const cv = document.getElementById('storyCanvas');
   if (!cv || !Card) return;
   const token = ++storyPreviewToken;
+  prepareCardImage();
   const draw = () => {
     if (token !== storyPreviewToken) return;
     const m = cardState.model || currentCardModel();
@@ -4091,21 +4100,21 @@ function renderStoryPreview() {
  */
 async function ensureCardFonts(model, themeId, format) {
   try {
-    if (!document.fonts || !document.fonts.load || !Card || !Card.fontLoads) return;
+    if (!document.fonts || !document.fonts.load || !Card || !Card.fontLoads) return true;
     const reqs = Card.fontLoads(model || cardState.model || currentCardModel(), { theme: themeId || cardState.theme, format: format || cardState.format });
-    await Promise.race([
-      Promise.all(reqs.map(r => document.fonts.load(r.font, r.text).catch(() => []))),
-      new Promise(r => setTimeout(r, 3000))
+    return await Promise.race([
+      Promise.all(reqs.map(r => document.fonts.load(r.font, r.text).catch(() => []))).then(() => true),
+      new Promise(r => setTimeout(() => r(false), 3000))
     ]);
-  } catch (e) { /* 기본 서체 */ }
+  } catch (e) { return true; /* 기본 서체 */ }
 }
 
 async function cardCanvas() {
   const canvas = document.createElement('canvas');
   const model = cardState.model || currentCardModel();
-  await ensureCardFonts(model, cardState.theme, cardState.format);
+  const fontsReady = await ensureCardFonts(model, cardState.theme, cardState.format);
   const info = Card.drawCard(canvas, model, { theme: cardState.theme, format: cardState.format });
-  return { canvas, info };
+  return { canvas, info, fontsReady };
 }
 
 /** 저장 파일 이름: 사건 · 날짜 · 디자인 (스토리는 -story) */
@@ -4115,34 +4124,116 @@ function cardFileName() {
   return `shared-memory-card-${m.eventId || 'event'}-${(m.date || '').replace(/\./g, '')}-${cardState.theme}${story}.png`;
 }
 
-async function saveCardImage() {
-  if (!Card) return;
-  setCardActionStatus('이미지를 만드는 중입니다…');
-  try {
-    const { canvas, info } = await cardCanvas();
+/* ------------------------------------------------------------
+   카드 이미지 저장 · 공유
+   · 카드가 보이거나 바뀌면 저장용 PNG를 미리 만들어 둡니다. 버튼을 누르면 기다리지 않고 바로 내려받습니다
+     (예전에는 누른 뒤 글꼴을 최대 3초 기다리고 그려서, 첫 방문 휴대폰에서 내려받기가 늦게 시작됐습니다).
+   · 같은 카드를 연달아 누르면 한 번만 내려받습니다 (브라우저의 '여러 파일 자동 다운로드' 차단을 피함).
+   · 내려받기가 막힌 브라우저를 위해 ‘이미지로 열기’(길게 눌러 저장)를 함께 둡니다.
+   · 미리 만든 이미지는 이 창의 메모리에만 있고, ‘새 참여자로 시작’하면 지웁니다.
+   ------------------------------------------------------------ */
+
+// provisional: 글꼴을 3초 안에 다 받지 못해 기본 서체로 그린 이미지 — 글꼴이 도착하면 다시 만듭니다.
+let cardImage = { key: '', blob: null, url: '', info: null, pending: null, provisional: false };
+let cardImageTimer = 0;
+let cardSaving = false;
+let cardLastSave = { key: '', at: 0 };
+const CARD_RESAVE_MS = 2000;            // 같은 카드를 이 시간 안에 다시 누르면 한 번으로 봄
+
+function cardImageKey() {
+  return JSON.stringify([cardState.model || null, cardState.theme, cardState.format]);
+}
+
+function clearCardImage() {
+  clearTimeout(cardImageTimer);
+  if (cardImage.url) URL.revokeObjectURL(cardImage.url);
+  cardImage = { key: '', blob: null, url: '', info: null, pending: null, provisional: false };
+  cardLastSave = { key: '', at: 0 };
+  closeCardSaveSheet();
+  const open = document.querySelector('[data-card-action="open-image"]');
+  if (open) open.hidden = true;
+}
+
+/** 카드 화면이 바뀐 뒤 잠시 기다렸다가 저장용 이미지를 미리 만듭니다. */
+function prepareCardImage() {
+  if (!Card || !cardState.model) return;
+  clearTimeout(cardImageTimer);
+  cardImageTimer = setTimeout(() => {
+    if (document.querySelector('.page--card.active')) buildCardImage({ refresh: true }).catch(() => {});
+  }, 300);
+}
+
+/**
+ * 지금 카드의 PNG (같은 카드면 만들어 둔 것을 씀)
+ * @param {{refresh?: boolean}} [opts] refresh: 기본 서체로 임시로 그린 이미지면 다시 만듦 (미리 만들기에서만)
+ */
+function buildCardImage(opts) {
+  const key = cardImageKey();
+  if (cardImage.key === key && cardImage.blob && !(opts && opts.refresh && cardImage.provisional)) return Promise.resolve(cardImage);
+  if (cardImage.key === key && cardImage.pending) return cardImage.pending;
+  const job = (async () => {
+    const { canvas, info, fontsReady } = await cardCanvas();
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     if (!blob) throw new Error('이미지를 만들지 못했습니다.');
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = cardFileName();
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    setCardActionStatus(`이미지(${info.width}×${info.height})를 저장했습니다.${info.truncated ? ' 긴 문장은 이미지에서 일부 생략되었습니다(화면 카드에는 전체가 보입니다).' : ''} 휴대폰에서 저장이 안 되면 카드를 길게 눌러 저장하거나 ‘인쇄 · PDF로 저장’을 써 주세요.`);
-  } catch (e) {
-    console.error('카드 이미지 오류:', e);
-    setCardActionStatus('이미지를 만들지 못했습니다. ‘인쇄 · PDF로 저장’을 이용해 주세요.');
+    const img = { key, blob, url: URL.createObjectURL(blob), info, pending: null, provisional: !fontsReady };
+    if (cardImage.pending === job) cardImage = img;
+    return img;
+  })();
+  // 이전 이미지 주소는 바로 지우지 않습니다 (이미 연 이미지 창·내려받기 링크가 쓰고 있을 수 있음)
+  const prev = cardImage.url;
+  if (prev) setTimeout(() => URL.revokeObjectURL(prev), 60000);
+  cardImage = { key, blob: null, url: '', info: null, pending: job, provisional: false };
+  job.catch(() => { if (cardImage.pending === job) cardImage.pending = null; });
+  return job;
+}
+
+function cardImageNote(img) {
+  return img.info && img.info.truncated ? ' 긴 문장은 이미지에서 일부 생략되었습니다(화면 카드에는 전체가 보입니다).' : '';
+}
+
+function setCardSaveBusy(busy) {
+  cardSaving = busy;
+  const btn = document.querySelector('[data-card-action="png"]');
+  if (btn) btn.setAttribute('aria-busy', String(busy));
+}
+
+function saveCardImage() {
+  if (!Card) return;
+  const key = cardImageKey();
+  if (cardSaving) return;                                                  // 만드는 중에 또 누름
+  if (cardLastSave.key === key && Date.now() - cardLastSave.at < CARD_RESAVE_MS) {
+    setCardActionStatus('방금 내려받기를 시작했어요. 저장되지 않았다면 아래 ‘이미지로 열기’를 눌러 주세요.');
+    return;
   }
+  if (cardImage.key === key && cardImage.blob) { downloadCardImage(cardImage); return; }
+  setCardSaveBusy(true);
+  setCardActionStatus('이미지를 만드는 중입니다…');
+  buildCardImage().then(img => downloadCardImage(img)).catch(e => {
+    console.error('카드 이미지 오류:', e);
+    setCardActionStatus('이미지를 만들지 못했습니다. 잠시 뒤 다시 누르거나 ‘인쇄 · PDF로 저장’을 이용해 주세요.');
+  }).finally(() => setCardSaveBusy(false));
+}
+
+function downloadCardImage(img) {
+  const a = document.createElement('a');
+  a.href = img.url;
+  a.download = cardFileName();
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  cardLastSave = { key: img.key, at: Date.now() };
+  // 페이지는 실제로 저장됐는지 알 수 없으므로 '시작했습니다'로 안내합니다.
+  setCardActionStatus(`이미지(${img.info.width}×${img.info.height}) 내려받기를 시작했습니다.${cardImageNote(img)}`);
+  const open = document.querySelector('[data-card-action="open-image"]');
+  if (open) open.hidden = false;
 }
 
 async function shareCardImage() {
   try {
-    const { canvas } = await cardCanvas();
-    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-    const file = new File([blob], cardFileName(), { type: 'image/png' });
-    if (!navigator.canShare || !navigator.canShare({ files: [file] })) { await saveCardImage(); return; }
+    const img = await buildCardImage();
+    const file = new File([img.blob], cardFileName(), { type: 'image/png' });
+    if (!navigator.canShare || !navigator.canShare({ files: [file] })) { saveCardImage(); return; }
     await navigator.share({ files: [file], title: cardState.format === 'story' ? 'My Memory Card — Shared Memory (스토리)' : 'My Memory Card — Shared Memory' });
     setCardActionStatus('');
   } catch (e) {
@@ -4151,10 +4242,61 @@ async function shareCardImage() {
   }
 }
 
+/** ‘이미지로 열기’: 내려받기가 막힌 브라우저에서 이미지를 띄워 길게 눌러 저장하게 합니다. */
+let cardSheetReturn = null;
+function openCardImage() {
+  setCardActionStatus('이미지를 여는 중입니다…');
+  buildCardImage().then(openCardSaveSheet).catch(() => setCardActionStatus('이미지를 만들지 못했습니다. ‘인쇄 · PDF로 저장’을 이용해 주세요.'));
+}
+
+function openCardSaveSheet(img) {
+  closeCardSaveSheet();
+  cardSheetReturn = document.activeElement;
+  const sheet = document.createElement('div');
+  sheet.className = 'card-save-sheet no-print';
+  sheet.id = 'cardSaveSheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-labelledby', 'cardSaveSheetTitle');
+  sheet.innerHTML = `
+    <div class="card-save-sheet__box">
+      <h3 class="card-save-sheet__title" id="cardSaveSheetTitle">카드 이미지</h3>
+      <p class="card-save-sheet__msg">휴대폰은 이미지를 <strong>길게 눌러</strong> ‘이미지 저장’을 고르세요. 컴퓨터는 아래 ‘파일로 내려받기’를 누르세요.</p>
+      <div class="card-save-sheet__frame"><img class="card-save-sheet__img" alt="My Memory Card 이미지"></div>
+      <div class="card-save-sheet__actions">
+        <a class="btn btn--small" data-card-sheet-download>파일로 내려받기</a>
+        <button type="button" class="btn btn--small btn--ghost" data-card-sheet-close>닫기</button>
+      </div>
+    </div>`;
+  const link = sheet.querySelector('[data-card-sheet-download]');
+  link.href = img.url;
+  link.download = cardFileName();
+  sheet.querySelector('.card-save-sheet__img').src = img.url;
+  sheet.addEventListener('click', e => {
+    if (e.target === sheet || e.target.closest('[data-card-sheet-close]')) closeCardSaveSheet();
+  });
+  document.body.appendChild(sheet);
+  setCardActionStatus('');
+  sheet.querySelector('[data-card-sheet-close]').focus({ preventScroll: true });
+}
+
+function closeCardSaveSheet() {
+  const sheet = document.getElementById('cardSaveSheet');
+  if (!sheet) return;
+  sheet.remove();
+  if (cardSheetReturn && document.contains(cardSheetReturn)) cardSheetReturn.focus({ preventScroll: true });
+  cardSheetReturn = null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('cardSaveSheet')) closeCardSaveSheet();
+});
+
 function handleCardAction(action) {
   if (action === 'back') { navigateTo('detail'); setRouteHash(currentEventId); return; }
   if (action === 'png') { saveCardImage(); return; }
   if (action === 'share') { shareCardImage(); return; }
+  if (action === 'open-image') { openCardImage(); return; }
   if (action === 'print') { window.print(); return; }
   if (action === 'memory') { navigateTo('detail'); setRouteHash(currentEventId); gotoTab('memory'); return; }
   if (action === 'publish') {
@@ -4336,6 +4478,16 @@ function renderEventsHeader() {
   set('eventsEyebrow', copy.eyebrow);
   set('eventsTitle', copy.title);
   set('eventsDesc', copy.desc);
+}
+
+/**
+ * 참여자 수 집계: 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 사건마다 한 번,
+ * 사건 이름과 이 브라우저의 무작위 참여자 키만 보냅니다 (답·소감·문장·닉네임·연령대는 보내지 않음).
+ * 같은 키는 서버에서 한 번만 세며, '새 참여자로 시작'을 누르면 키가 바뀌어 다음 학생이 따로 세어집니다.
+ */
+function countParticipation() {
+  if (!Store || !Store.recordParticipation || !currentEventId) return;
+  Store.recordParticipation(currentEventId).then(r => { if (r && r.ok && !r.already) loadParticipantCount(); }).catch(() => {});
 }
 
 /** 첫 화면의 참여자 수 — Supabase 집계 함수 결과만 사용합니다 (하드코딩 없음). */
@@ -4726,7 +4878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aiShow) { fourthLangShown = aiShow.dataset.aiShow; renderFourthTab(currentEvent()); return; }
     if (e.target.closest('[data-quick-next]')) { quickAdvance(); return; }
     const choiceOpt = e.target.closest('[data-choice-option]');
-    if (choiceOpt) { if (Date.now() - (choiceState.shownAt || 0) >= QUICK_TAP_GUARD_MS) pickChoice(choiceOpt.dataset.choiceOption, true); return; }
+    if (choiceOpt) { pickChoice(choiceOpt.dataset.choiceOption); return; }
     const deep = e.target.closest('[data-deep-switch]');
     if (deep) { switchToDeep(deep.dataset.deepSwitch); return; }
     if (e.target.closest('[data-quick-return]')) { switchToQuick(); return; }

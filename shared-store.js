@@ -18,8 +18,11 @@
   const AGE_RPC = 'age_group_participants';
   const LIST_RPC = 'public_expressions';
   const CHOICE_TABLE = 'exploration_choices';   // 기본 체험 객관식 응답 (공동 표현과 별도 테이블)
+  const PING_TABLE = 'participation_pings';      // 참여자 수 집계용 (사건 이름 + 무작위 참여자 키만)
   const CHOICE_RPC = 'choice_counts';
   const CHOICE_ID_RE = /^[a-z0-9_]{1,40}$/;
+  const REFLECTION_TABLE = 'exploration_reflections';   // 기본 체험 한 줄 소감 (비공개 · 운영자만 조회)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   // 공개 조회 컬럼 (age_group 제외). 2단계 SQL 이후에는 테이블에서 age_group 을 직접 읽을 수 없습니다.
   const PUBLIC_COLUMNS = 'id,event_key,author_name,country_code,content,reason,created_at,expression_style,' +
     'selected_concepts,reason_tags,before_content,prior_learning,viewed_compare,viewed_nlp,viewed_sources,completed_flow';
@@ -358,12 +361,18 @@
     }
   }
 
-  /* ---------- 기본 체험 객관식 응답 (동의한 경우에만 · 공동 표현과 별도) ---------- */
+  /* ---------- 기본 체험 객관식 응답 · 한 줄 소감 (공동 표현과 별도 · 이름 없이 저장) ---------- */
+
+  /** 새 칸(submission_id)을 아직 만들지 않은 DB(SQL 실행 전)인지 */
+  function isMissingSubmissionColumn(error) {
+    return !!error && /submission_id/.test(String(error.message || '') + String(error.details || '')) && isMissingSchemaError(error);
+  }
 
   /**
-   * 객관식 응답을 저장합니다. 사건·질문·선택지 id만 보내고, 닉네임·문장·참여자 키는 보내지 않습니다.
-   * 테이블이 아직 없으면(SQL 실행 전) unavailable=true로 돌려주고, 화면은 그대로 진행합니다.
-   * @param {Array<{event_key, question_id, option_id}>} rows
+   * 객관식 응답을 저장합니다. 사건·질문·선택지 id와 같은 카드의 응답을 묶는 무작위 번호(submission_id)만 보내고,
+   * 닉네임·문장·참여자 키는 보내지 않습니다. 테이블이 아직 없으면 unavailable=true로 돌려주고 화면은 그대로 진행합니다.
+   * submission_id 칸을 만드는 SQL을 실행하기 전이면 그 칸만 빼고 다시 보냅니다(응답은 그대로 저장).
+   * @param {Array<{event_key, question_id, option_id, submission_id?}>} rows
    * @returns {{ok, unavailable?, error?, count?}}
    */
   async function insertChoices(rows) {
@@ -371,12 +380,68 @@
     if (!c) return { ok: false, unavailable: true };
     const clean = (Array.isArray(rows) ? rows : [])
       .filter(r => r && typeof r.event_key === 'string' && CHOICE_ID_RE.test(r.question_id) && CHOICE_ID_RE.test(r.option_id))
-      .map(r => ({ event_key: r.event_key, question_id: r.question_id, option_id: r.option_id }))
+      .map(r => Object.assign({ event_key: r.event_key, question_id: r.question_id, option_id: r.option_id },
+        UUID_RE.test(r.submission_id || '') ? { submission_id: r.submission_id } : {}))
       .slice(0, 10);
     if (!clean.length) return { ok: true, count: 0 };
     try {
-      const res = await c.from(CHOICE_TABLE).insert(clean);
+      let res = await c.from(CHOICE_TABLE).insert(clean);
+      if (res.error && isMissingSubmissionColumn(res.error)) {
+        res = await c.from(CHOICE_TABLE).insert(clean.map(({ submission_id, ...rest }) => rest));   // eslint-disable-line no-unused-vars
+      }
       if (!res.error) return { ok: true, count: clean.length };
+      if (isMissingSchemaError(res.error)) return { ok: false, unavailable: true };
+      return { ok: false, error: friendlyError(res.error) };
+    } catch (e) {
+      return { ok: false, error: friendlyError(e) };
+    }
+  }
+
+  /**
+   * 한 줄 소감을 저장합니다 (다른 참여자에게 공개하지 않는 비공개 테이블 · 운영자만 조회).
+   * 사건 이름·같은 카드의 객관식과 묶는 무작위 번호·소감 문장만 보내고, 닉네임·연령대·참여자 키는 보내지 않습니다.
+   * @returns {{ok, unavailable?, error?}}
+   */
+  async function insertReflection(input) {
+    const eventKey = input && input.eventKey;
+    const submissionId = input && input.submissionId;
+    const content = String((input && input.content) || '').trim().slice(0, 300);
+    if (!CHOICE_ID_RE.test(eventKey || '') || !UUID_RE.test(submissionId || '') || !content) return { ok: false, error: 'bad input' };
+    const c = client();
+    if (!c) return { ok: false, unavailable: true };
+    try {
+      const res = await c.from(REFLECTION_TABLE).insert([{ event_key: eventKey, submission_id: submissionId, content }]);
+      if (!res.error) return { ok: true };
+      if (isMissingSchemaError(res.error)) return { ok: false, unavailable: true };
+      return { ok: false, error: friendlyError(res.error) };
+    } catch (e) {
+      return { ok: false, error: friendlyError(e) };
+    }
+  }
+
+  /** 같은 카드의 객관식·소감을 묶는 무작위 번호 (개인을 가리키지 않음) */
+  function newSubmissionId() {
+    if (root.crypto && root.crypto.randomUUID) return root.crypto.randomUUID();
+    const h = n => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    return `${h(8)}-${h(4)}-4${h(3)}-${'89ab'[Math.floor(Math.random() * 4)]}${h(3)}-${h(12)}`;
+  }
+
+  /**
+   * 참여 1회 기록 (참여자 수 집계용). 사건 이름과 이 브라우저의 무작위 참여자 키만 보내며,
+   * 답·문장·닉네임·연령대는 보내지 않습니다. 사건마다 한 번만 보냅니다(서버도 같은 키·사건은 한 번만 저장).
+   * 테이블이 아직 없으면(SQL 실행 전) 표시하지 않고 다음에 다시 시도합니다.
+   * @returns {{ok, already?, unavailable?, error?}}
+   */
+  async function recordParticipation(eventKey) {
+    if (typeof eventKey !== 'string' || !/^[a-z0-9_]{1,40}$/.test(eventKey)) return { ok: false, error: 'bad event' };
+    const flag = 'sm_counted_' + eventKey;
+    if (storageGet(flag)) return { ok: true, already: true };
+    const c = client();
+    if (!c) return { ok: false, unavailable: true };
+    try {
+      const res = await c.from(PING_TABLE).insert([{ event_key: eventKey, participant_key: participantKey() }]);
+      const dup = res.error && (res.error.code === '23505' || res.status === 409);
+      if (!res.error || dup) { storageSet(flag, '1'); return { ok: true, already: !!dup }; }
       if (isMissingSchemaError(res.error)) return { ok: false, unavailable: true };
       return { ok: false, error: friendlyError(res.error) };
     } catch (e) {
@@ -457,7 +522,10 @@
     fetchParticipationSummary,
     fetchAgeGroupParticipants,
     insertChoices,
+    insertReflection,
+    newSubmissionId,
     fetchChoiceCounts,
+    recordParticipation,
     empathizedSet,
     storageGet,
     storageSet,
