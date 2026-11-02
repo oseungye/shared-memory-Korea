@@ -294,7 +294,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="compare">세 나라의 서술<small class="tab__sub">국가별 서술</small></button>
         <button class="tab" data-tab="fourth">AI는 어떻게 말할까?<small class="tab__sub">네 번째 서술자</small></button>
-        <button class="tab" data-tab="ai">어떻게 다를까?<small class="tab__sub">NLP 비교 분석</small></button>
+        <button class="tab" data-tab="ai">어떻게 다를까?<small class="tab__sub">단어로 비교</small></button>
         <button class="tab" data-tab="keywords">단어 빈도<small class="tab__sub">키워드 비교</small></button>
         <button class="tab" data-tab="sources">사료로 확인<small class="tab__sub">관련 사료</small></button>
         <button class="tab" data-tab="shared">내 한 문장 쓰기<small class="tab__sub">공동 표현 작성</small></button>
@@ -346,7 +346,7 @@
         <div class="deeper">
           <p class="deeper__label">더 깊이 살펴보기 <small>(선택)</small></p>
           <div class="deeper__links">
-            <button type="button" class="deeper__link" data-goto-tab="ai"><strong>어떻게 다를까?</strong><span>NLP 계산 과정·원문 근거</span></button>
+            <button type="button" class="deeper__link" data-goto-tab="ai"><strong>어떻게 다를까?</strong><span>단어를 세어 비교한 근거</span></button>
             <button type="button" class="deeper__link" data-goto-tab="keywords"><strong>단어 빈도</strong><span>키워드 비교 차트</span></button>
             <button type="button" class="deeper__link" data-goto-tab="sources"><strong>사료로 확인</strong><span>관련 자료·확인 상태</span></button>
           </div>
@@ -377,17 +377,18 @@
         <div class="ai-box">
           <div class="ai-box__intro">
             <h3 class="section-h">세 나라는 어떻게 다르게 말하고 있을까?</h3>
-            <p class="ai-box__tech">NLP 텍스트 비교 분석 · TF-IDF · 코사인/Jaccard 유사도 · 다국어 개념 사전</p>
+            <p class="ai-box__tech">컴퓨터가 세 서술에 쓰인 단어를 세어 비교해요</p>
           </div>
 
           <!-- 한눈에 비교: 실제 세 서술 텍스트에서 계산한 결과만 표시 (script.js renderGlance) -->
           <div class="glance" id="aiGlance" aria-live="polite"><!-- JS --></div>
 
           <div class="ai-box__intro ai-box__intro--detail">
-            <p>
-              <small>※ 외부 AI API나 학습된 언어 모델 없이 브라우저에서 TF-IDF와 코사인 유사도로 직접 계산하며, 서술 텍스트가 바뀌면 결과도 함께 달라집니다.
-              이 분석은 단어 선택의 경향을 보여줄 뿐, 어느 서술이 역사적으로 옳은지는 판정하지 않습니다.</small>
-            </p>
+            <p><small>단어를 고르는 경향을 보여 줘요. 서술이 바뀌면 결과도 바뀌어요.</small></p>
+            <details class="method-note">
+              <summary>분석 방법 자세히 (궁금한 분만)</summary>
+              <p>외부 AI 없이 이 화면에서 직접 계산해요. 쓰인 방법: TF-IDF(한 서술에서 유난히 많이 쓰인 단어 찾기), 코사인·Jaccard 유사도(두 서술이 얼마나 비슷한 단어를 쓰는지), 다국어 개념 사전(침략·侵略·入侵처럼 같은 뜻을 묶기). 이 분야를 자연어 처리(NLP)라고 해요.</p>
+            </details>
             <button class="btn btn--ai" id="aiAnalyzeBtn">
               <span class="btn__icon">⌬</span>
               <span>자세히 분석하기 (계산 과정·근거 보기)</span>
@@ -491,7 +492,7 @@
                 </div>
                 <div class="guide-step">
                   <div class="shared-form__label">표현에 담고 싶은 핵심 요소 <small class="guide-step__opt">여러 개 선택 가능</small></div>
-                  <p class="guide-step__desc">이 사건의 국가별 서술과 NLP 분석 결과에서 뽑은 요소입니다. 담고 싶은 것을 골라 보세요.</p>
+                  <p class="guide-step__desc">이 사건의 세 나라 서술과 단어 비교 결과에서 뽑은 요소입니다. 담고 싶은 것을 골라 보세요.</p>
                   <div id="guideConcepts" class="guide-concepts"><!-- JS --></div>
                 </div>
 
@@ -569,10 +570,10 @@
       <div class="tab-content" data-tab-content="memory">
         <div class="memory-box">
           <h3 class="section-h">다른 사람들은 이 역사를 어떻게 기억했을까?</h3>
-          <p class="ai-box__tech ai-box__tech--left">Shared Memory — 공동 기억 지도 · 공동 표현 군집화</p>
+          <p class="ai-box__tech ai-box__tech--left">비슷한 문장끼리 묶어 보여 주는 공동 기억 지도</p>
           <p class="keywords-box__desc">
             참여자들이 등록한 공동 표현을 서로 비슷한 것끼리 묶어, 어떤 표현의 경향이 나타나는지 보여줍니다.<br />
-            <small>※ 역사적 정답이나 “가장 올바른 표현”을 판정하는 기능이 아닙니다. 모든 수치는 Supabase에 저장된 실제 제안 텍스트에서 매번 계산됩니다.</small>
+            <small>※ 모든 수치는 참여자들이 실제로 남긴 문장에서 매번 새로 계산해요.</small>
           </p>
           <div class="data-refresh">
             <button type="button" class="btn btn--small btn--ghost" data-shared-refresh>↻ 최신 참여 불러오기</button>
@@ -677,14 +678,14 @@
           <p>‘사료로 확인’ 탭의 자료마다 작성 주체·연도·제공 기관과 함께 <strong>확인 상태</strong>를 표시합니다. ‘출처 확인’은 자료명·작성 주체·연도·제공 기관·해당 페이지를 편집자가 확인한 자료이고, ‘일부 확인’과 ‘검토 전’은 아직 확인이 남은 자료입니다. 확인하지 못한 링크는 넣지 않습니다.</p></details>
         <details class="faq__item"><summary>왜 이 사료들을 골랐나요? 사료마다 관점이 다르지 않나요?</summary>
           <p>서술에 쓰인 핵심 표현(침략·구원·외국인·특별영주자 등)을 당대 기록이나 법령 문장에서 직접 확인할 수 있는 자료를 골랐습니다. 사료는 정답이 아니라 누군가 특정 위치에서 남긴 기록이므로, 카드마다 작성 주체·1차/후대 편찬 구분·관점과 한계를 함께 적었습니다. 예를 들어 『명사』는 전쟁 약 150년 뒤 청 조정이 편찬한 자료입니다.</p></details>
-        <details class="faq__item"><summary>AI(NLP)가 역사적으로 옳고 그름을 판단하나요?</summary>
+        <details class="faq__item"><summary>컴퓨터 분석이 역사의 옳고 그름을 판단하나요?</summary>
           <p>아닙니다. 분석은 단어가 몇 번, 어느 서술에 쓰였는지를 계산해 표현 선택의 경향을 보여줄 뿐입니다. 어떤 서술이나 참여자의 문장이 옳다고 판정하거나 점수를 매기지 않습니다.</p></details>
         <details class="faq__item"><summary>AI(대형 언어 모델)는 어디에 쓰나요? 분석이나 판정에도 쓰나요?</summary>
-          <p>분석과 판정에는 쓰지 않습니다. 세 나라 서술 비교와 참여 문장 분석은 TF-IDF·코사인 유사도·개념 사전으로 계산하므로, 결과가 어느 단어에서 나왔는지 하나하나 보여줄 수 있고 같은 입력이면 항상 같은 결과가 나옵니다.
+          <p>분석과 판정에는 쓰지 않습니다. 세 나라 서술 비교와 참여 문장 분석은 단어 수를 세는 계산(TF-IDF·코사인 유사도)과 개념 사전으로 하므로, 결과가 어느 단어에서 나왔는지 하나하나 보여줄 수 있고 같은 입력이면 항상 같은 결과가 나옵니다.
             AI는 ‘네 번째 서술자’로 등장합니다. 같은 질문을 한국어·일본어·중국어로 AI(Claude)에게 물은 답을 모델 이름·날짜와 함께 기록해 두고, 학생이 세 나라의 서술처럼 비판적으로 읽어 보게 합니다.
             <!-- 아래 문구는 2026-10-26 초안 — 운영자 확정 전 -->
             여기에 더해 심화 탐구의 ‘③ 질문하는 AI’에서는, 학생이 ‘시작’을 누른 뒤 쓴 답만 서버 함수를 거쳐 AI에게 보내고 짧은 질문을 두 번 받습니다. 이 사이트는 그 답을 저장하지 않지만, 답은 AI 서비스(Anthropic)로 전송되어 그 쪽 정책에 따라 처리되므로 이름·개인정보는 쓰지 말아야 합니다. 자동으로 부르지 않고, 공동 표현·참여 문장은 보내지 않습니다.
-            API 키는 브라우저에 두지 않고 서버(Supabase)에만 둡니다. AI가 응답하지 않으면 미리 써 둔 질문으로 이어집니다.</p></details>
+            AI를 부르는 열쇠(API 키)는 브라우저에 두지 않고 서버에만 둡니다. AI가 응답하지 않으면 미리 써 둔 질문으로 이어집니다.</p></details>
         <details class="faq__item"><summary>AI는 언어마다 역사를 다르게 말하나요?</summary>
           <p>2026년 10월 22일 기록(claude-opus-5-5, 사건마다 한국어·일본어·중국어로 각 3회)에서는 <strong>내용의 공통점이 컸습니다.</strong> 예를 들어 히로시마 답변 9회는 모두 조선인 피해자를 말했습니다.
             뚜렷한 차이는 <strong>이름과 동사</strong>였습니다. 임진왜란을 가장 먼저 부른 이름은 한국어 ‘임진왜란’, 일본어 ‘文禄・慶長の役’, 중국어 ‘万历朝鲜之役’이었고, 전쟁의 시작을 일본어는 ‘군대를 보냈다(送りました)’, 한국어는 ‘침략했다·쳐들어왔다’로 썼습니다.
@@ -692,7 +693,7 @@
         <details class="faq__item"><summary>분석 결과가 미리 정해진(하드코딩된) 값은 아닌가요?</summary>
           <p>아닙니다. 모든 수치는 화면에 보이는 서술 텍스트와 저장된 참여 문장에서 매번 계산됩니다. 서술 문장을 바꾸면 결과도 바뀌며, 이를 자동 테스트로 확인합니다. 사람이 쓴 해석(편집자 해설)은 자동 분석과 구분해 따로 표시합니다.</p></details>
         <details class="faq__item"><summary>학생 데이터는 어떻게 보호하나요?</summary>
-          <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개 키와 행 수준 보안(RLS)으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다. 첫 화면의 참여자 수를 세기 위해, 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 <strong>사건 이름과 이 브라우저의 무작위 키만</strong> 한 번 기록합니다. 기본 체험에서 카드를 만들면 <strong>고른 관점(객관식)과 한 줄 소감을 이름 없이</strong> 저장해 프로젝트 분석에 씁니다. 소감은 다른 참여자에게 공개하지 않으며 운영자만 볼 수 있습니다. 단, 소감 아래 ‘Shared Archive에 보태기’를 따로 고르면 그 문장만 이름 없이(‘익명’) 등록되고, 운영자가 확인한 뒤 Shared Archive에 공개됩니다. 소감에는 이름·학교·연락처를 쓰지 말아 주세요.</p></details>
+          <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개용 키와 접근 규칙으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다. 첫 화면의 참여자 수를 세기 위해, 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 <strong>사건 이름과 이 브라우저의 무작위 키만</strong> 한 번 기록합니다. 기본 체험에서 카드를 만들면 <strong>고른 관점(객관식)과 한 줄 소감을 이름 없이</strong> 저장해 프로젝트 분석에 씁니다. 소감은 다른 참여자에게 공개하지 않으며 운영자만 볼 수 있습니다. 단, 소감 아래 ‘Shared Archive에 보태기’를 따로 고르면 그 문장만 이름 없이(‘익명’) 등록되고, 운영자가 확인한 뒤 Shared Archive에 공개됩니다. 소감에는 이름·학교·연락처를 쓰지 말아 주세요.</p></details>
         <details class="faq__item"><summary>실제 수업에서는 어떻게 쓰나요?</summary>
           <p><strong>QR로 5분 체험:</strong> 첫 화면의 ‘수업·전시용 사건별 QR 만들기’에서 사건별 QR을 인쇄해 나눠 주면, 학생은 QR을 찍어 바로 그 사건의 탐구를 시작하고 마지막에 My Memory Card를 저장합니다. <strong>한 차시 수업:</strong> 한 차시(약 20–30분) 기준으로, ① 탐구 전 한 문장 → ② 세 나라의 서술 읽기 → ③ ‘어떻게 다를까?’에서 공통점·차이점 확인 → ④ 관련 사료 1개 확인 → ⑤ 내 한 문장 쓰기 → ⑥ 반 전체의 기억 보기 순서로 진행할 수 있습니다. 교사는 ⑥의 표현군과 탐구 전·후 변화를 토론 자료로 쓸 수 있습니다.</p></details>
         <details class="faq__item"><summary>My Memory Card에는 무엇이 담기고, 어디에 저장되나요?</summary>
@@ -828,6 +829,22 @@
     </section>
 
   </main>
+
+  <!-- 처음 온 사람을 위한 진행 안내 (기본 체험 첫 진입 때 한 번 · '진행 방법'으로 다시 열기). script.js openFlowGuide -->
+  <div class="flow-guide" id="flowGuide" role="dialog" aria-modal="true" aria-labelledby="flowGuideTitle" aria-describedby="flowGuideTip" hidden>
+    <div class="flow-guide__card">
+      <p class="flow-guide__kicker">처음이세요?</p>
+      <h2 class="flow-guide__title" id="flowGuideTitle">이렇게 진행돼요 <small>약 4분</small></h2>
+      <ol class="flow-guide__steps">
+        <li><b aria-hidden="true">1</b><div><strong>세 나라 기록 읽기</strong><span>같은 사건을 한국·일본·중국이 어떻게 적었는지 읽어요.</span></div></li>
+        <li><b aria-hidden="true">2</b><div><strong>관점 고르기 <small>(3문항)</small></strong><span>내 생각에 가장 가까운 것을 하나씩 골라요.</span></div></li>
+        <li><b aria-hidden="true">3</b><div><strong>한 줄 소감 <small>(쓰지 않아도 돼요)</small></strong><span>느낀 점을 한 문장으로 남겨요.</span></div></li>
+        <li><b aria-hidden="true">4</b><div><strong>나만의 카드 받기</strong><span>이미지로 저장하고, 다른 사람들이 남긴 문장도 읽어요.</span></div></li>
+      </ol>
+      <p class="flow-guide__tip" id="flowGuideTip">화면 <strong>맨 아래 버튼</strong>을 누르면 다음 단계로 가요. 이름이나 연락처는 묻지 않아요.</p>
+      <button type="button" class="btn btn--primary flow-guide__start" data-guide-close>시작하기</button>
+    </div>
+  </div>
 
   <!-- 누가 참여하나요? — 이 기기에 이전 참여 기록이 있을 때 참여 시작 전에 한 번 묻습니다 (script.js ensureParticipantChoice) -->
   <div class="participant-gate" id="participantGate" role="dialog" aria-modal="true" aria-labelledby="participantGateTitle" aria-describedby="participantGateDesc" hidden>

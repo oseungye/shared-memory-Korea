@@ -239,6 +239,7 @@ function openEventDetail(eventId, opts) {
   exploreStep = quick ? 1 : (flowStepDone('before') ? 2 : 1);
   renderBeforeCard();
   applyExploreStep();
+  if (quick) maybeShowFlowGuide();
   renderKeywordChart(event);
   renderGlance();
   renderCompareSummary(event);
@@ -256,6 +257,45 @@ function openEventDetail(eventId, opts) {
   setRouteHash(eventId);
   // "Shared Memory 보기"로 들어왔다면 결과(공동 기억 지도) 탭을 먼저 보여줍니다. 다른 탭은 그대로 이동 가능.
   if (eventsMode === 'memory') switchTab('memory');
+}
+
+/* ------------------------------------------------------------
+   처음 온 사람을 위한 진행 안내 (기본 체험)
+   · 기본 체험에 처음 들어올 때 한 번 보여 주고, 진행 표시의 '? 진행 방법'으로 언제든 다시 엽니다.
+   · '봤음' 표시는 이 탭(sessionStorage)에만 두고 'sm_'로 시작하지 않습니다 → 공용 기기의 '이전 참여 기록'으로 세지 않음.
+     새 참여자로 시작하면 지워서 다음 학생이 다시 봅니다.
+   ------------------------------------------------------------ */
+const GUIDE_SEEN_KEY = 'sm-guide-seen';
+let guideSeenMemory = false;               // sessionStorage를 쓸 수 없을 때
+let guideReturnFocus = null;
+
+function guideSeen() {
+  try { return sessionStorage.getItem(GUIDE_SEEN_KEY) === '1' || guideSeenMemory; } catch (e) { return guideSeenMemory; }
+}
+function setGuideSeen(on) {
+  guideSeenMemory = !!on;
+  try { if (on) sessionStorage.setItem(GUIDE_SEEN_KEY, '1'); else sessionStorage.removeItem(GUIDE_SEEN_KEY); } catch (e) { /* 메모리만 */ }
+}
+function maybeShowFlowGuide() {
+  if (window.__SM_SKIP_GUIDE || guideSeen()) return;     // 자동 테스트는 안내를 건너뜁니다 (tests/e2e/harness.js)
+  openFlowGuide();
+}
+function openFlowGuide() {
+  const box = document.getElementById('flowGuide');
+  if (!box) return;
+  guideReturnFocus = document.activeElement;
+  box.hidden = false;
+  document.body.classList.add('has-flow-guide');
+  setTimeout(() => box.querySelector('[data-guide-close]')?.focus(), 30);
+}
+function closeFlowGuide() {
+  const box = document.getElementById('flowGuide');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.classList.remove('has-flow-guide');
+  setGuideSeen(true);
+  const back = guideReturnFocus && document.contains(guideReturnFocus) ? guideReturnFocus : document.querySelector('#stepCta [data-step-main]:not([hidden])');
+  back?.focus?.({ preventScroll: true });
 }
 
 function computeEventNlp(event) {
@@ -488,7 +528,7 @@ function renderFourthNarrator(event, a) {
   const notes = ((FOURTH_DATA.observations || {})[event.id] || []);
   const notesHtml = notes.length ? `
     <div class="fourth-observe">
-      <div class="narrative-card__label">편집자 관찰 <small class="nlp-meta">(사람이 답변을 읽고 쓴 관찰 — 판정이 아닙니다)</small></div>
+      <div class="narrative-card__label">편집자 관찰 <small class="nlp-meta">(사람이 답변을 읽고 쓴 관찰)</small></div>
       <ul>${notes.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
     </div>` : '';
   const first = ai[0].records[0];
@@ -594,7 +634,7 @@ function renderMemoryGaps(a) {
 const EXPLORE_STEPS = [
   { n: 1, id: 'before', short: '내가 아는 역사', title: '내가 알고 있는 역사 기록',
     todo: '지금 알고 있는 내용만으로 이 역사를 한 문장으로 적어 보세요. 정답을 찾지 않아도 돼요.' },
-  { n: 2, id: 'compare', short: '세 나라 비교', title: '국가별 역사 서술 · NLP 비교',
+  { n: 2, id: 'compare', short: '세 나라 비교', title: '세 나라 기록 비교',
     todo: '세 나라의 기록을 읽고, 형광펜 표현과 공통점·차이점 카드를 살펴보세요.' },
   { n: 3, id: 'shared', short: '나의 표현', title: '새로운 관점과 나의 최종 표현',
     todo: '탐구하며 발견한 관점을 고르고, 이 역사를 기억하고 싶은 나의 한 문장을 써 보세요.' },
@@ -734,6 +774,7 @@ function stepperHtml(current) {
       <p class="stepper__count"><span class="stepper__num">STEP <strong>${current}</strong>/4</span> <span class="stepper__title">${info.title}</span></p>
       <div class="stepper__bar" aria-hidden="true"><i style="width:${current * 25}%"></i></div>
       <ol class="flow-progress__list">${items}</ol>
+      ${exploreMode === 'quick' ? '<button type="button" class="stepper__help" data-guide-open aria-haspopup="dialog">? 진행 방법</button>' : ''}
       <p class="stepper__todo"><span class="stepper__todo-label">지금 할 일</span> ${allDone && current === 4 ? '탐구를 모두 마쳤습니다. 카드를 저장하고, 다른 사건도 살펴보세요.' : memoryNote}</p>
       ${back}
     </div>`;
@@ -1154,7 +1195,7 @@ function narrativeTextHtml(countryKey, n) {
     if (a < pos) return;
     const what = kind === 'common' ? '세 서술 공통 표현' : `${nlpCountryName(countryKey)} 측 서술의 두드러진 표현`;
     html += escapeHtml(n.text.slice(pos, a)) +
-      `<mark class="hl hl--${kind}" title="${escapeAttr(`${what}: ${term} (NLP 계산)`)}">${escapeHtml(n.text.slice(a, b))}<span class="sr-only"> (${what})</span></mark>`;
+      `<mark class="hl hl--${kind}" title="${escapeAttr(`${what}: ${term} (단어 계산)`)}">${escapeHtml(n.text.slice(a, b))}<span class="sr-only"> (${what})</span></mark>`;
     pos = b;
   });
   return html + escapeHtml(n.text.slice(pos));
@@ -1171,7 +1212,7 @@ function renderCompareSummary(event) {
     legend.innerHTML = marked ? `
       <span class="hl-legend__item"><mark class="hl hl--common">공통 표현</mark> 세 서술에 모두 나온 단어</span>
       <span class="hl-legend__item"><mark class="hl hl--distinct">두드러진 표현</mark> 이 서술에서 상대적으로 많이 쓰인 단어</span>
-      <span class="hl-legend__note">형광펜은 세 서술 텍스트에서 자동 계산(NLP)된 단어에만 표시되며, 중요도나 옳고 그름을 뜻하지 않습니다.</span>` : '';
+      <span class="hl-legend__note">형광펜은 컴퓨터가 단어를 세어 찾은 말에만 칠해요.</span>` : '';
   }
   const names = [
     { key: 'korea', flag: '韓', name: '한국', title: event.title, lang: 'ko' },
@@ -1184,7 +1225,10 @@ function renderCompareSummary(event) {
   const namesCard = new Set(names.map(x => x.title)).size >= 2 ? `
     <article class="sum-card sum-card--names">
       <h4 class="sum-card__title"><span class="sum-card__kicker">사건 이름</span>같은 사건, 서로 다른 이름</h4>
-      <ul class="sum-card__names">${names.map(x => `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><strong lang="${x.lang}">${escapeHtml(x.title)}</strong></li>`).join('')}</ul>
+      <ul class="sum-card__names">${names.map(x => {
+        const note = event.nameNotes && event.nameNotes[x.key];
+        return `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><span class="sum-card__name"><strong lang="${x.lang}">${escapeHtml(x.title)}</strong>${note ? `<small class="sum-card__name-note">${escapeHtml(note)}</small>` : ''}</span></li>`;
+      }).join('')}</ul>
     </article>` : '';
   if (!g) {
     box.innerHTML = namesCard ? `<div class="compare-sum__grid">${namesCard}</div>` : '';
@@ -1193,7 +1237,7 @@ function renderCompareSummary(event) {
   box.innerHTML = `
     <div class="compare-sum__head">
       <h3 class="compare-sum__title">한눈에 보는 공통점과 차이점</h3>
-      <p class="compare-sum__note">아래 단어는 세 서술 텍스트에서 NLP로 계산한 결과입니다 (편집자 해석 아님). 단어를 누르면 원문 위치와 근거를 보여줘요.</p>
+      <p class="compare-sum__note">컴퓨터가 세 서술의 단어를 세어 찾은 결과예요. 단어를 누르면 원문에서 쓰인 곳을 보여 줘요.</p>
     </div>
     <div class="compare-sum__grid">
       ${namesCard}
@@ -1269,7 +1313,7 @@ function nlpCountsLabel(counts) {
 
 function renderNLPAnalysis(a) {
   const statLine = NLP_COUNTRIES.map(c =>
-    `${c.name} ${a.stats[c.key].tokens}개 어휘 토큰(서로 다른 어휘 ${a.stats[c.key].uniqueTerms}개)`
+    `${c.name} ${a.stats[c.key].tokens}개 단어(서로 다른 단어 ${a.stats[c.key].uniqueTerms}개)`
   ).join(' / ');
 
   return `
@@ -1313,8 +1357,8 @@ function renderNLPKeywords(a) {
 
   return `
     <div class="ai-result__section">
-      <div class="ai-result__heading"><span>★</span><span>1. 국가별 핵심 키워드 (TF-IDF)</span></div>
-      <p class="nlp-desc">해당 서술에서 자주 쓰이면서(TF) 다른 서술에서는 드문(IDF) 단어일수록 점수가 높습니다.</p>
+      <div class="ai-result__heading"><span>★</span><span>1. 나라별로 두드러진 단어</span></div>
+      <p class="nlp-desc">이 서술에서 자주 쓰이면서 다른 서술에서는 드문 단어일수록 점수가 높아요.</p>
       <div class="nlp-grid">${cols}</div>
     </div>`;
 }
@@ -1400,9 +1444,9 @@ function renderNLPSimilarity(a) {
 
   return `
     <div class="ai-result__section">
-      <div class="ai-result__heading"><span>≈</span><span>4. 서술 간 텍스트 유사도</span></div>
+      <div class="ai-result__heading"><span>≈</span><span>4. 서술끼리 얼마나 비슷할까</span></div>
       <p class="nlp-desc">${summary}<br />
-        <small>코사인 유사도는 TF-IDF 가중치 기준(0~1), Jaccard는 어휘 집합이 겹치는 비율입니다. 서술이 짧아 값이 전반적으로 낮게 나오므로 세 쌍을 서로 비교해 읽는 것이 좋습니다.</small></p>
+        <small>0~1 사이 값으로, 1에 가까울수록 비슷한 단어를 많이 써요. 서술이 짧아 값이 대체로 낮으니 세 쌍을 서로 견주어 보세요.</small></p>
       ${rows}
     </div>`;
 }
@@ -1942,7 +1986,7 @@ function resetGuide(event) {
   if (conceptsBox) {
     conceptsBox.innerHTML =
       group('서술에서 확인되는 개념', cands.concepts, '점: 해당 개념이 나온 국가 서술') +
-      group('서술에 자주 쓰인 어휘', cands.terms, 'NLP 공통·특징 표현') +
+      group('서술에 자주 쓰인 어휘', cands.terms, '세 서술의 공통·두드러진 단어') +
       group('함께 생각해 볼 개념', cands.general) ||
       '<p class="guide-step__desc">후보를 만들지 못했습니다. 바로 STEP 3에서 문장을 작성해도 됩니다.</p>';
   }
@@ -1968,7 +2012,7 @@ function resetGuide(event) {
       : '';
     templatesBox.innerHTML = `
       ${sample}
-      <div class="guide-templates__label">문장 틀로 시작하기 <small>누르면 입력창에 넣어 드려요. 빈칸(______)을 자신의 말로 채워 보세요. 참고용이며 정답이 아닙니다.</small></div>
+      <div class="guide-templates__label">문장 틀로 시작하기 <small>누르면 입력창에 넣어 드려요. 빈칸(______)을 자신의 말로 채워 보세요. 참고용이에요.</small></div>
       <div class="guide-templates__list">
         ${Guide.TEMPLATES.map(t => `
           <button type="button" class="guide-template" data-guide-template="${escapeAttr(t.id)}">
@@ -2089,7 +2133,7 @@ function updateDraftPanel() {
   const head = `
     <div class="draft-panel__head">
       <h4>내 표현 분석</h4>
-      <p>표현의 옳고 그름을 평가하지 않습니다. 문장의 텍스트 특징을 보여주는 참고 정보입니다.</p>
+      <p>문장의 특징을 보여 주는 참고 정보예요.</p>
     </div>`;
 
   if (!draftContext) {
@@ -2125,7 +2169,7 @@ function updateDraftPanel() {
     ? '<p class="draft-panel__muted">국가별 서술은 한국어로 작성되어 있어, 다른 언어의 문장은 개념 사전(침략·侵略·入侵·invasion 등)을 통해서만 비교됩니다.</p>'
     : '';
   const simHtml = NLP_COUNTRIES.map(c => simBar(c.key, c.name, a.narrativeSimilarity[c.key])).join('') +
-    `<p class="draft-panel__muted">단어·문자·개념 기반 코사인 유사도(0~1). 값이 높다고 더 좋은 표현이라는 뜻이 아닙니다.</p>${langNote}`;
+    `<p class="draft-panel__muted">다른 제안과 얼마나 비슷한지(0~1)예요. 1에 가까울수록 비슷해요.</p>${langNote}`;
 
   const frameHtml = `<div class="draft-frames">${Analyzer.FRAMES.map(f => `<span title="${escapeAttr(f.desc)}">${f.short} <strong>${a.frames.counts[f.id]}</strong></span>`).join('')}</div>`;
 
@@ -2209,9 +2253,10 @@ async function submitSharedNarrative() {
     narrativeInput?.focus();
     return;
   }
-  // 공개되는 닉네임에 연락처·학교·학년/반 정보가 있으면 막습니다.
-  if (Guide.checkNickname && nameInput && !Guide.checkNickname(nameInput.value).ok) {
-    setSubmitStatus(Guide.NICKNAME_MESSAGE, 'error');
+  // 공개되는 닉네임: 연락처·학교·학년/반·링크·운영자 행세·욕설/비하 표현이면 막고, 이유에 맞는 안내를 보여 줍니다.
+  const nickCheck = Guide.checkNickname && nameInput ? Guide.checkNickname(nameInput.value) : { ok: true };
+  if (!nickCheck.ok) {
+    setSubmitStatus((Guide.NICKNAME_MESSAGES && Guide.NICKNAME_MESSAGES[nickCheck.reason]) || Guide.NICKNAME_MESSAGE, 'error');
     nameInput.focus();
     return;
   }
@@ -3373,7 +3418,7 @@ function renderMemoryMethod(a) {
     <details class="ai-result__section nlp-method">
       <summary class="ai-result__heading"><span>?</span><span>공동 표현 분석 방법과 한계</span></summary>
       <ul class="ai-result__list">
-        <li><strong>데이터</strong>: Supabase에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
+        <li><strong>데이터</strong>: 서버에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
         <li><strong>언어 판별·토큰화</strong>: 참여자가 고른 작성 언어를 우선하고, 고르지 않았으면 한글·가나·한자·라틴 문자 비율로 판별합니다(가나 없는 한자 문장은 중국어 후보). 한국어는 규칙 기반 조사·어미 제거, 중국어는 한자 구간을 개념 사전·상용어 최장 일치와 기능어 경계로 나누는 경량 분할(형태소 분석기 아님), 일본어는 한자·가타카나 연속 구간, 영어는 불용어 제거와 간단한 어미 정리를 사용합니다.</li>
         <li><strong>특징 벡터</strong>: 단어 + 문자 2-gram(예: “국제전쟁”과 “국제적인 전쟁”이 겹치도록) + 다국어 개념 사전(예: 침략·侵略·入侵·invasion을 같은 개념으로)을 TF-IDF로 가중합니다. IDF는 이 사건의 공동 표현과 국가별 서술 전체에서 계산합니다.</li>
         <li><strong>유사도</strong>: 두 벡터의 코사인 유사도(0~1).</li>
@@ -3723,7 +3768,7 @@ function drawArchiveEntry() {
   }
   box.innerHTML = `
     <h3 class="archive-entry__title" id="archiveEntryTitle">이 사건에 다른 사람들이 남긴 문장</h3>
-    <p class="nlp-meta">공개에 동의한 참여자의 문장이에요. 마음에 닿는 문장에 공감을 눌러 주세요. (공감이 많다고 옳은 문장이라는 뜻은 아니에요)</p>
+    <p class="nlp-meta">공개에 동의한 참여자의 문장이에요. 마음에 닿는 문장에 공감을 눌러 주세요.</p>
     ${status}${body}
     <div class="archive-entry__actions">
       <button type="button" class="btn btn--small btn--ghost" data-card-action="archive">이 사건의 모든 문장 보기 →</button>
@@ -3782,7 +3827,7 @@ async function renderChoiceOthers(statusMsg) {
   }).join('');
   box.innerHTML = `${status}
     <h3 class="choice-others__title">다른 참여자들은 어떤 관점을 골랐을까?</h3>
-    <p class="nlp-meta">참여자들이 고른 객관식 선택을 모은 것입니다(공동 표현과 따로 집계). 많이 고른 관점이 옳다는 뜻은 아니에요.</p>
+    <p class="nlp-meta">참여자들이 고른 관점을 모은 거예요 (공동 표현과 따로 셉니다).</p>
     ${body}`;
 }
 
@@ -4677,6 +4722,7 @@ function draftInProgress() {
 
 function resetParticipantUiState(options) {
   const keepDraft = !!(options && options.keepDraft);   // 제출 직전 전환: 지금 사람이 쓰던 문장은 남김
+  if (!keepDraft) setGuideSeen(false);                   // 다음 학생은 진행 안내를 다시 봅니다
   if (!keepDraft) {
     // 입력창·작성 가이드
     ['userName', 'userNarrative', 'userReason'].forEach(id => {
@@ -4957,6 +5003,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('startButton')?.addEventListener('click', startExploration);
+  // 진행 안내: 열기('? 진행 방법') · 닫기('시작하기' · 바깥 누르기 · Esc). 안내 안에는 버튼이 하나뿐이라 초점이 밖으로 나가지 않게 붙잡아 둡니다.
+  document.addEventListener('click', e => {
+    if (e.target.closest('[data-guide-open]')) { openFlowGuide(); return; }
+    if (e.target.closest('[data-guide-close]') || e.target.id === 'flowGuide') closeFlowGuide();
+  });
+  document.addEventListener('keydown', e => {
+    const box = document.getElementById('flowGuide');
+    if (!box || box.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeFlowGuide(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); box.querySelector('[data-guide-close]')?.focus(); }
+  });
   document.addEventListener('click', e => {
     if (e.target.closest('[data-new-participant]')) startAsNewParticipant();
     const gateChoice = e.target.closest('[data-gate-choice]');

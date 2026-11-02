@@ -174,9 +174,30 @@
     if ((s.match(/\d/g) || []).length >= 8 || /\d{2,3}[-.\s]\d{3,4}[-.\s]\d{4}/.test(s)) return { ok: false, reason: 'phone' };
     if (/학교|고교|중학|초등|대학|高校|中学|小学|大学|school/i.test(s)) return { ok: false, reason: 'school' };
     if (/\d+\s*학년|\d+\s*반\s*\d+\s*번|\d+\s*반\b/.test(s)) return { ok: false, reason: 'class' };
+    if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(?:com|net|org|kr|jp|cn|io|me|ly|xyz)\b/i.test(s)) return { ok: false, reason: 'link' };
+    // 띄어쓰기·기호를 끼워 넣은 경우도 걸리도록, 비교할 때는 글자만 남깁니다 (예: '운 영 자', 'ㅅ.ㅂ')
+    const bare = s.toLowerCase().replace(/[\s._\-·*~!@#$%^&()+=|\\/?,'"`:;<>[\]{}]+/g, '');
+    if (IMPERSONATION_RE.test(bare)) return { ok: false, reason: 'impersonation' };
+    if (ABUSE_RE.test(bare) || ABUSE_WORD_RE.test(s)) return { ok: false, reason: 'abuse' };
     return { ok: true };
   }
 
+  /* 운영진·공식 계정처럼 보이는 이름 (참여자가 운영자 행세를 하지 않도록) */
+  const IMPERSONATION_RE = /운영자|운영진|관리자|admin|moderator|staff|공식계정|sharedmemory|공동기억프로젝트|official|運営|管理者|管理员|官方/;
+  /* 욕설·비하 표현과, 이 주제에서 특히 쓰일 수 있는 민족 비하어 (공개 닉네임 예방용 최소 목록 · 운영 중 늘려 갈 수 있음) */
+  const ABUSE_RE = /시발|씨발|ㅅㅂ|ㅆㅂ|씨바|시바ㄹ|병신|ㅂㅅ|븅신|개새|개색|좆|존나|졸라|지랄|ㅈㄹ|니미|느금|엠창|애미|애비|쪽바리|짱깨|짱개|조센징|쪽발|왜놈|떼놈|fuck|shit|bitch|asshole|nigg|chink|死ね|しね|くたばれ|チョン|支那|シナ人|傻逼|操你|他妈|小日本|鬼子|棒子/;
+  /* 다른 낱말 안에 들어 있으면 문제없는 짧은 영어 비하어는 단어로만 봅니다 (예: 'japan'은 통과) */
+  const ABUSE_WORD_RE = /\b(?:jap|japs|gook|nazi)\b/i;
+
+  const NICKNAME_MESSAGES = {
+    email: '닉네임에 이메일 주소를 넣을 수 없어요. 닉네임은 다른 참여자에게 공개되므로 별명으로 바꾸거나 비워 두세요.',
+    phone: '닉네임에 전화번호를 넣을 수 없어요. 별명으로 바꾸거나 비워 두세요.',
+    school: '닉네임에 학교 이름을 넣을 수 없어요. 별명으로 바꾸거나 비워 두세요.',
+    class: '닉네임에 학년·반·번호를 넣을 수 없어요. 별명으로 바꾸거나 비워 두세요.',
+    link: '닉네임에 인터넷 주소(링크)를 넣을 수 없어요.',
+    impersonation: '운영자·관리자처럼 보이는 닉네임은 쓸 수 없어요. 다른 별명을 써 주세요.',
+    abuse: '욕설이나 다른 사람·민족을 낮추는 말은 닉네임으로 쓸 수 없어요. 다른 별명을 써 주세요.'
+  };
   const NICKNAME_MESSAGE = '닉네임에 연락처·학교명·학년/반처럼 개인을 알아볼 수 있는 정보가 있는 것 같아요. 닉네임은 다른 참여자에게 공개되므로 별명으로 바꾸거나 비워 두세요.';
 
   /**
@@ -198,6 +219,6 @@
     checkPublicText, PUBLIC_TEXT_MESSAGE,
     findPlaceholderIssues, placeholderMessage,
     TERM_RULES, checkHistoricalTerms,
-    checkNickname, NICKNAME_MESSAGE
+    checkNickname, NICKNAME_MESSAGE, NICKNAME_MESSAGES
   };
 });

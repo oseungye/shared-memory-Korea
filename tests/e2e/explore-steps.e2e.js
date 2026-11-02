@@ -78,12 +78,12 @@ run('explore-steps', async ({ browser, base, check, mockPage }) => {
   const marks = await page.evaluate(() => {
     const g = computeGlance(eventNlp);
     const allowed = new Set(g.common.concat(...['korea', 'japan', 'china'].map(k => g.distinct[k])));
-    const list = [...document.querySelectorAll('#narrativesGrid mark.hl')].map(m => ({ term: (m.title.match(/: (.+) \(NLP 계산\)$/) || [])[1], text: m.firstChild.textContent }));
+    const list = [...document.querySelectorAll('#narrativesGrid mark.hl')].map(m => ({ term: (m.title.match(/: (.+) \(단어 계산\)$/) || [])[1], text: m.firstChild.textContent }));
     return { n: list.length, ok: list.every(m => allowed.has(m.term) && m.text.includes(m.term.slice(0, 1))), perCard: [...document.querySelectorAll('.narrative-card')].map(c => c.querySelectorAll('mark.hl').length) };
   });
   check('형광펜: 모든 강조가 NLP 계산 결과(공통·특징 표현)에서 옴', marks.n > 0 && marks.ok, JSON.stringify(marks));
   check('형광펜: 선택적 강조 (서술마다 4개 이하)', marks.perCard.every(n => n <= 4), JSON.stringify(marks.perCard));
-  check('형광펜 범례에 "자동 계산(NLP)" 안내', /자동 계산\(NLP\)/.test(await page.$eval('#hlLegend', el => el.textContent)));
+  check('형광펜 범례: 쉬운 말로 "컴퓨터가 단어를 세어 찾은 말" 안내', /컴퓨터가 단어를 세어 찾은 말/.test(await page.$eval('#hlLegend', el => el.textContent)));
   const sum = await page.$$eval('#compareSummary .sum-card', els => els.map(e => e.className));
   check('공통점·차이점 카드: 이름 · 공통 · 국가별 3개', sum.length === 5 && sum.some(c => /common/.test(c)) && sum.some(c => /names/.test(c)), sum.join(' | '));
   check('편집자 해설은 접어 둠 (자세히 보기)', (await page.$$eval('.narrative-card__more:not([open])', els => els.length)) === 3);

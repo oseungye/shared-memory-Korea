@@ -83,7 +83,7 @@ run('archive-entry', async ({ browser, base, check, mockPage }) => {
   check('카드 화면: 다른 사람들이 남긴 문장 3개', texts.length === 3, JSON.stringify(texts));
   check('공감을 가장 많이 받은 문장이 첫 번째', texts[0] === '공감을 가장 많이 받은 임진왜란 문장', texts[0]);
   check('확인 전(숨김) 문장·다른 사건 문장은 보이지 않음', !texts.some(t => /확인하지 않은|재일조선인/.test(t)));
-  check('"공감이 많다고 옳은 문장이라는 뜻은 아니에요" 안내', /옳은 문장이라는 뜻은 아니에요/.test(await page.textContent('#archiveEntry')));
+  check('같은 취지의 안내("옳은 문장이라는 뜻은 아니에요")를 반복하지 않음', !/옳은 문장이라는 뜻은 아니에요/.test(await page.textContent('#archiveEntry')));
   const order = await page.evaluate(() => ['[data-card-action="png"]', '#archiveEntry', '.card-design', '#choiceOthers'].map(s => document.querySelector(s).getBoundingClientRect().top));
   check('카드 화면 순서: 저장 버튼 → 다른 사람들의 문장 → 디자인 고르기 → 객관식 통계', order[0] < order[1] && order[1] < order[2] && order[2] < order[3], JSON.stringify(order.map(Math.round)));
   check('같은 일을 하는 아래 버튼(다른 사람 기억 보기·공개하기)은 기본 체험 카드에서 숨김',

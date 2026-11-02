@@ -44,7 +44,9 @@ run('regression-smoke', async ({ browser, base, check, mockPage, presetContinue 
   check('한눈에 비교 표시', (await page.$$eval('#aiGlance [data-glance-term]', els => els.length)) > 3);
   await page.click('#aiAnalyzeBtn');
   const ai = await page.$eval('#aiResult', el => el.innerText);
-  check('TF-IDF 키워드·코사인·Jaccard 표시', /TF-IDF/.test(ai) && /코사인/.test(ai) && /Jaccard/.test(ai));
+  const aiAll = await page.$eval('#aiResult', el => el.textContent);       // 접힌 '분석 방법 자세히 보기' 포함
+  check('분석 결과는 쉬운 말 제목, 기술 이름(TF-IDF·코사인·Jaccard)은 분석 방법 상자에 그대로', /나라별로 두드러진 단어/.test(ai) && /서술끼리 얼마나 비슷할까/.test(ai) &&
+    /TF-IDF/.test(aiAll) && /코사인/.test(aiAll) && /Jaccard/.test(aiAll));
   await page.click('#aiResult [data-nlp-term="침략"]');
   check('단어 선택 시 원문 근거 강조', (await page.$$eval('#nlpEvidence mark', els => els.length)) > 0);
   check('근거 아래 관련 사료 연결', (await page.$$eval('#nlpEvidence [data-goto-source]', els => els.length)) > 0);
