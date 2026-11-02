@@ -53,7 +53,7 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
   check('키워드·근거 자료·연표·NLP 카드는 기본 체험에서 접어 둠 (심화 탐구에 그대로)', !(await page.isVisible('.narrative-card__more')) && !(await page.isVisible('#timelineBox')) &&
     !(await page.isVisible('.sum-card--common')) && await page.isVisible('.sum-card--names') && await page.isVisible('.quick-scope'));
   const s1 = await page.evaluate(() => document.documentElement.scrollHeight / window.innerHeight);
-  check('STEP 1 길이 2.5화면 이하', s1 <= 2.5, s1.toFixed(2));
+  check('STEP 1 길이 2.8화면 이하 (이름의 뜻 한 줄씩 포함)', s1 <= 2.8, s1.toFixed(2));
   check('주요 버튼 하나(관점 고르러 가기) · 이전 버튼 없음', JSON.stringify(await visibleMains(page)) === '["q1"]' && !(await page.isVisible('[data-step-back]')));
   check('심화 탐구 입구가 보임 (AI·분석·사료는 그대로)', await page.isVisible('[data-deep-switch="2"]'));
   check('주소에 사건 링크', await page.evaluate(() => location.hash === '#/e/imjin'));
@@ -215,7 +215,7 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
   await page.waitForFunction(() => /내 선택/.test(document.getElementById('choiceOthers').textContent));
   const others = await page.$eval('#choiceOthers', el => el.innerText);
   check('5명 이상 모인 질문은 비율과 "내 선택" 표시 (이름 질문 5명: 60%)', /\(5명\)/.test(others) && /60%/.test(others) && /내 선택/.test(others), others);
-  check('"많이 고른 관점이 옳다는 뜻은 아니에요" 안내', /옳다는 뜻은 아니에요/.test(others));
+  check('통계에 같은 취지의 안내("옳다는 뜻은 아니에요")를 반복하지 않음', !/옳다는 뜻은 아니에요/.test(others));
 
   /* ---------- 6. 심화 탐구로 전환 → 공동 표현은 기존 공개 동의 그대로 ---------- */
   await page.click('[data-card-action="back"]');

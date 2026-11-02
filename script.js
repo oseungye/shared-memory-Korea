@@ -239,6 +239,7 @@ function openEventDetail(eventId, opts) {
   exploreStep = quick ? 1 : (flowStepDone('before') ? 2 : 1);
   renderBeforeCard();
   applyExploreStep();
+  if (quick) maybeShowFlowGuide();
   renderKeywordChart(event);
   renderGlance();
   renderCompareSummary(event);
@@ -256,6 +257,45 @@ function openEventDetail(eventId, opts) {
   setRouteHash(eventId);
   // "Shared Memory 보기"로 들어왔다면 결과(공동 기억 지도) 탭을 먼저 보여줍니다. 다른 탭은 그대로 이동 가능.
   if (eventsMode === 'memory') switchTab('memory');
+}
+
+/* ------------------------------------------------------------
+   처음 온 사람을 위한 진행 안내 (기본 체험)
+   · 기본 체험에 처음 들어올 때 한 번 보여 주고, 진행 표시의 '? 진행 방법'으로 언제든 다시 엽니다.
+   · '봤음' 표시는 이 탭(sessionStorage)에만 두고 'sm_'로 시작하지 않습니다 → 공용 기기의 '이전 참여 기록'으로 세지 않음.
+     새 참여자로 시작하면 지워서 다음 학생이 다시 봅니다.
+   ------------------------------------------------------------ */
+const GUIDE_SEEN_KEY = 'sm-guide-seen';
+let guideSeenMemory = false;               // sessionStorage를 쓸 수 없을 때
+let guideReturnFocus = null;
+
+function guideSeen() {
+  try { return sessionStorage.getItem(GUIDE_SEEN_KEY) === '1' || guideSeenMemory; } catch (e) { return guideSeenMemory; }
+}
+function setGuideSeen(on) {
+  guideSeenMemory = !!on;
+  try { if (on) sessionStorage.setItem(GUIDE_SEEN_KEY, '1'); else sessionStorage.removeItem(GUIDE_SEEN_KEY); } catch (e) { /* 메모리만 */ }
+}
+function maybeShowFlowGuide() {
+  if (window.__SM_SKIP_GUIDE || guideSeen()) return;     // 자동 테스트는 안내를 건너뜁니다 (tests/e2e/harness.js)
+  openFlowGuide();
+}
+function openFlowGuide() {
+  const box = document.getElementById('flowGuide');
+  if (!box) return;
+  guideReturnFocus = document.activeElement;
+  box.hidden = false;
+  document.body.classList.add('has-flow-guide');
+  setTimeout(() => box.querySelector('[data-guide-close]')?.focus(), 30);
+}
+function closeFlowGuide() {
+  const box = document.getElementById('flowGuide');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  document.body.classList.remove('has-flow-guide');
+  setGuideSeen(true);
+  const back = guideReturnFocus && document.contains(guideReturnFocus) ? guideReturnFocus : document.querySelector('#stepCta [data-step-main]:not([hidden])');
+  back?.focus?.({ preventScroll: true });
 }
 
 function computeEventNlp(event) {
@@ -488,7 +528,7 @@ function renderFourthNarrator(event, a) {
   const notes = ((FOURTH_DATA.observations || {})[event.id] || []);
   const notesHtml = notes.length ? `
     <div class="fourth-observe">
-      <div class="narrative-card__label">편집자 관찰 <small class="nlp-meta">(사람이 답변을 읽고 쓴 관찰 — 판정이 아닙니다)</small></div>
+      <div class="narrative-card__label">편집자 관찰 <small class="nlp-meta">(사람이 답변을 읽고 쓴 관찰)</small></div>
       <ul>${notes.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
     </div>` : '';
   const first = ai[0].records[0];
@@ -594,7 +634,7 @@ function renderMemoryGaps(a) {
 const EXPLORE_STEPS = [
   { n: 1, id: 'before', short: '내가 아는 역사', title: '내가 알고 있는 역사 기록',
     todo: '지금 알고 있는 내용만으로 이 역사를 한 문장으로 적어 보세요. 정답을 찾지 않아도 돼요.' },
-  { n: 2, id: 'compare', short: '세 나라 비교', title: '국가별 역사 서술 · NLP 비교',
+  { n: 2, id: 'compare', short: '세 나라 비교', title: '세 나라 기록 비교',
     todo: '세 나라의 기록을 읽고, 형광펜 표현과 공통점·차이점 카드를 살펴보세요.' },
   { n: 3, id: 'shared', short: '나의 표현', title: '새로운 관점과 나의 최종 표현',
     todo: '탐구하며 발견한 관점을 고르고, 이 역사를 기억하고 싶은 나의 한 문장을 써 보세요.' },
@@ -625,7 +665,9 @@ function setExploreMode(mode) {
 
 /* 기본 체험 상태 — 이 창의 메모리에만 둡니다(공용 기기 보호: 새로고침·새 참여자로 시작하면 사라짐) */
 // submissionId: 같은 카드의 객관식·소감을 묶는 무작위 번호 · sentReflection: 마지막으로 저장한 소감 (같은 문장 중복 저장 방지)
-const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, submissionId: null, sentReflection: '' };
+const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, submissionId: null, sentReflection: '', share: false, sharedText: '' };
+// 카드 화면 아카이브 입구의 상태 (공개된 다른 사람 문장·공감 수·내 '보태기' 안내) — script.js renderArchiveEntry
+const entryState = { eventId: null, items: [], counts: {}, empathyOn: true, shareMsg: null, status: 'idle' };
 
 function resetChoiceState(eventId) {
   choiceState.eventId = eventId || null;
@@ -638,10 +680,25 @@ function resetChoiceState(eventId) {
   choiceState.sent = false;
   choiceState.submissionId = null;
   choiceState.sentReflection = '';
+  choiceState.share = false;
+  choiceState.sharedText = '';
+  entryState.shareMsg = null;          // 공용 기기: 이전 참여자의 '보탰어요' 안내가 다음 참여자에게 남지 않게
+  entryState.status = 'idle';
   const input = document.getElementById('reflectInput');
   if (input) input.value = '';
   const count = document.getElementById('reflectCount');
   if (count) count.textContent = '0';
+  syncReflectShare();
+}
+
+/** '아카이브에 보태기' 체크 상자: 소감 칸이 비어 있으면 고를 수 없고(체크도 풀림), 기본은 꺼짐 */
+function syncReflectShare() {
+  const box = document.getElementById('reflectShareConsent');
+  if (!box) return;
+  const typed = !!(document.getElementById('reflectInput')?.value || '').trim();
+  if (!typed) choiceState.share = false;
+  box.disabled = !typed;
+  box.checked = typed && choiceState.share;
 }
 
 /* 탭 → 탐구 단계 (탭은 각 단계의 '자세히 보기' 역할) */
@@ -710,13 +767,14 @@ function stepperHtml(current) {
     : info.todo;
   // 심화 탐구 중인 기본 체험 사건에는 '기본 체험으로 돌아가기'를 함께 보여줍니다.
   const back = exploreMode === 'deep' && Choices && Choices.hasChoices(currentEventId)
-    ? '<p class="stepper__mode">심화 탐구 중이에요. <button type="button" class="before-card__link" data-quick-return>← 기본 체험(관점 고르기)으로 돌아가기</button></p>'
+    ? '<p class="stepper__mode">심화 · 공동 표현 제안하기 중이에요 (세 나라 서술·AI·사료를 근거로 문장을 다듬어요). <button type="button" class="before-card__link" data-quick-return>← 기본 체험(관점 고르기)으로 돌아가기</button></p>'
     : '';
   return `
     <div class="stepper">
       <p class="stepper__count"><span class="stepper__num">STEP <strong>${current}</strong>/4</span> <span class="stepper__title">${info.title}</span></p>
       <div class="stepper__bar" aria-hidden="true"><i style="width:${current * 25}%"></i></div>
       <ol class="flow-progress__list">${items}</ol>
+      ${exploreMode === 'quick' ? '<button type="button" class="stepper__help" data-guide-open aria-haspopup="dialog">? 진행 방법</button>' : ''}
       <p class="stepper__todo"><span class="stepper__todo-label">지금 할 일</span> ${allDone && current === 4 ? '탐구를 모두 마쳤습니다. 카드를 저장하고, 다른 사건도 살펴보세요.' : memoryNote}</p>
       ${back}
     </div>`;
@@ -1137,7 +1195,7 @@ function narrativeTextHtml(countryKey, n) {
     if (a < pos) return;
     const what = kind === 'common' ? '세 서술 공통 표현' : `${nlpCountryName(countryKey)} 측 서술의 두드러진 표현`;
     html += escapeHtml(n.text.slice(pos, a)) +
-      `<mark class="hl hl--${kind}" title="${escapeAttr(`${what}: ${term} (NLP 계산)`)}">${escapeHtml(n.text.slice(a, b))}<span class="sr-only"> (${what})</span></mark>`;
+      `<mark class="hl hl--${kind}" title="${escapeAttr(`${what}: ${term} (단어 계산)`)}">${escapeHtml(n.text.slice(a, b))}<span class="sr-only"> (${what})</span></mark>`;
     pos = b;
   });
   return html + escapeHtml(n.text.slice(pos));
@@ -1154,7 +1212,7 @@ function renderCompareSummary(event) {
     legend.innerHTML = marked ? `
       <span class="hl-legend__item"><mark class="hl hl--common">공통 표현</mark> 세 서술에 모두 나온 단어</span>
       <span class="hl-legend__item"><mark class="hl hl--distinct">두드러진 표현</mark> 이 서술에서 상대적으로 많이 쓰인 단어</span>
-      <span class="hl-legend__note">형광펜은 세 서술 텍스트에서 자동 계산(NLP)된 단어에만 표시되며, 중요도나 옳고 그름을 뜻하지 않습니다.</span>` : '';
+      <span class="hl-legend__note">형광펜은 컴퓨터가 단어를 세어 찾은 말에만 칠해요.</span>` : '';
   }
   const names = [
     { key: 'korea', flag: '韓', name: '한국', title: event.title, lang: 'ko' },
@@ -1167,7 +1225,10 @@ function renderCompareSummary(event) {
   const namesCard = new Set(names.map(x => x.title)).size >= 2 ? `
     <article class="sum-card sum-card--names">
       <h4 class="sum-card__title"><span class="sum-card__kicker">사건 이름</span>같은 사건, 서로 다른 이름</h4>
-      <ul class="sum-card__names">${names.map(x => `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><strong lang="${x.lang}">${escapeHtml(x.title)}</strong></li>`).join('')}</ul>
+      <ul class="sum-card__names">${names.map(x => {
+        const note = event.nameNotes && event.nameNotes[x.key];
+        return `<li><span class="sum-card__flag sum-card__flag--${x.key}" aria-hidden="true">${x.flag}</span><span class="sr-only">${x.name}: </span><span class="sum-card__name"><strong lang="${x.lang}">${escapeHtml(x.title)}</strong>${note ? `<small class="sum-card__name-note">${escapeHtml(note)}</small>` : ''}</span></li>`;
+      }).join('')}</ul>
     </article>` : '';
   if (!g) {
     box.innerHTML = namesCard ? `<div class="compare-sum__grid">${namesCard}</div>` : '';
@@ -1176,7 +1237,7 @@ function renderCompareSummary(event) {
   box.innerHTML = `
     <div class="compare-sum__head">
       <h3 class="compare-sum__title">한눈에 보는 공통점과 차이점</h3>
-      <p class="compare-sum__note">아래 단어는 세 서술 텍스트에서 NLP로 계산한 결과입니다 (편집자 해석 아님). 단어를 누르면 원문 위치와 근거를 보여줘요.</p>
+      <p class="compare-sum__note">컴퓨터가 세 서술의 단어를 세어 찾은 결과예요. 단어를 누르면 원문에서 쓰인 곳을 보여 줘요.</p>
     </div>
     <div class="compare-sum__grid">
       ${namesCard}
@@ -1252,7 +1313,7 @@ function nlpCountsLabel(counts) {
 
 function renderNLPAnalysis(a) {
   const statLine = NLP_COUNTRIES.map(c =>
-    `${c.name} ${a.stats[c.key].tokens}개 어휘 토큰(서로 다른 어휘 ${a.stats[c.key].uniqueTerms}개)`
+    `${c.name} ${a.stats[c.key].tokens}개 단어(서로 다른 단어 ${a.stats[c.key].uniqueTerms}개)`
   ).join(' / ');
 
   return `
@@ -1296,8 +1357,8 @@ function renderNLPKeywords(a) {
 
   return `
     <div class="ai-result__section">
-      <div class="ai-result__heading"><span>★</span><span>1. 국가별 핵심 키워드 (TF-IDF)</span></div>
-      <p class="nlp-desc">해당 서술에서 자주 쓰이면서(TF) 다른 서술에서는 드문(IDF) 단어일수록 점수가 높습니다.</p>
+      <div class="ai-result__heading"><span>★</span><span>1. 나라별로 두드러진 단어</span></div>
+      <p class="nlp-desc">이 서술에서 자주 쓰이면서 다른 서술에서는 드문 단어일수록 점수가 높아요.</p>
       <div class="nlp-grid">${cols}</div>
     </div>`;
 }
@@ -1383,9 +1444,9 @@ function renderNLPSimilarity(a) {
 
   return `
     <div class="ai-result__section">
-      <div class="ai-result__heading"><span>≈</span><span>4. 서술 간 텍스트 유사도</span></div>
+      <div class="ai-result__heading"><span>≈</span><span>4. 서술끼리 얼마나 비슷할까</span></div>
       <p class="nlp-desc">${summary}<br />
-        <small>코사인 유사도는 TF-IDF 가중치 기준(0~1), Jaccard는 어휘 집합이 겹치는 비율입니다. 서술이 짧아 값이 전반적으로 낮게 나오므로 세 쌍을 서로 비교해 읽는 것이 좋습니다.</small></p>
+        <small>0~1 사이 값으로, 1에 가까울수록 비슷한 단어를 많이 써요. 서술이 짧아 값이 대체로 낮으니 세 쌍을 서로 견주어 보세요.</small></p>
       ${rows}
     </div>`;
 }
@@ -1925,7 +1986,7 @@ function resetGuide(event) {
   if (conceptsBox) {
     conceptsBox.innerHTML =
       group('서술에서 확인되는 개념', cands.concepts, '점: 해당 개념이 나온 국가 서술') +
-      group('서술에 자주 쓰인 어휘', cands.terms, 'NLP 공통·특징 표현') +
+      group('서술에 자주 쓰인 어휘', cands.terms, '세 서술의 공통·두드러진 단어') +
       group('함께 생각해 볼 개념', cands.general) ||
       '<p class="guide-step__desc">후보를 만들지 못했습니다. 바로 STEP 3에서 문장을 작성해도 됩니다.</p>';
   }
@@ -1951,7 +2012,7 @@ function resetGuide(event) {
       : '';
     templatesBox.innerHTML = `
       ${sample}
-      <div class="guide-templates__label">문장 틀로 시작하기 <small>누르면 입력창에 넣어 드려요. 빈칸(______)을 자신의 말로 채워 보세요. 참고용이며 정답이 아닙니다.</small></div>
+      <div class="guide-templates__label">문장 틀로 시작하기 <small>누르면 입력창에 넣어 드려요. 빈칸(______)을 자신의 말로 채워 보세요. 참고용이에요.</small></div>
       <div class="guide-templates__list">
         ${Guide.TEMPLATES.map(t => `
           <button type="button" class="guide-template" data-guide-template="${escapeAttr(t.id)}">
@@ -2072,7 +2133,7 @@ function updateDraftPanel() {
   const head = `
     <div class="draft-panel__head">
       <h4>내 표현 분석</h4>
-      <p>표현의 옳고 그름을 평가하지 않습니다. 문장의 텍스트 특징을 보여주는 참고 정보입니다.</p>
+      <p>문장의 특징을 보여 주는 참고 정보예요.</p>
     </div>`;
 
   if (!draftContext) {
@@ -2108,7 +2169,7 @@ function updateDraftPanel() {
     ? '<p class="draft-panel__muted">국가별 서술은 한국어로 작성되어 있어, 다른 언어의 문장은 개념 사전(침략·侵略·入侵·invasion 등)을 통해서만 비교됩니다.</p>'
     : '';
   const simHtml = NLP_COUNTRIES.map(c => simBar(c.key, c.name, a.narrativeSimilarity[c.key])).join('') +
-    `<p class="draft-panel__muted">단어·문자·개념 기반 코사인 유사도(0~1). 값이 높다고 더 좋은 표현이라는 뜻이 아닙니다.</p>${langNote}`;
+    `<p class="draft-panel__muted">다른 제안과 얼마나 비슷한지(0~1)예요. 1에 가까울수록 비슷해요.</p>${langNote}`;
 
   const frameHtml = `<div class="draft-frames">${Analyzer.FRAMES.map(f => `<span title="${escapeAttr(f.desc)}">${f.short} <strong>${a.frames.counts[f.id]}</strong></span>`).join('')}</div>`;
 
@@ -2192,9 +2253,10 @@ async function submitSharedNarrative() {
     narrativeInput?.focus();
     return;
   }
-  // 공개되는 닉네임에 연락처·학교·학년/반 정보가 있으면 막습니다.
-  if (Guide.checkNickname && nameInput && !Guide.checkNickname(nameInput.value).ok) {
-    setSubmitStatus(Guide.NICKNAME_MESSAGE, 'error');
+  // 공개되는 닉네임: 연락처·학교·학년/반·링크·운영자 행세·욕설/비하 표현이면 막고, 이유에 맞는 안내를 보여 줍니다.
+  const nickCheck = Guide.checkNickname && nameInput ? Guide.checkNickname(nameInput.value) : { ok: true };
+  if (!nickCheck.ok) {
+    setSubmitStatus((Guide.NICKNAME_MESSAGES && Guide.NICKNAME_MESSAGES[nickCheck.reason]) || Guide.NICKNAME_MESSAGE, 'error');
     nameInput.focus();
     return;
   }
@@ -3356,7 +3418,7 @@ function renderMemoryMethod(a) {
     <details class="ai-result__section nlp-method">
       <summary class="ai-result__heading"><span>?</span><span>공동 표현 분석 방법과 한계</span></summary>
       <ul class="ai-result__list">
-        <li><strong>데이터</strong>: Supabase에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
+        <li><strong>데이터</strong>: 서버에 저장된 이 사건의 공동 표현 ${a.total}건(최신 ${Store ? Store.LOAD_LIMIT : 500}건까지). 결과는 불러올 때마다 다시 계산되며 미리 정해 둔 값이 없습니다.</li>
         <li><strong>언어 판별·토큰화</strong>: 참여자가 고른 작성 언어를 우선하고, 고르지 않았으면 한글·가나·한자·라틴 문자 비율로 판별합니다(가나 없는 한자 문장은 중국어 후보). 한국어는 규칙 기반 조사·어미 제거, 중국어는 한자 구간을 개념 사전·상용어 최장 일치와 기능어 경계로 나누는 경량 분할(형태소 분석기 아님), 일본어는 한자·가타카나 연속 구간, 영어는 불용어 제거와 간단한 어미 정리를 사용합니다.</li>
         <li><strong>특징 벡터</strong>: 단어 + 문자 2-gram(예: “국제전쟁”과 “국제적인 전쟁”이 겹치도록) + 다국어 개념 사전(예: 침략·侵略·入侵·invasion을 같은 개념으로)을 TF-IDF로 가중합니다. IDF는 이 사건의 공동 표현과 국가별 서술 전체에서 계산합니다.</li>
         <li><strong>유사도</strong>: 두 벡터의 코사인 유사도(0~1).</li>
@@ -3372,7 +3434,8 @@ function renderMemoryMethod(a) {
 /* ------------------------------------------------------------
    기본 체험 — 관점 고르기(객관식) · 한 줄 소감 · 카드
    · 객관식은 퀴즈가 아닙니다. 고른 관점은 정답 판정 없이 카드에 "내가 고른 관점"으로만 담깁니다.
-   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 다른 참여자에게 공개하지 않습니다(공개는 심화 탐구의 공동 표현에서 별도 동의).
+   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 다른 참여자에게 공개하지 않습니다.
+     '아카이브에 보태기'(별도 동의, 기본 꺼짐)를 고르면 그 문장만 '익명'으로 등록되고 운영자 확인 뒤 공개됩니다.
    · 카드를 만들면 고른 관점(별도 테이블)과 한 줄 소감(비공개 테이블)을 이름 없이 저장합니다.
      두 기록은 같은 카드에서 나온 것임을 알 수 있도록 무작위 번호(submission_id)로만 묶습니다.
    ------------------------------------------------------------ */
@@ -3538,6 +3601,7 @@ function renderReflectStep() {
   if (input && input.value !== choiceState.reflection) input.value = choiceState.reflection;
   const count = document.getElementById('reflectCount');
   if (count && input) count.textContent = String(input.value.length);
+  syncReflectShare();
 }
 
 /** 소감 칸이 비어 있으면 아래 버튼이 '소감 없이 카드 만들기'가 됩니다 (따로 '건너뛰기' 버튼을 두지 않음). */
@@ -3585,7 +3649,7 @@ function makeQuickCard(skipReflection) {
  */
 async function saveQuickAnswers() {
   const eventId = currentEventId;
-  if (!Store || !Choices) { renderChoiceOthers(null); return; }
+  if (!Store || !Choices) { renderChoiceOthers(null); renderArchiveEntry(null); return; }
   if (!choiceState.submissionId) choiceState.submissionId = Store.newSubmissionId();
   const submissionId = choiceState.submissionId;
   let choiceRes = { ok: true };
@@ -3604,6 +3668,131 @@ async function saveQuickAnswers() {
   }
   const failed = [choiceRes, reflectRes].find(r => !r.ok && !r.unavailable);
   renderChoiceOthers(failed ? `기록을 저장하지 못했어요. 카드는 그대로예요. ${failed.error || ''}` : null);
+  // 아카이브에 보태기 (따로 동의한 경우만). 같은 문장은 다시 보내지 않습니다.
+  let shareMsg = null;
+  if (choiceState.share && reflection && reflection !== choiceState.sharedText) {
+    const res = await Store.insertQuickExpression({ eventKey: eventId, content: reflection, lang: 'ko' });
+    if (eventId !== currentEventId) return;
+    if (res.ok) choiceState.sharedText = reflection;
+    shareMsg = res.ok
+      ? '내 소감을 Shared Archive에 보탰어요. 운영자가 확인한 뒤 다른 참여자에게 공개돼요.'
+      : res.unavailable
+        ? '아카이브에 보태기는 아직 준비 중이라 보내지 않았어요. 소감은 카드에 그대로 있어요.'
+        : `아카이브에 보태지 못했어요. 카드는 그대로예요. ${res.error || ''}`;
+  } else if (choiceState.share && reflection && reflection === choiceState.sharedText) {
+    shareMsg = '이 소감은 이미 보탰어요. 운영자가 확인한 뒤 공개돼요.';
+  }
+  renderArchiveEntry(shareMsg);
+}
+
+/* ------------------------------------------------------------
+   아카이브 입구 (기본 체험 카드 화면)
+   · 공개에 동의한 다른 참여자의 문장 3개(공감을 가장 많이 받은 문장 1개 + 최근 문장)와 공감 버튼,
+     모든 문장 보기(Shared Archive)·공동 표현 제안하기(심화)로 이어지는 입구입니다.
+   · 기존 public_expressions·empathy_counts 를 그대로 씁니다. 숨김·확인 전 문장은 서버가 돌려주지 않습니다.
+   ------------------------------------------------------------ */
+const ENTRY_COUNT = 3;
+const ENTRY_MAX_CHARS = 140;
+
+/** 보여 줄 문장 고르기: 공감이 가장 많은 문장 1개 + 최근 문장 8개 중 무작위 (매번 같은 문장만 위에 남지 않게) */
+function pickEntrySentences(items, counts) {
+  const n = id => counts[String(id)] || 0;
+  const best = items.slice().sort((a, b) => n(b.id) - n(a.id))[0];
+  const picks = best && n(best.id) > 0 ? [best] : [];
+  const pool = items.filter(x => !picks.includes(x)).slice(0, 8);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return picks.concat(pool).slice(0, ENTRY_COUNT);
+}
+
+/** 넓은 화면(카드 옆에 오른쪽 칸이 있는 1025px 이상)에서는 오른쪽 칸 맨 위로, 좁은 화면에서는 저장 버튼 아래로 옮깁니다. */
+const ENTRY_WIDE = window.matchMedia ? window.matchMedia('(min-width: 1025px)') : null;
+function placeArchiveEntry() {
+  const box = document.getElementById('archiveEntry');
+  const side = document.querySelector('.page--card .card-builder');
+  const anchor = document.getElementById('choiceOthers');
+  if (!box || !side || !anchor) return;
+  if (ENTRY_WIDE && ENTRY_WIDE.matches) { if (box.parentElement !== side) side.prepend(box); }
+  else if (box.nextElementSibling !== anchor) anchor.before(box);
+}
+ENTRY_WIDE?.addEventListener?.('change', placeArchiveEntry);
+
+async function renderArchiveEntry(shareMsg) {
+  const box = document.getElementById('archiveEntry');
+  if (!box) return;
+  if (cardState.mode !== 'quick') { box.hidden = true; box.innerHTML = ''; return; }
+  placeArchiveEntry();
+  const eventId = currentEventId;
+  if (shareMsg !== undefined) entryState.shareMsg = shareMsg;
+  if (entryState.eventId !== eventId || entryState.status !== 'ready') {
+    entryState.eventId = eventId;
+    entryState.status = 'loading';
+    drawArchiveEntry();
+    const [list, emp] = Store
+      ? await Promise.all([Store.loadExpressions(eventId), Store.fetchEmpathyCounts(eventId)])
+      : [{ data: [], error: 'store' }, { available: false, counts: {} }];
+    if (eventId !== currentEventId) return;
+    const archivable = (list.data || []).filter(x => Store.isArchivable(x));
+    entryState.counts = emp.counts || {};
+    entryState.empathyOn = !!emp.available;
+    entryState.items = pickEntrySentences(archivable, entryState.counts);
+    entryState.status = list.error && !archivable.length ? 'error' : 'ready';
+  }
+  drawArchiveEntry();
+}
+
+function drawArchiveEntry() {
+  const box = document.getElementById('archiveEntry');
+  if (!box) return;
+  box.hidden = false;
+  const empathized = Store ? Store.empathizedSet() : new Set();
+  const status = entryState.shareMsg ? `<p class="archive-entry__status" role="status">${escapeHtml(entryState.shareMsg)}</p>` : '';
+  const clip = t => t.length > ENTRY_MAX_CHARS ? t.slice(0, ENTRY_MAX_CHARS - 1) + '…' : t;
+  let body;
+  if (entryState.status === 'loading') body = '<p class="nlp-meta">다른 사람들의 문장을 불러오는 중…</p>';
+  else if (entryState.status === 'error') body = '<p class="nlp-meta">지금은 문장을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';
+  else if (!entryState.items.length) body = '<p class="archive-entry__empty">아직 공개된 문장이 없어요. 이 사건의 첫 문장을 남겨 주세요.</p>';
+  else {
+    body = `<ul class="archive-entry__list">${entryState.items.map(item => {
+      const id = escapeAttr(String(item.id));
+      const count = entryState.counts[String(item.id)] || 0;
+      const mine = empathized.has(String(item.id));
+      const empathy = entryState.empathyOn ? `
+          <button type="button" class="archive-entry__empathy${mine ? ' is-done' : ''}" data-entry-empathy="${id}" ${mine ? 'disabled aria-pressed="true"' : 'aria-pressed="false"'}>
+            ${mine ? '공감했어요' : '공감해요'} · <strong>${count}</strong>
+          </button>` : '';
+      return `<li class="archive-entry__item">
+          <blockquote class="archive-entry__text" lang="${escapeAttr(item.lang || 'ko')}">${escapeHtml(clip(item.text))}</blockquote>
+          <div class="archive-entry__meta"><span>— ${escapeHtml(item.user || '익명')}</span>${empathy}</div>
+        </li>`;
+    }).join('')}</ul>`;
+  }
+  box.innerHTML = `
+    <h3 class="archive-entry__title" id="archiveEntryTitle">이 사건에 다른 사람들이 남긴 문장</h3>
+    <p class="nlp-meta">공개에 동의한 참여자의 문장이에요. 마음에 닿는 문장에 공감을 눌러 주세요.</p>
+    ${status}${body}
+    <div class="archive-entry__actions">
+      <button type="button" class="btn btn--small btn--ghost" data-card-action="archive">이 사건의 모든 문장 보기 →</button>
+      <div class="archive-entry__propose">
+        <button type="button" class="btn btn--small archive-entry__propose-btn" data-card-action="propose">나도 공동 표현 제안하기 →</button>
+        <p class="nlp-meta">세 나라 서술·AI의 서술·사료를 근거로, 교과서에 실릴 한 문장을 다듬어 제안해요 (공개는 따로 동의).</p>
+      </div>
+    </div>`;
+}
+
+async function handleEntryEmpathy(id, button) {
+  if (!Store) return;
+  button.disabled = true;
+  const res = await Store.addEmpathy(id);
+  if (res.ok) {
+    entryState.counts[String(id)] = (entryState.counts[String(id)] || 0) + 1;
+    if (currentEventId === entryState.eventId) empathyCounts[String(id)] = (empathyCounts[String(id)] || 0) + 1;
+  } else if (res.unavailable) {
+    entryState.empathyOn = false;
+  } else if (!res.duplicate) {
+    button.disabled = false;
+    entryState.shareMsg = `공감을 저장하지 못했어요. ${res.error || ''}`;
+  }
+  drawArchiveEntry();
 }
 
 /** 카드 화면: 다른 참여자들이 고른 관점 (객관식 집계 · 질문별 응답 5명 미만이면 숨김) */
@@ -3638,7 +3827,7 @@ async function renderChoiceOthers(statusMsg) {
   }).join('');
   box.innerHTML = `${status}
     <h3 class="choice-others__title">다른 참여자들은 어떤 관점을 골랐을까?</h3>
-    <p class="nlp-meta">참여자들이 고른 객관식 선택을 모은 것입니다(공동 표현과 따로 집계). 많이 고른 관점이 옳다는 뜻은 아니에요.</p>
+    <p class="nlp-meta">참여자들이 고른 관점을 모은 거예요 (공동 표현과 따로 셉니다).</p>
     ${body}`;
 }
 
@@ -3758,6 +3947,7 @@ function openCardPage() {
   const quick = cardState.mode === 'quick';
   const cardPage = document.querySelector('.page--card');
   if (cardPage) cardPage.dataset.mode = quick ? 'quick' : 'deep';
+  if (!quick) { const entry = document.getElementById('archiveEntry'); if (entry) { entry.hidden = true; entry.innerHTML = ''; } }
   const backLabel = document.getElementById('cardBackLabel');
   if (backLabel) backLabel.textContent = quick ? '한 줄 소감 고치기' : 'STEP 3 · 내 표현 고치기';
   renderDiscoveryOptions();
@@ -4299,6 +4489,14 @@ function handleCardAction(action) {
   if (action === 'open-image') { openCardImage(); return; }
   if (action === 'print') { window.print(); return; }
   if (action === 'memory') { navigateTo('detail'); setRouteHash(currentEventId); gotoTab('memory'); return; }
+  if (action === 'archive') { openArchive(currentEventId); return; }
+  if (action === 'propose') {
+    // 기본 체험 카드 → 공동 표현 제안하기 (심화). 쓴 소감은 제안 칸에 옮겨 둡니다(공개는 따로 동의).
+    navigateTo('detail');
+    setRouteHash(currentEventId);
+    switchToDeep(3);
+    return;
+  }
   if (action === 'publish') {
     navigateTo('detail');
     setRouteHash(currentEventId);
@@ -4524,6 +4722,7 @@ function draftInProgress() {
 
 function resetParticipantUiState(options) {
   const keepDraft = !!(options && options.keepDraft);   // 제출 직전 전환: 지금 사람이 쓰던 문장은 남김
+  if (!keepDraft) setGuideSeen(false);                   // 다음 학생은 진행 안내를 다시 봅니다
   if (!keepDraft) {
     // 입력창·작성 가이드
     ['userName', 'userNarrative', 'userReason'].forEach(id => {
@@ -4745,7 +4944,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const count = document.getElementById('reflectCount');
     if (count) count.textContent = String(e.target.value.length);
     updateQuickCardLabel();
+    syncReflectShare();
   });
+  document.getElementById('reflectShareConsent')?.addEventListener('change', e => { choiceState.share = !!e.target.checked; });
   // 첫 화면 큰 사건 카드: 연령대·긴 설명 없이 바로 기본 체험 STEP 1
   document.querySelector('.quick-picks')?.addEventListener('click', e => {
     const pick = e.target.closest('[data-quick-event]');
@@ -4756,6 +4957,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.page--card')?.addEventListener('click', e => {
     const action = e.target.closest('[data-card-action]');
     if (action) { handleCardAction(action.dataset.cardAction); return; }
+    const entryEmpathy = e.target.closest('[data-entry-empathy]');
+    if (entryEmpathy) { handleEntryEmpathy(entryEmpathy.dataset.entryEmpathy, entryEmpathy); return; }
     const stepGoto = e.target.closest('[data-step-goto]');
     if (stepGoto) {
       if (stepGoto.dataset.stepGoto === '4') return;          // 지금 보고 있는 단계
@@ -4800,6 +5003,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('startButton')?.addEventListener('click', startExploration);
+  // 진행 안내: 열기('? 진행 방법') · 닫기('시작하기' · 바깥 누르기 · Esc). 안내 안에는 버튼이 하나뿐이라 초점이 밖으로 나가지 않게 붙잡아 둡니다.
+  document.addEventListener('click', e => {
+    if (e.target.closest('[data-guide-open]')) { openFlowGuide(); return; }
+    if (e.target.closest('[data-guide-close]') || e.target.id === 'flowGuide') closeFlowGuide();
+  });
+  document.addEventListener('keydown', e => {
+    const box = document.getElementById('flowGuide');
+    if (!box || box.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeFlowGuide(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); box.querySelector('[data-guide-close]')?.focus(); }
+  });
   document.addEventListener('click', e => {
     if (e.target.closest('[data-new-participant]')) startAsNewParticipant();
     const gateChoice = e.target.closest('[data-gate-choice]');

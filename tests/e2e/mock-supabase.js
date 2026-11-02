@@ -32,16 +32,29 @@
     } else if (table === 'participation_pings' && rows.some(r => (db.participation_pings || []).some(g => g.participant_key === r.participant_key && g.event_key === r.event_key))) {
       // 서버의 unique (participant_key, event_key) 와 같은 응답
       result = { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' }, status: 409 };
+    } else if (window.__mockDb.noEntrySource && table === 'shared_expressions' && rows.some(r => 'entry_source' in r)) {
+      // 2026-11-quick-to-archive.sql 실행 전 운영 DB와 같은 응답 (entry_source 칸 없음)
+      result = { data: null, error: { code: 'PGRST204', message: "Could not find the 'entry_source' column of 'shared_expressions' in the schema cache" } };
     } else if (window.__mockDb.failInsert && table === 'shared_expressions') {
       result = { data: null, error: { code: 'NETWORK', message: 'Failed to fetch' } };
     } else {
       // 서버처럼 한 번의 INSERT로 들어간 행은 같은 created_at(트랜잭션 시각)을 가집니다.
       const batchAt = new Date().toISOString() + '#' + Math.random().toString(36).slice(2);   // 묶음 구분용
       const saved = rows.map(r => Object.assign({}, r, table === 'shared_expressions'
-        ? { id: db.nextId++, created_at: new Date().toISOString() } : table === 'exploration_choices' || table === 'participation_pings' || table === 'exploration_reflections' ? { created_at: batchAt } : {}));
+        // 서버 트리거(sm_quick_entry_hold)처럼 기본 체험에서 보탠 문장은 항상 숨김으로 등록
+        ? { id: db.nextId++, created_at: new Date().toISOString(), is_hidden: r.entry_source === 'quick' } : table === 'exploration_choices' || table === 'participation_pings' || table === 'exploration_reflections' ? { created_at: batchAt } : {}));
       db[table] = (db[table] || []).concat(saved);
       save(db);
-      result = { data: saved.map(r => ({ id: r.id })), error: null };
+      result = saved.some(r => r.is_hidden)
+        // 숨김 행은 공개 조회 정책에 걸려, 등록 결과를 돌려받으려 하면(RETURNING) 서버가 거부합니다
+        ? { data: null, error: { code: '42501', message: 'new row violates row-level security policy for table "shared_expressions"' }, hiddenReturn: true }
+        : { data: saved.map(r => ({ id: r.id })), error: null };
+    }
+    if (result.hiddenReturn) {
+      // 실제 서버는 RETURNING 요청이 실패하면 행도 남기지 않습니다 → select()를 부르면 등록을 되돌림
+      const p = Promise.resolve({ data: null, error: null });
+      p.select = () => { const d = load(); d.shared_expressions = d.shared_expressions.filter(r => !r.is_hidden || !rows.some(x => x.content === r.content)); save(d); return Promise.resolve({ data: null, error: result.error }); };
+      return p;
     }
     const p = Promise.resolve({ data: null, error: result.error });
     p.select = () => Promise.resolve(result);
@@ -55,7 +68,7 @@
       eq(col, val) { q.filters.push([col, val]); return chain; },
       order() { return chain; },
       limit() {
-        const rows = (load()[table] || []).filter(r => q.filters.every(([c, v]) => r[c] === v)).reverse();
+        const rows = (load()[table] || []).filter(r => !r.is_hidden && q.filters.every(([c, v]) => r[c] === v)).reverse();
         return Promise.resolve({ data: rows, error: null });
       }
     };
@@ -65,7 +78,8 @@
   function rpc(name, args) {
     const db = load();
     window.__mockDb.calls.push({ op: 'rpc', name, args });
-    const rows = db.shared_expressions.filter(r => !args || !args.p_event_key || r.event_key === args.p_event_key);
+    // 숨김(운영자 확인 전 포함) 행은 공개 함수가 돌려주지 않습니다
+    const rows = db.shared_expressions.filter(r => !r.is_hidden && (!args || !args.p_event_key || r.event_key === args.p_event_key));
     if (name === 'public_expressions' && window.__mockDb.failLoad) {
       // supabase-config.js의 제한 시간이 지나 요청을 멈춘 경우와 같은 오류
       return Promise.resolve({ data: null, error: { code: '', message: 'TimeoutError: request timeout' } });

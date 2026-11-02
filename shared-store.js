@@ -419,6 +419,36 @@
     }
   }
 
+  /**
+   * 기본 체험 한 줄 소감을 Shared Archive에 '보탭니다' (참여자가 따로 동의한 경우에만 부름).
+   * entry_source = 'quick' 으로 보내면 서버 트리거가 항상 숨김으로 등록하고, 운영자가 확인한 뒤 게시합니다
+   * (supabase/2026-11-quick-to-archive.sql). 숨김 행은 공개 조회 정책에 걸리므로 등록 결과(id)를 돌려받지 않습니다.
+   * 그 SQL을 실행하기 전이면(entry_source 칸 없음) 확인 없이 바로 공개되지 않도록 다시 보내지 않고 unavailable 을 돌려줍니다.
+   * @returns {{ok, pending?, unavailable?, error?}}
+   */
+  async function insertQuickExpression(input) {
+    const eventKey = input && input.eventKey;
+    const content = String((input && input.content) || '').trim().slice(0, 300);
+    if (!CHOICE_ID_RE.test(eventKey || '') || !content) return { ok: false, error: 'bad input' };
+    const c = client();
+    if (!c) return { ok: false, unavailable: true };
+    try {
+      const res = await c.from(TABLE).insert([{
+        event_key: eventKey,
+        author_name: '익명',
+        country_code: normalizeLang(input.lang),
+        content,
+        reason: '',
+        entry_source: 'quick'
+      }]);
+      if (!res.error) return { ok: true, pending: true };
+      if (isMissingSchemaError(res.error)) return { ok: false, unavailable: true };
+      return { ok: false, error: insertError(res.error) };
+    } catch (e) {
+      return { ok: false, error: insertError(e) };
+    }
+  }
+
   /** 같은 카드의 객관식·소감을 묶는 무작위 번호 (개인을 가리키지 않음) */
   function newSubmissionId() {
     if (root.crypto && root.crypto.randomUUID) return root.crypto.randomUUID();
@@ -515,6 +545,7 @@
     ARCHIVE_SINCE,
     isHidden,
     isArchivable,
+    insertQuickExpression,
     insertExpression,
     loadExpressions,
     fetchEmpathyCounts,
