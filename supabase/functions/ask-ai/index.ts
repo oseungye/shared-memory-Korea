@@ -18,7 +18,7 @@
    ============================================================ */
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { SCHEMA, buildMessages, buildSystemPrompt, isAllowedOrigin, limitStatus, normalizeReply, validateInput } from './core.mjs';
+import { SCHEMA, buildMessages, buildSystemPrompt, clientIp, isAllowedOrigin, limitStatus, normalizeReply, validateInput } from './core.mjs';
 
 const MODEL = 'claude-opus-5-5';
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
@@ -87,9 +87,8 @@ Deno.serve(async (req) => {
 
   // 한도 기록·검사 (서비스 롤 — anon은 이 테이블을 읽거나 쓸 수 없음). 먼저 기록하고 나서 세므로 동시 요청도 한도를 넘지 못합니다.
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-  // x-forwarded-for의 마지막 값(프록시가 붙인 것 — 앞쪽 값은 클라이언트가 위조 가능)
-  const xff = (req.headers.get('x-forwarded-for') || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const ipHash = await sha256((Deno.env.get('ASK_AI_IP_SALT') || '') + (xff[xff.length - 1] || 'unknown'));
+  // 접속 IP: cf-connecting-ip → x-real-ip → x-forwarded-for 마지막 값 (core.mjs clientIp)
+  const ipHash = await sha256((Deno.env.get('ASK_AI_IP_SALT') || '') + clientIp(req.headers));
   const logged = await sb.from('ask_ai_calls').insert({ ip_hash: ipHash });
   if (logged.error) return json(503, { error: '호출을 기록할 수 없습니다' }, origin);
   const now = Date.now();

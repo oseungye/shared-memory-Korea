@@ -19,6 +19,21 @@ export const PII = { email: /[\w.+-]+@[\w-]+\.[\w.-]+/, phone: /(^|\D)0\d{1,2}[-
 const ALLOWED_ORIGIN = /^(https:\/\/oseungye\.github\.io|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/;
 export function isAllowedOrigin(origin) { return typeof origin === 'string' && ALLOWED_ORIGIN.test(origin); }
 
+/**
+ * 한도 계산에 쓸 접속 IP. Supabase 앞단(Cloudflare)이 넣는 cf-connecting-ip를 먼저 씁니다(클라이언트가 보낸 값은 덮어써짐).
+ * x-forwarded-for의 마지막 값은 요청마다 바뀌는 내부 프록시 주소일 수 있어(2026-11-02 운영 로그에서 확인) 마지막 수단으로만 씁니다.
+ * @param {{ get(name: string): string | null }} headers
+ */
+export function clientIp(headers) {
+  const pick = name => ((headers && headers.get(name)) || '').trim();
+  const cf = pick('cf-connecting-ip');
+  if (cf) return cf;
+  const real = pick('x-real-ip');
+  if (real) return real;
+  const xff = pick('x-forwarded-for').split(',').map(s => s.trim()).filter(Boolean);
+  return xff[xff.length - 1] || 'unknown';
+}
+
 /** 모델이 반드시 이 모양으로만 답하게 하는 JSON 스키마 (structured output) */
 export const SCHEMA = {
   type: 'object',

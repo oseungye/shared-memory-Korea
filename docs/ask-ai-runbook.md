@@ -14,21 +14,21 @@
 | `supabase/2026-10-ask-ai-limit.sql` | 한도 기록 테이블 `ask_ai_calls`(IP 해시·시각만) + anon 권한 회수 + 7일 정리 함수 |
 | `ask-ai.js` · `fourth-narrator-data.js`의 `dialogue` | 화면·상태기 · 미리 써 둔 질문(사건마다 3개, **2026-10-26 초안 — 확정 필요**) |
 
-## 현재 상태 (2026-10-27)
+## 현재 상태 (2026-11-02)
 
 | 단계 | 상태 |
 |---|---|
 | SQL `ask_ai_limit` (테이블 `ask_ai_calls`·정리 함수) | **적용 완료** — anon·authenticated 권한 없음, RLS 켜짐 확인 |
-| Edge Function `ask-ai` | **배포 완료 (v1, Verify JWT 끔)** — `index.ts`·`core.mjs` |
-| secret `ANTHROPIC_API_KEY` · `ASK_AI_IP_SALT` | **미등록** — 운영자가 대시보드에서 직접 입력 (아래 1-2) |
-| secret `ASK_AI_ENABLED` | **미설정 = 꺼짐** — 학교 사용 조건 확인 전까지 `true`로 바꾸지 않음 (3절 ‘운영자 확인 항목’) |
-| 지금 사이트 동작 | 함수가 503 → 학생 화면은 미리 써 둔 질문으로 끝까지 진행 (외부 전송 없음) |
+| Edge Function `ask-ai` | **배포 완료 (v5, Verify JWT 끔)** — `index.ts`·`core.mjs`. v5: 한도용 IP를 `cf-connecting-ip` 기준으로 수정 |
+| secret `ANTHROPIC_API_KEY` · `ASK_AI_IP_SALT` | **등록 완료** (운영자가 대시보드에서 직접 입력) |
+| secret `ASK_AI_ENABLED` | **`true` — 켜짐** (운영자 결정, 2026-11-02) |
+| 실제 서버 확인 | 2026-11-02 배포 사이트(휴대폰)에서 2회 대화: 호출 1 200(8.9초)·호출 2 200(4.9초), 한도 기록 정상 |
 
 ## 1. 배포 순서 (처음 한 번)
 
 1. **SQL 적용** — MCP `apply_migration`(name: `ask_ai_limit`)에 `supabase/2026-10-ask-ai-limit.sql` 내용을 넣어 실행. 여러 번 실행해도 안전합니다.
    확인: `list_tables`에 `ask_ai_calls`가 보이고, `get_advisors`(security)에 이 테이블 경고가 없음.
-2. **secret 등록** — MCP `create_edge_function_secret`로
+2. **secret 등록** (값은 대시보드 Edge Functions → Secrets에서 운영자가 직접 입력 — MCP 입력 창이 뜨지 않는 환경이 있음) — MCP `create_edge_function_secret`로
    - `ANTHROPIC_API_KEY` = (Anthropic 콘솔에서 만든 키. 채팅·파일·커밋에 붙이지 말고 MCP 입력에만)
    - `ASK_AI_ENABLED` = `true`일 때만 동작합니다. **없거나 다른 값이면 꺼짐(503 → 폴백)** — 키를 먼저 등록해 두고, 학교 사용 조건을 확인한 뒤에 `true`로 바꾸세요.
    - `ASK_AI_IP_SALT` = 아무 긴 임의 문자열 (선택이지만 권장 — 한도 기록의 IP 해시에 섞어 원래 IP를 되짚기 어렵게 함)

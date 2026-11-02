@@ -272,3 +272,13 @@ test('SQL: ask_ai_calls는 anon 권한 전부 회수, RLS, 7일 정리 함수', 
   assert.match(sql, /interval '7 days'/);
   assert.doesNotMatch(sql, /grant .* to anon/);
 });
+
+test('clientIp: cf-connecting-ip → x-real-ip → x-forwarded-for 마지막 값 (요청마다 바뀌는 프록시 주소로 한도가 새지 않게)', () => {
+  const h = obj => ({ get: n => (n in obj ? obj[n] : null) });
+  assert.equal(core.clientIp(h({ 'cf-connecting-ip': '125.241.249.167', 'x-real-ip': '10.0.0.1', 'x-forwarded-for': '1.1.1.1, 10.9.9.9' })), '125.241.249.167');
+  assert.equal(core.clientIp(h({ 'x-real-ip': '203.0.113.5', 'x-forwarded-for': '1.1.1.1, 10.9.9.9' })), '203.0.113.5');
+  assert.equal(core.clientIp(h({ 'x-forwarded-for': '1.1.1.1, 10.9.9.9' })), '10.9.9.9');
+  assert.equal(core.clientIp(h({})), 'unknown');
+  const fn = fs.readFileSync(path.join(ROOT, 'supabase/functions/ask-ai/index.ts'), 'utf8');
+  assert.match(fn, /clientIp\(req\.headers\)/);
+});
