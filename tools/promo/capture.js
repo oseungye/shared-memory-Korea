@@ -35,8 +35,6 @@ const PICKS = ['many_names', 'alliance', null];   // null = 그 질문의 첫 �
   // 1. 첫 화면: 큰 사건 카드 두 장
   await page.goto(base + 'index.html');
   await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(1200);
-  await shot('00-home-top');
-  await scrollTo('.quick-picks', 150);
   await shot('01-home-picks');
   boxes.imjin = await rect('[data-quick-event="imjin"]');
   await page.click('[data-quick-event="imjin"]');
@@ -61,12 +59,12 @@ const PICKS = ['many_names', 'alliance', null];   // null = 그 질문의 첫 �
     await shot(`04-q${q + 1}-empty`);
     const opts = await page.$$eval('#choiceStep [data-choice-option]', els => els.map(e => e.dataset.choiceOption));
     const id = PICKS[q] && opts.includes(PICKS[q]) ? PICKS[q] : opts[0];
-    await page.$eval(`[data-choice-option="${id}"]`, el => el.click());   // 화면을 움직이지 않고 누르기
+    // 사이트는 누르면 ✓를 0.28초 보여 준 뒤 다음 질문으로 넘어갑니다. 캡처를 위해 같은 함수로 고르고(넘어가기 없이) 찍은 뒤 넘깁니다.
+    await page.evaluate(id => pickChoice(id, false), id);
     boxes['opt' + q] = await rect(`[data-choice-option="${id}"]`);
     await shot(`05-q${q + 1}-picked`);
-    boxes['next' + q] = await rect('[data-step-main="q2"]');
-    await page.click('[data-step-main="q2"]');
-    await page.waitForTimeout(500);
+    await page.evaluate(() => quickAdvance());
+    await page.waitForTimeout(600);
   }
 
   // 4. STEP 3 · 한 줄 소감 (통계 동의는 켜지 않음)
