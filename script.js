@@ -4693,9 +4693,37 @@ async function loadParticipantCount() {
   const el = document.getElementById('participantCount');
   if (!el || !Store || !Store.fetchParticipationSummary) return;
   const r = await Store.fetchParticipationSummary();
+  renderHeroRecord(r);
   if (!r.available || !r.participants) { el.hidden = true; return; }
   el.innerHTML = `현재 <strong>${r.participants.toLocaleString('ko-KR')}</strong>명이 Shared Memory에 참여했습니다.`;
   el.hidden = false;
+}
+
+/**
+ * 첫 화면의 '지금까지 쌓인 기록' — 실제 서버 집계만 씁니다(지어낸 숫자 없음). 불러오지 못했거나 0이면 숨깁니다.
+ * · '왜 Shared Memory인가'의 결과 줄: 공개된 문장 수 (아카이브가 실제로 자라고 있음을 보여 줌)
+ * · 넓은 화면의 예시 카드 아래: 참여자 수 · 공개된 문장 수 · 아카이브 바로 가기
+ */
+function renderHeroRecord(r) {
+  const live = document.getElementById('whyLive');
+  const record = document.getElementById('heroRecord');
+  const n = x => Number(x || 0).toLocaleString('ko-KR');
+  const ok = !!(r && r.available && (r.participants || r.expressions));
+  if (live) {
+    live.hidden = !(ok && r.expressions);
+    live.textContent = live.hidden ? '' : `지금까지 공개된 문장 ${n(r.expressions)}개가 쌓였어요.`;
+  }
+  if (record) {
+    record.hidden = !ok;
+    document.getElementById('participantCount')?.classList.toggle('is-shown-elsewhere', ok);
+    record.innerHTML = ok ? `
+      <p class="hero-record__label">지금까지 쌓인 기록</p>
+      <div class="hero-record__nums">
+        ${r.participants ? `<div><strong>${n(r.participants)}</strong><span>명 참여</span></div>` : ''}
+        ${r.expressions ? `<div><strong>${n(r.expressions)}</strong><span>개의 공개된 문장</span></div>` : ''}
+      </div>
+      <a href="#" class="hero-record__link" data-hero-archive>아카이브에서 읽어 보기 →</a>` : '';
+  }
 }
 
 /* ------------------------------------------------------------
@@ -5040,6 +5068,12 @@ document.addEventListener('DOMContentLoaded', () => {
     handleAgeChoice(age.dataset.ageValue, box ? box.dataset.ageOptions : 'form');
   });
 
+  // 첫 화면 '지금까지 쌓인 기록'의 아카이브 링크 (나중에 그려지므로 위임으로 받음)
+  document.getElementById('heroRecord')?.addEventListener('click', e => {
+    if (!e.target.closest('[data-hero-archive]')) return;
+    e.preventDefault();
+    openArchive();
+  });
   document.querySelectorAll('[data-page]').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
