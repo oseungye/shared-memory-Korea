@@ -111,4 +111,53 @@ run('feedback-round1', async ({ browser, base, check, mockPage }) => {
   check('막힌 닉네임은 하나도 등록되지 않음', (await page.evaluate(() => window.__mockDb.read().shared_expressions.length)) === before);
   check('휴대폰 360px 흐름에서 페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   await small.close();
+
+  /* ---------- 6. 첫 화면: 목적 한 줄 · 왜 Shared Memory인가 · 지금까지 쌓인 기록(실제 집계) ---------- */
+  const seedRecord = p => p.evaluate(() => {
+    const raw = window.__mockDb.read();
+    for (let i = 0; i < 12; i++) raw.shared_expressions.push({ id: 700 + i, event_key: 'imjin', author_name: '익명', content: '문장 ' + i, created_at: new Date().toISOString() });
+    for (let i = 0; i < 30; i++) raw.participation_pings.push({ event_key: 'imjin', participant_key: 'seed-p' + i, created_at: new Date().toISOString() });
+    sessionStorage.setItem('__mock_db', JSON.stringify(raw));
+  });
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  page = await mockPage(phone);
+  await page.goto(base + 'index.html');
+  await seedRecord(page);
+  await page.reload();
+  await page.waitForFunction(() => !document.getElementById('whyLive').hidden);
+  const inView = sel => page.$eval(sel, el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; });
+  check('휴대폰 첫 화면(스크롤 없이): 목적 한 줄과 사건 카드 두 장이 함께 보임', await inView('.hero__mission') && await inView('[data-quick-event="imjin"]') && await inView('[data-quick-event="zainichi"]'));
+  check('목적 한 줄: "공동의 기억을 쌓아 가는 참여형 역사 아카이브"', /공동의 기억을 쌓아 가는 참여형 역사 아카이브/.test(await page.textContent('.hero__mission')));
+  const rows = await page.$$eval('.why__row dt', els => els.map(e => e.textContent));
+  check('사건 카드 아래 "왜 Shared Memory인가": 문제 · 방법 · 결과', JSON.stringify(rows) === '["문제","방법","결과"]' &&
+    await page.$eval('.why', el => el.getBoundingClientRect().top > document.querySelector('[data-quick-event="zainichi"]').getBoundingClientRect().bottom));
+  check('결과 줄에 실제 공개 문장 수 (가짜 DB 12개)', /공개된 문장 12개/.test(await page.textContent('#whyLive')));
+  check('휴대폰에서는 참여자 수 한 줄 그대로, 기록 상자는 숨김', /현재 30명/.test(await page.textContent('#participantCount')) && !(await page.isVisible('#heroRecord')));
+  check('옛 소개 카드(01·02·03)는 없고 링크는 "왜" 상자 안으로', !(await page.$('.intro__card')) && (await page.$$eval('.why__links a', els => els.length)) === 3);
+  await phone.close();
+
+  const pc = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  page = await mockPage(pc);
+  await page.goto(base + 'index.html');
+  await seedRecord(page);
+  await page.reload();
+  await page.waitForFunction(() => !document.getElementById('heroRecord').hidden);
+  check('PC: 예시 카드 아래 "지금까지 쌓인 기록" — 30명 참여 · 공개된 문장 12개, 스크롤 없이 보임',
+    /30\s*명 참여/.test(await page.textContent('#heroRecord')) && /12\s*개의 공개된 문장/.test(await page.textContent('#heroRecord')) && await inView('#heroRecord'));
+  check('PC: 참여자 수는 기록 상자에만 (왼쪽 줄 중복 숨김)', !(await page.isVisible('#participantCount')));
+  check('PC 첫 화면에서 사건 카드가 스크롤 없이 보임', await inView('[data-quick-event="imjin"]') && await inView('[data-quick-event="zainichi"]'));
+  await page.click('#heroRecord [data-hero-archive]');
+  await page.waitForSelector('.page--archive.active');
+  check('"아카이브에서 읽어 보기" → Shared Archive', await page.isVisible('.page--archive.active'));
+  check('첫 화면 흐름에서 페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
+  await pc.close();
+
+  // 집계를 불러오지 못하면 숫자를 지어내지 않고 숨김
+  const off = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  page = await mockPage(off);
+  await page.route(/vendor\/supabase/, r => r.fulfill({ contentType: 'text/javascript', body: 'window.supabase = undefined;' }));
+  await page.goto(base + 'index.html');
+  await page.waitForTimeout(800);
+  check('집계를 불러오지 못하면 기록 상자·결과 줄 숫자를 숨김', !(await page.isVisible('#heroRecord')) && !(await page.isVisible('#whyLive')));
+  await off.close();
 });

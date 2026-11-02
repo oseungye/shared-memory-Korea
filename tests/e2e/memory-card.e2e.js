@@ -205,7 +205,7 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
 
   await page.click('[data-card-action="back"]');
   await page.click('.nav__logo');
-  await page.click('.intro__more a[data-page="qr"]');
+  await page.click('.why__links a[data-page="qr"]');
   await page.waitForSelector('.page--qr.active');
   const qr = await page.$$eval('.qr-card', els => els.map(e => ({ svg: !!e.querySelector('svg path, svg rect'), link: e.querySelector('.qr-card__link').textContent })));
   check('QR 시트: 사건 6개 모두 QR 생성', qr.length === 6 && qr.every(q => q.svg), JSON.stringify(qr.map(q => q.svg)));

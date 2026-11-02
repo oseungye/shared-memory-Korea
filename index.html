@@ -124,6 +124,9 @@
             <li class="hero-names__item hero-names__item--china"><small>중국</small><span lang="zh-Hans">万历朝鲜战争</span></li>
             <li class="hero-names__item hero-names__item--ai"><small>AI</small><span>?</span></li>
           </ul>
+          <!-- 이 사이트가 무엇을 하는 곳인지 한 줄 (심사위원·처음 온 사람이 5초 안에 알 수 있게) -->
+          <p class="hero__mission">한·중·일이 서로 다르게 기억하는 역사를 함께 읽고, <strong>모두의 문장으로 공동의 기억</strong>을 쌓아 가는 참여형 역사 아카이브예요.</p>
+
           <!-- 기본 체험: 큰 사건 카드를 누르면 연령대·긴 설명 없이 바로 STEP 1(세 나라 비교)이 열립니다 -->
           <p class="quick-picks__label" id="quickPicksLabel"><strong>어떤 역사부터 볼까요?</strong> 하나를 누르면 바로 시작해요</p>
           <div class="quick-picks" id="quickPicks" role="group" aria-labelledby="quickPicksLabel">
@@ -182,6 +185,21 @@
             </div>
             <p class="age-picker__note">연령대는 세대별로 역사를 어떻게 기억하는지 살펴보는 익명 통계에만 쓰입니다.</p>
           </div>
+
+          <!-- 왜 Shared Memory인가: 문제 → 방법 → 결과 (사건 카드 바로 아래, 옛 소개 카드 3개를 대신함) -->
+          <section class="why" aria-labelledby="whyTitle">
+            <h2 class="why__title" id="whyTitle">왜 Shared Memory인가</h2>
+            <dl class="why__list">
+              <div class="why__row"><dt>문제</dt><dd>같은 사건도 나라마다 다르게 부르고, 다르게 기억해요. 그 차이는 오해와 갈등이 되기도 해요.</dd></div>
+              <div class="why__row"><dt>방법</dt><dd>세 나라의 기록을 나란히 읽고 → 내가 중요하게 보는 관점을 고른 뒤 → 함께 읽을 수 있는 문장을 남겨요.</dd></div>
+              <div class="why__row"><dt>결과</dt><dd>남긴 문장이 모여 <strong>모두가 함께 만드는 기억의 아카이브</strong>가 돼요. <span class="why__live" id="whyLive" hidden></span></dd></div>
+            </dl>
+            <p class="why__links">
+              <a href="#" data-page="archive">사람들이 남긴 문장 보기 (Shared Archive) →</a>
+              <a href="#" data-page="about">이 프로젝트가 가지는 의미 →</a>
+              <a href="#" data-page="qr" class="why__qr">수업·전시용 사건별 QR 만들기 →</a>
+            </p>
+          </section>
         </div>
 
         <!-- 완성하면 받게 될 My Memory Card 미리보기 — 실제 참여 결과가 아닌 '예시'임을 화면에 표시합니다 -->
@@ -203,6 +221,8 @@
           </div>
           </div>
           <figcaption class="hero-card__caption" id="heroCardCaption">탐구를 마치면 받는 <strong>나만의 Memory Card</strong> <small>(예시 문장)</small></figcaption>
+          <!-- 지금까지 쌓인 실제 기록 (넓은 화면 · 서버 집계 · 불러오지 못하거나 0이면 숨김) -->
+          <div class="hero-record" id="heroRecord" hidden aria-live="polite"></div>
         </figure>
         </div>
 
@@ -215,31 +235,6 @@
         </ol>
       </div>
 
-      <!-- 프로젝트 소개 3개 카드 -->
-      <div class="intro">
-        <div class="intro__grid">
-          <div class="intro__card">
-            <div class="intro__num">01</div>
-            <h3>왜 나라마다 다를까요</h3>
-            <p>1592년의 같은 전쟁도 한국에서는 흔히 '임진왜란', 일본에서는 '文禄・慶長の役', 중국에서는 '万历朝鲜战争'이라고 부릅니다. 이름 하나에도 역사를 바라보는 시선이 담겨 있습니다.</p>
-          </div>
-          <div class="intro__card">
-            <div class="intro__num">02</div>
-            <h3>어떤 역사를 보나요</h3>
-            <p>임진왜란·재일조선인을 비롯해 문화 교류·조공 관계·근대화·히로시마 원폭까지, 세 나라의 설명이 서로 다른 사건 <span data-event-count>6</span>가지 가운데 하나를 골라 살펴봅니다. 처음이라면 임진왜란이나 재일조선인부터 보는 것을 권합니다.</p>
-          </div>
-          <div class="intro__card">
-            <div class="intro__num">03</div>
-            <h3>내 답변은 어떻게 쓰이나요</h3>
-            <p>남겨 주신 한 문장은 다른 참여자들의 답변과 함께 분석되어, 사람들과 세대가 이 역사를 어떻게 기억하는지 보여줍니다. 이름이나 연락처는 수집하지 않습니다.</p>
-          </div>
-        </div>
-        <p class="intro__more">
-          <a href="#" data-page="archive">다른 사람들이 남긴 공동 표현 보기 (Shared Archive) →</a>
-          <a href="#" data-page="qr">수업·전시용 사건별 QR 만들기 →</a>
-          <a href="#" data-page="about">이 프로젝트가 가지는 의미 보기 →</a>
-        </p>
-      </div>
     </section>
 
     <!-- ============================================================
