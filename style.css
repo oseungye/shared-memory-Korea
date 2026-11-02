@@ -4010,3 +4010,40 @@ h3, h4 { font-weight: 600; }
   .ask-turn--student { margin-left: 0.8rem; }
   .ask-ai__row .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* ---------- 23. 아카이브 입구 · 보태기 (기본 체험) ----------
+   카드를 만든 뒤 다른 참여자의 문장을 읽고 공감하고, 공동 표현 제안하기(심화)로 이어지는 자리 */
+.reflect-share { margin: 0.6rem 0 1rem; }
+.reflect-share input:disabled + span { opacity: 0.55; }
+.archive-entry {
+  margin-top: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.1rem 1.15rem 1.2rem;
+}
+.archive-entry__title { font-size: var(--fs-xl); margin-bottom: 0.25rem; }
+.archive-entry__status { font-size: var(--fs-sm); color: var(--accent); background: var(--bg-soft); border-radius: 10px; padding: 0.55rem 0.75rem; margin: 0.6rem 0; }
+.archive-entry__list { list-style: none; display: grid; gap: 0.7rem; margin: 0.9rem 0 1rem; }
+.archive-entry__item { border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.archive-entry__item:first-child { border-top: 0; padding-top: 0; }
+.archive-entry__text { font-family: var(--font-quote); font-size: var(--fs-lg); line-height: 1.7; color: var(--ink); margin: 0 0 0.35rem; }
+.archive-entry__meta { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: var(--fs-xs); color: var(--ink-mute); }
+.archive-entry__empathy {
+  min-height: 40px; padding: 0.3rem 0.85rem; border-radius: 999px;
+  border: 1px solid rgba(139, 58, 58, 0.4); background: transparent; color: var(--accent);
+  font-size: var(--fs-xs); font-family: var(--font-ui);
+}
+.archive-entry__empathy.is-done { background: var(--bg-soft); border-color: var(--line); color: var(--ink-soft); }
+@media (hover: hover) { .archive-entry__empathy:not(:disabled):hover { background: var(--accent); color: #fff; } }
+.archive-entry__empty { font-size: var(--fs-sm); color: var(--ink-soft); margin: 0.8rem 0 1rem; }
+.archive-entry__actions { display: grid; gap: 0.8rem; border-top: 1px solid var(--line); padding-top: 0.9rem; }
+.archive-entry__actions .btn { min-height: 44px; justify-content: center; }
+.archive-entry__propose-btn { background: var(--accent); color: #fff; width: 100%; }
+@media (hover: hover) { .archive-entry__propose-btn:hover { background: #6f2c2c; color: #fff; } }
+.archive-entry__propose .nlp-meta { margin-top: 0.35rem; }
+/* 기본 체험 카드 화면: 같은 일을 하는 아래 버튼(다른 사람 기억 보기·공개하기)은 아카이브 입구로 대신합니다 */
+.page--card[data-mode="quick"] .card-builder__next .btn--small,
+.page--card[data-mode="quick"] .card-builder__next [data-card-action="publish"] { display: none; }
+/* 넓은 화면: 아카이브 입구가 카드 옆 오른쪽 칸('카드 다듬기' 상자) 맨 위에 들어갑니다 (script.js placeArchiveEntry) */
+.card-builder .archive-entry { border: 0; padding: 0; margin: 0 0 1.2rem; background: none; }

@@ -625,7 +625,9 @@ function setExploreMode(mode) {
 
 /* 기본 체험 상태 — 이 창의 메모리에만 둡니다(공용 기기 보호: 새로고침·새 참여자로 시작하면 사라짐) */
 // submissionId: 같은 카드의 객관식·소감을 묶는 무작위 번호 · sentReflection: 마지막으로 저장한 소감 (같은 문장 중복 저장 방지)
-const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, submissionId: null, sentReflection: '' };
+const choiceState = { eventId: null, answers: {}, index: 0, offsets: {}, reflection: '', reflectionSkipped: false, maxStep: 1, sent: false, submissionId: null, sentReflection: '', share: false, sharedText: '' };
+// 카드 화면 아카이브 입구의 상태 (공개된 다른 사람 문장·공감 수·내 '보태기' 안내) — script.js renderArchiveEntry
+const entryState = { eventId: null, items: [], counts: {}, empathyOn: true, shareMsg: null, status: 'idle' };
 
 function resetChoiceState(eventId) {
   choiceState.eventId = eventId || null;
@@ -638,10 +640,25 @@ function resetChoiceState(eventId) {
   choiceState.sent = false;
   choiceState.submissionId = null;
   choiceState.sentReflection = '';
+  choiceState.share = false;
+  choiceState.sharedText = '';
+  entryState.shareMsg = null;          // 공용 기기: 이전 참여자의 '보탰어요' 안내가 다음 참여자에게 남지 않게
+  entryState.status = 'idle';
   const input = document.getElementById('reflectInput');
   if (input) input.value = '';
   const count = document.getElementById('reflectCount');
   if (count) count.textContent = '0';
+  syncReflectShare();
+}
+
+/** '아카이브에 보태기' 체크 상자: 소감 칸이 비어 있으면 고를 수 없고(체크도 풀림), 기본은 꺼짐 */
+function syncReflectShare() {
+  const box = document.getElementById('reflectShareConsent');
+  if (!box) return;
+  const typed = !!(document.getElementById('reflectInput')?.value || '').trim();
+  if (!typed) choiceState.share = false;
+  box.disabled = !typed;
+  box.checked = typed && choiceState.share;
 }
 
 /* 탭 → 탐구 단계 (탭은 각 단계의 '자세히 보기' 역할) */
@@ -710,7 +727,7 @@ function stepperHtml(current) {
     : info.todo;
   // 심화 탐구 중인 기본 체험 사건에는 '기본 체험으로 돌아가기'를 함께 보여줍니다.
   const back = exploreMode === 'deep' && Choices && Choices.hasChoices(currentEventId)
-    ? '<p class="stepper__mode">심화 탐구 중이에요. <button type="button" class="before-card__link" data-quick-return>← 기본 체험(관점 고르기)으로 돌아가기</button></p>'
+    ? '<p class="stepper__mode">심화 · 공동 표현 제안하기 중이에요 (세 나라 서술·AI·사료를 근거로 문장을 다듬어요). <button type="button" class="before-card__link" data-quick-return>← 기본 체험(관점 고르기)으로 돌아가기</button></p>'
     : '';
   return `
     <div class="stepper">
@@ -3372,7 +3389,8 @@ function renderMemoryMethod(a) {
 /* ------------------------------------------------------------
    기본 체험 — 관점 고르기(객관식) · 한 줄 소감 · 카드
    · 객관식은 퀴즈가 아닙니다. 고른 관점은 정답 판정 없이 카드에 "내가 고른 관점"으로만 담깁니다.
-   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 다른 참여자에게 공개하지 않습니다(공개는 심화 탐구의 공동 표현에서 별도 동의).
+   · 한 줄 소감은 "직접 쓴 문장"으로 따로 담고, 다른 참여자에게 공개하지 않습니다.
+     '아카이브에 보태기'(별도 동의, 기본 꺼짐)를 고르면 그 문장만 '익명'으로 등록되고 운영자 확인 뒤 공개됩니다.
    · 카드를 만들면 고른 관점(별도 테이블)과 한 줄 소감(비공개 테이블)을 이름 없이 저장합니다.
      두 기록은 같은 카드에서 나온 것임을 알 수 있도록 무작위 번호(submission_id)로만 묶습니다.
    ------------------------------------------------------------ */
@@ -3538,6 +3556,7 @@ function renderReflectStep() {
   if (input && input.value !== choiceState.reflection) input.value = choiceState.reflection;
   const count = document.getElementById('reflectCount');
   if (count && input) count.textContent = String(input.value.length);
+  syncReflectShare();
 }
 
 /** 소감 칸이 비어 있으면 아래 버튼이 '소감 없이 카드 만들기'가 됩니다 (따로 '건너뛰기' 버튼을 두지 않음). */
@@ -3585,7 +3604,7 @@ function makeQuickCard(skipReflection) {
  */
 async function saveQuickAnswers() {
   const eventId = currentEventId;
-  if (!Store || !Choices) { renderChoiceOthers(null); return; }
+  if (!Store || !Choices) { renderChoiceOthers(null); renderArchiveEntry(null); return; }
   if (!choiceState.submissionId) choiceState.submissionId = Store.newSubmissionId();
   const submissionId = choiceState.submissionId;
   let choiceRes = { ok: true };
@@ -3604,6 +3623,131 @@ async function saveQuickAnswers() {
   }
   const failed = [choiceRes, reflectRes].find(r => !r.ok && !r.unavailable);
   renderChoiceOthers(failed ? `기록을 저장하지 못했어요. 카드는 그대로예요. ${failed.error || ''}` : null);
+  // 아카이브에 보태기 (따로 동의한 경우만). 같은 문장은 다시 보내지 않습니다.
+  let shareMsg = null;
+  if (choiceState.share && reflection && reflection !== choiceState.sharedText) {
+    const res = await Store.insertQuickExpression({ eventKey: eventId, content: reflection, lang: 'ko' });
+    if (eventId !== currentEventId) return;
+    if (res.ok) choiceState.sharedText = reflection;
+    shareMsg = res.ok
+      ? '내 소감을 Shared Archive에 보탰어요. 운영자가 확인한 뒤 다른 참여자에게 공개돼요.'
+      : res.unavailable
+        ? '아카이브에 보태기는 아직 준비 중이라 보내지 않았어요. 소감은 카드에 그대로 있어요.'
+        : `아카이브에 보태지 못했어요. 카드는 그대로예요. ${res.error || ''}`;
+  } else if (choiceState.share && reflection && reflection === choiceState.sharedText) {
+    shareMsg = '이 소감은 이미 보탰어요. 운영자가 확인한 뒤 공개돼요.';
+  }
+  renderArchiveEntry(shareMsg);
+}
+
+/* ------------------------------------------------------------
+   아카이브 입구 (기본 체험 카드 화면)
+   · 공개에 동의한 다른 참여자의 문장 3개(공감을 가장 많이 받은 문장 1개 + 최근 문장)와 공감 버튼,
+     모든 문장 보기(Shared Archive)·공동 표현 제안하기(심화)로 이어지는 입구입니다.
+   · 기존 public_expressions·empathy_counts 를 그대로 씁니다. 숨김·확인 전 문장은 서버가 돌려주지 않습니다.
+   ------------------------------------------------------------ */
+const ENTRY_COUNT = 3;
+const ENTRY_MAX_CHARS = 140;
+
+/** 보여 줄 문장 고르기: 공감이 가장 많은 문장 1개 + 최근 문장 8개 중 무작위 (매번 같은 문장만 위에 남지 않게) */
+function pickEntrySentences(items, counts) {
+  const n = id => counts[String(id)] || 0;
+  const best = items.slice().sort((a, b) => n(b.id) - n(a.id))[0];
+  const picks = best && n(best.id) > 0 ? [best] : [];
+  const pool = items.filter(x => !picks.includes(x)).slice(0, 8);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return picks.concat(pool).slice(0, ENTRY_COUNT);
+}
+
+/** 넓은 화면(카드 옆에 오른쪽 칸이 있는 1025px 이상)에서는 오른쪽 칸 맨 위로, 좁은 화면에서는 저장 버튼 아래로 옮깁니다. */
+const ENTRY_WIDE = window.matchMedia ? window.matchMedia('(min-width: 1025px)') : null;
+function placeArchiveEntry() {
+  const box = document.getElementById('archiveEntry');
+  const side = document.querySelector('.page--card .card-builder');
+  const anchor = document.getElementById('choiceOthers');
+  if (!box || !side || !anchor) return;
+  if (ENTRY_WIDE && ENTRY_WIDE.matches) { if (box.parentElement !== side) side.prepend(box); }
+  else if (box.nextElementSibling !== anchor) anchor.before(box);
+}
+ENTRY_WIDE?.addEventListener?.('change', placeArchiveEntry);
+
+async function renderArchiveEntry(shareMsg) {
+  const box = document.getElementById('archiveEntry');
+  if (!box) return;
+  if (cardState.mode !== 'quick') { box.hidden = true; box.innerHTML = ''; return; }
+  placeArchiveEntry();
+  const eventId = currentEventId;
+  if (shareMsg !== undefined) entryState.shareMsg = shareMsg;
+  if (entryState.eventId !== eventId || entryState.status !== 'ready') {
+    entryState.eventId = eventId;
+    entryState.status = 'loading';
+    drawArchiveEntry();
+    const [list, emp] = Store
+      ? await Promise.all([Store.loadExpressions(eventId), Store.fetchEmpathyCounts(eventId)])
+      : [{ data: [], error: 'store' }, { available: false, counts: {} }];
+    if (eventId !== currentEventId) return;
+    const archivable = (list.data || []).filter(x => Store.isArchivable(x));
+    entryState.counts = emp.counts || {};
+    entryState.empathyOn = !!emp.available;
+    entryState.items = pickEntrySentences(archivable, entryState.counts);
+    entryState.status = list.error && !archivable.length ? 'error' : 'ready';
+  }
+  drawArchiveEntry();
+}
+
+function drawArchiveEntry() {
+  const box = document.getElementById('archiveEntry');
+  if (!box) return;
+  box.hidden = false;
+  const empathized = Store ? Store.empathizedSet() : new Set();
+  const status = entryState.shareMsg ? `<p class="archive-entry__status" role="status">${escapeHtml(entryState.shareMsg)}</p>` : '';
+  const clip = t => t.length > ENTRY_MAX_CHARS ? t.slice(0, ENTRY_MAX_CHARS - 1) + '…' : t;
+  let body;
+  if (entryState.status === 'loading') body = '<p class="nlp-meta">다른 사람들의 문장을 불러오는 중…</p>';
+  else if (entryState.status === 'error') body = '<p class="nlp-meta">지금은 문장을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';
+  else if (!entryState.items.length) body = '<p class="archive-entry__empty">아직 공개된 문장이 없어요. 이 사건의 첫 문장을 남겨 주세요.</p>';
+  else {
+    body = `<ul class="archive-entry__list">${entryState.items.map(item => {
+      const id = escapeAttr(String(item.id));
+      const count = entryState.counts[String(item.id)] || 0;
+      const mine = empathized.has(String(item.id));
+      const empathy = entryState.empathyOn ? `
+          <button type="button" class="archive-entry__empathy${mine ? ' is-done' : ''}" data-entry-empathy="${id}" ${mine ? 'disabled aria-pressed="true"' : 'aria-pressed="false"'}>
+            ${mine ? '공감했어요' : '공감해요'} · <strong>${count}</strong>
+          </button>` : '';
+      return `<li class="archive-entry__item">
+          <blockquote class="archive-entry__text" lang="${escapeAttr(item.lang || 'ko')}">${escapeHtml(clip(item.text))}</blockquote>
+          <div class="archive-entry__meta"><span>— ${escapeHtml(item.user || '익명')}</span>${empathy}</div>
+        </li>`;
+    }).join('')}</ul>`;
+  }
+  box.innerHTML = `
+    <h3 class="archive-entry__title" id="archiveEntryTitle">이 사건에 다른 사람들이 남긴 문장</h3>
+    <p class="nlp-meta">공개에 동의한 참여자의 문장이에요. 마음에 닿는 문장에 공감을 눌러 주세요. (공감이 많다고 옳은 문장이라는 뜻은 아니에요)</p>
+    ${status}${body}
+    <div class="archive-entry__actions">
+      <button type="button" class="btn btn--small btn--ghost" data-card-action="archive">이 사건의 모든 문장 보기 →</button>
+      <div class="archive-entry__propose">
+        <button type="button" class="btn btn--small archive-entry__propose-btn" data-card-action="propose">나도 공동 표현 제안하기 →</button>
+        <p class="nlp-meta">세 나라 서술·AI의 서술·사료를 근거로, 교과서에 실릴 한 문장을 다듬어 제안해요 (공개는 따로 동의).</p>
+      </div>
+    </div>`;
+}
+
+async function handleEntryEmpathy(id, button) {
+  if (!Store) return;
+  button.disabled = true;
+  const res = await Store.addEmpathy(id);
+  if (res.ok) {
+    entryState.counts[String(id)] = (entryState.counts[String(id)] || 0) + 1;
+    if (currentEventId === entryState.eventId) empathyCounts[String(id)] = (empathyCounts[String(id)] || 0) + 1;
+  } else if (res.unavailable) {
+    entryState.empathyOn = false;
+  } else if (!res.duplicate) {
+    button.disabled = false;
+    entryState.shareMsg = `공감을 저장하지 못했어요. ${res.error || ''}`;
+  }
+  drawArchiveEntry();
 }
 
 /** 카드 화면: 다른 참여자들이 고른 관점 (객관식 집계 · 질문별 응답 5명 미만이면 숨김) */
@@ -3758,6 +3902,7 @@ function openCardPage() {
   const quick = cardState.mode === 'quick';
   const cardPage = document.querySelector('.page--card');
   if (cardPage) cardPage.dataset.mode = quick ? 'quick' : 'deep';
+  if (!quick) { const entry = document.getElementById('archiveEntry'); if (entry) { entry.hidden = true; entry.innerHTML = ''; } }
   const backLabel = document.getElementById('cardBackLabel');
   if (backLabel) backLabel.textContent = quick ? '한 줄 소감 고치기' : 'STEP 3 · 내 표현 고치기';
   renderDiscoveryOptions();
@@ -4299,6 +4444,14 @@ function handleCardAction(action) {
   if (action === 'open-image') { openCardImage(); return; }
   if (action === 'print') { window.print(); return; }
   if (action === 'memory') { navigateTo('detail'); setRouteHash(currentEventId); gotoTab('memory'); return; }
+  if (action === 'archive') { openArchive(currentEventId); return; }
+  if (action === 'propose') {
+    // 기본 체험 카드 → 공동 표현 제안하기 (심화). 쓴 소감은 제안 칸에 옮겨 둡니다(공개는 따로 동의).
+    navigateTo('detail');
+    setRouteHash(currentEventId);
+    switchToDeep(3);
+    return;
+  }
   if (action === 'publish') {
     navigateTo('detail');
     setRouteHash(currentEventId);
@@ -4745,7 +4898,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const count = document.getElementById('reflectCount');
     if (count) count.textContent = String(e.target.value.length);
     updateQuickCardLabel();
+    syncReflectShare();
   });
+  document.getElementById('reflectShareConsent')?.addEventListener('change', e => { choiceState.share = !!e.target.checked; });
   // 첫 화면 큰 사건 카드: 연령대·긴 설명 없이 바로 기본 체험 STEP 1
   document.querySelector('.quick-picks')?.addEventListener('click', e => {
     const pick = e.target.closest('[data-quick-event]');
@@ -4756,6 +4911,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.page--card')?.addEventListener('click', e => {
     const action = e.target.closest('[data-card-action]');
     if (action) { handleCardAction(action.dataset.cardAction); return; }
+    const entryEmpathy = e.target.closest('[data-entry-empathy]');
+    if (entryEmpathy) { handleEntryEmpathy(entryEmpathy.dataset.entryEmpathy, entryEmpathy); return; }
     const stepGoto = e.target.closest('[data-step-goto]');
     if (stepGoto) {
       if (stepGoto.dataset.stepGoto === '4') return;          // 지금 보고 있는 단계
