@@ -1,0 +1,74 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--ink:#1a1a1a;--red:#8b3a3a;--beige:#e8d5b7;--card:#fffdf8;--gray:#6f685f}
+body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);word-break:keep-all;background:transparent}
+.panel{position:relative;background:var(--card);border:2px solid var(--beige);overflow:hidden}
+.tag{font-size:19px;color:var(--gray)}
+.tag b{color:var(--red);font-weight:700}
+.p{display:none}
+body.p9 #p9,body.p12 #p12,body.p13 #p13{display:block}
+/* 9 */
+#p9{width:850px;height:626px;padding:22px 34px}
+#p9 .phones{display:flex;justify-content:center;align-items:flex-start;gap:30px;margin-top:16px}
+.ph{width:300px;display:flex;flex-direction:column;align-items:center}
+.ph .scr{width:280px;height:466px;border-radius:30px;overflow:hidden;border:3px solid #2a2622;background:#f5f1e8;box-shadow:0 10px 24px rgba(60,40,20,.15)}
+.ph img{width:100%;display:block}
+.ph p{font-size:20px;margin-top:10px;line-height:1.35;text-align:center}
+.ph p b{color:var(--red)}
+.arrow{align-self:center;font-size:34px;color:var(--red);margin-top:-40px}
+/* 12 */
+#p12{width:1080px;height:550px;padding:22px 30px}
+#p12 .line{width:1016px;margin-top:14px;border-radius:12px;overflow:hidden}
+#p12 .line img,#p12 .tbl img{width:1016px;display:block}
+#p12 .tbl{position:relative;width:1016px;margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid var(--beige)}
+#p12 .hl{position:absolute;left:0;right:0;border:4px solid var(--red);border-radius:8px}
+#p12 .note{position:absolute;left:30px;right:30px;bottom:18px;font-size:19px;color:var(--gray)}
+/* 13 */
+#p13{width:760px;height:650px;padding:20px 26px}
+#p13 .wrap{position:relative;margin-top:12px;height:576px}
+#p13 .card{position:absolute;left:0;top:0;height:576px;border-radius:6px;overflow:hidden;box-shadow:0 8px 20px rgba(60,40,20,.15)}
+#p13 .card img{height:576px;display:block}
+#p13 .co{position:absolute;left:336px;right:0;font-size:22px;line-height:1.35}
+#p13 .co i{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--red);color:#fff;font-style:normal;font-weight:700;font-size:18px;align-items:center;justify-content:center;margin-right:8px;vertical-align:2px}
+#p13 .co small{display:block;font-size:17px;color:var(--gray);margin:2px 0 0 38px}
+#p13 .dot{position:absolute;width:26px;height:26px;border-radius:50%;background:var(--red);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px #fff}
+</style></head><body>
+<div class="panel p" id="p9">
+  <div class="tag"><b>실제 화면</b> · 휴대폰 · 기본 체험 (임진왜란)</div>
+  <div class="phones">
+    <div class="ph"><div class="scr"><img src="p9-home.png"></div><p><b>①</b> 첫 화면에서<br>사건 카드를 누르면 바로 시작</p></div>
+    <div class="arrow">→</div>
+    <div class="ph"><div class="scr"><img src="p9-q1.png"></div><p><b>②</b> 정답 없는 객관식<br>내가 중요하게 보는 관점 하나</p></div>
+  </div>
+</div>
+
+<div class="panel p" id="p12">
+  <div class="tag"><b>실제 화면</b> · 히로시마 · ‘AI는 어떻게 말할까?’ 탭의 빈자리 표</div>
+  <div class="line"><img src="p12-line.png"></div>
+  <div class="tbl"><img src="p12-table.png"><div class="hl" id="hl"></div></div>
+  <div class="note">◎ = 빈자리: 다른 서술자 대부분에게는 있는데 이 서술자에게만 없는 요소 · AI 열의 3/3 = 세 번 물어 세 번 모두 언급</div>
+</div>
+
+<div class="panel p" id="p13">
+  <div class="tag"><b>실제 화면</b> · My Memory Card (문장은 예시)</div>
+  <div class="wrap">
+    <div class="card"><img src="p13-card.png" id="cimg"></div>
+    
+    <div class="co" id="c1"><i>1</i>내가 고른 관점<small>정답 없는 객관식 3문항</small></div>
+    <div class="co" id="c2"><i>2</i>나의 생각<small>학생이 직접 쓴 문장 · AI가 대신 쓰지 않음</small></div>
+    <div class="co" id="c3"><i>3</i>다섯 번째 서술자<small>내 문장이 담은 요소를 세 나라 서술·AI 답변과 비교</small></div>
+  </div>
+</div>
+<script>
+const p=new URLSearchParams(location.search).get('p')||'9';document.body.classList.add('p'+p);
+window.layout=()=>{
+  // 12: 표에서 '조선인 피해자' 줄 강조 (표 crop: 머리줄 0~38, 편집자 선정 38~76, 조선인 피해자 76~135 css px → 원본 2배)
+  const t=document.querySelector('#p12 .tbl img'); if(t&&t.naturalWidth){const s=t.clientWidth/t.naturalWidth;const hl=document.getElementById('hl');hl.style.top=(152*s-2)+'px';hl.style.height=(118*s+4)+'px';}
+  // 13: 카드 구간 위치 (원본 3배 기준 y)
+  const c=document.getElementById('cimg'); if(c&&c.naturalHeight){const s=c.clientHeight/c.naturalHeight, w=c.clientWidth;
+    [[874,'1'],[1440,'2'],[1770,'3']].forEach(([y,k])=>{const co=document.getElementById('c'+k);co.style.top=(y*s-16)+'px';co.style.left=(w+30)+'px';});}
+};
+</script>
+</body></html>
