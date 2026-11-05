@@ -172,8 +172,8 @@ run('memory-card', async ({ browser, base, check, mockPage }) => {
   check('새 참여자는 STEP 1부터 시작 (탭은 STEP 2부터 보임)', await page.$eval('.page--detail', el => el.dataset.step) === '1' && !(await page.isVisible('.tab[data-tab="shared"]')));
   await page.click('#flowProgress [data-step-goto="3"]');   // 진행 표시로 STEP 3에 바로 이동 (단계 이동은 막지 않음)
   // QR은 기본 체험: 이 단계의 카드 버튼을 눌러도 앞사람의 선택·문장이 없으므로 카드를 만들지 않습니다.
-  await page.click('#quickCardButton');                      // 비어 있으면 첫 누름은 '내 생각' 안내만
-  await page.click('#quickCardButton');
+  await page.click('#quickCardButton');                      // 비어 있으면 '기록하기'는 안내만 (넘어가지 않음)
+  await page.click('[data-reflect-skip]');                   // 건너뛰기: 고른 것도 쓴 것도 없으면 카드를 만들지 않음
   check('다음 참여자는 이전 참여자의 문장으로 카드를 만들 수 없음', /카드에 담을 내용이 없어요/.test(await page.$eval('#cardStatus', el => el.textContent)) && !(await page.isVisible('.page--card.active')));
   check('모바일 흐름에서 페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   await mobile.close();

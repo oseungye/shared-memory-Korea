@@ -267,18 +267,22 @@ test('index.html: 첫 화면에 두 사건 큰 카드, 객관식·소감 단계,
   assert.match(html, /data-quick-event="zainichi"/);
   assert.match(html, /id="choiceStep"/);
   assert.match(html, /id="reflectStep"/);
-  assert.doesNotMatch(html, /data-reflect-skip/);                      // 소감 건너뛰기는 카드 버튼 하나로 (중복 버튼 없음)
+  assert.match(html, /<button type="button" class="reflect-skip" data-reflect-skip>이번엔 건너뛰고 카드 보기 →<\/button>/);   // 건너뛰기는 한 번에, 눈에 보이게
   // 2026-10-23 운영자 결정: 기본 체험의 객관식 답·한 줄 소감은 동의 상자 없이 이름 없이 저장 → 동의 상자 없음,
   // 대신 소감 입력 바로 아래에 저장된다는 사실을 안내 (예전 "서버로 보내지 않아요" 안내는 남지 않음)
   assert.doesNotMatch(html, /id="choiceShareConsent"|id="reflectExtra"/);
-  assert.match(html, /id="reflectHint">[^<]*<span id="reflectCount">0<\/span>\/300자 · 이름 없이 저장돼요\. 아래 공개를 고른 경우에만 다른 참여자에게 보여요\./);
+  assert.match(html, /id="reflectHint">한두 문장이면 충분해요 · 이름 없이 저장돼요 \(<span id="reflectCount">0<\/span>\/300자\)\./);
   assert.doesNotMatch(html, /서버로 보내지 않아요/);
   assert.match(html, /<label class="reflect-label" for="reflectInput">내 생각<\/label>/);
-  // 3단계는 '내 생각 쓰기'(주관식): 고른 관점 → 생각을 돕는 열린 질문 → 입력란 순서, 공개는 따로 고르는 상자(기본 꺼짐)
+  assert.doesNotMatch(html, /data-deep-switch="3">공동 표현 제안하기 \(심화\)/);   // 3단계 아래 링크는 '사료·AI 서술까지 자세히 보기'
+  // 3단계는 '내 생각 기록'(주관식): 질문 바로 아래 입력란 → 건너뛰기 → 접힌 도움(열린 질문·고른 관점). 공개 체크 상자는 없음(기록 뒤 카드 화면에서 버튼으로 물음)
   const step3 = html.slice(html.indexOf('id="reflectStep"'), html.indexOf('id="stepCta"'));
-  assert.ok(step3.indexOf('id="reflectRecap"') < step3.indexOf('id="reflectPrompts"') && step3.indexOf('id="reflectPrompts"') < step3.indexOf('id="reflectInput"'));
-  assert.match(step3, /<input type="checkbox" id="reflectShareConsent" disabled \/>/);
-  assert.doesNotMatch(step3, /\(선택\)<\/small><\/p>|쓰지 않고 넘어가도/);                  // 건너뛰기를 여러 번 강조하지 않음
+  assert.match(step3, /STEP 3 · 내 생각 기록/);
+  assert.ok(step3.indexOf('id="reflectPrompt"') < step3.indexOf('id="reflectInput"') && step3.indexOf('id="reflectInput"') < step3.indexOf('data-reflect-skip') &&
+    step3.indexOf('data-reflect-skip') < step3.indexOf('<details class="reflect-help">') && step3.indexOf('<details class="reflect-help">') < step3.indexOf('id="reflectPrompts"'));
+  assert.doesNotMatch(step3, /reflectShareConsent|type="checkbox"/);
+  assert.match(html, /id="quickCardButton" hidden><span id="quickCardLabel">내 생각 기록하기<\/span>/);
+  assert.match(html, /<section class="share-prompt no-print" id="sharePrompt"/);
   const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);
   assert.ok(srcs.indexOf('./choice-questions.js') >= 0 && srcs.indexOf('./choice-questions.js') < srcs.indexOf('./script.js'));
 });

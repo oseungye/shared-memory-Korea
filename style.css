@@ -4177,3 +4177,35 @@ body.has-flow-guide { overflow: hidden; }
 .reflect-prompts__label { font-weight: 600; color: var(--ink); margin-bottom: 0.25rem; }
 .reflect-prompts__label small { font-weight: 400; color: var(--ink-mute); }
 .reflect-prompts ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; line-height: 1.55; }
+
+/* ---------- 30. 내 생각 기록 (3단계) · 기록 뒤 공개 묻기 ---------- */
+/* 휴대폰 진행 표시: 지금 단계와 '다음 단계' 이름을 함께 보여 줌 (기본 체험) */
+@media (max-width: 640px) {
+  .page--detail[data-mode="quick"] .flow-progress__step.is-next .flow-progress__label {
+    position: static; width: auto; height: auto; overflow: visible; clip: auto; color: var(--ink-mute);
+  }
+}
+.choice-step__next { color: var(--ink-mute); font-weight: 400; }
+.reflect-step .step-head { margin-bottom: 0.6rem; }
+.reflect-skip {
+  display: inline-flex; align-items: center; min-height: 44px; margin: 0.15rem 0 0.4rem;
+  padding: 0.35rem 0.9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-card);
+  font-size: var(--fs-sm); color: var(--ink-soft);
+}
+@media (hover: hover) { .reflect-skip:hover { color: var(--accent); border-color: var(--accent); } }
+.reflect-help { margin: 0.4rem 0 0.6rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+.reflect-help summary { cursor: pointer; min-height: 40px; display: inline-flex; align-items: center; color: var(--accent); }
+.reflect-help .reflect-prompts { margin: 0.3rem 0 0.6rem; }
+.share-prompt {
+  max-width: 980px; margin: 0 auto 1.2rem; padding: 1rem 1.1rem;
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px;
+}
+.share-prompt[hidden] { display: none; }
+.share-prompt__done { font-weight: 600; color: var(--accent); margin-bottom: 0.3rem; }
+.share-prompt__q { font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; margin-bottom: 0.2rem; }
+.share-prompt__desc { font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6; margin-bottom: 0.7rem; }
+.share-prompt__msg { font-size: var(--fs-sm); color: var(--korea); margin-bottom: 0.6rem; }
+.share-prompt__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.share-prompt__actions .btn { min-height: 46px; justify-content: center; }
+.share-prompt__yes { background: var(--accent); border-radius: 999px; padding: 0.7rem 1.4rem; }
+@media (max-width: 640px) { .share-prompt__actions .btn { flex: 1 1 0; } .share-prompt { margin: 0 0 1rem; } }
