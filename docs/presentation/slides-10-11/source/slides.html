@@ -1,0 +1,116 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+JP:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5f1e8;--ink:#1a1a1a;--red:#8b3a3a;--beige:#e8d5b7;--card:#fffdf8;--gray:#6f685f;--kr:#a32638;--jp:#243a5a;--cn:#b07a28;--hy:#f0db9e;--hp:#ebcfc6}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg)}
+body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);word-break:keep-all;position:relative}
+.serif{font-family:'Noto Serif KR',serif}
+.ja{font-family:'Noto Serif JP','Noto Serif KR',serif}.zh{font-family:'Noto Serif SC','Noto Serif KR',serif}
+.jas{font-family:'Noto Sans JP','Noto Sans KR',sans-serif}.zhs{font-family:'Noto Sans SC','Noto Sans KR',sans-serif}
+.title{position:absolute;left:112px;top:82px;font-family:'Noto Serif KR',serif;font-weight:700;font-size:64px;line-height:1.18}
+.sub{position:absolute;left:114px;top:176px;font-size:28px;color:var(--red);font-weight:500}
+body.notitle .title{visibility:hidden}
+.slide{display:none}
+body.s10 #s10,body.s11 #s11{display:block}
+/* ---------- 10 ---------- */
+.shot{position:absolute;left:112px;top:258px;width:1696px;height:487px;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 10px 30px rgba(60,40,20,.10),0 0 0 2px var(--beige)}
+.shot img{width:1696px;display:block}
+.shot-tag{position:absolute;left:112px;top:252px;transform:translateY(-100%);font-size:20px;color:var(--gray);padding-bottom:8px}
+.legend{position:absolute;right:112px;top:252px;transform:translateY(-100%);padding-bottom:8px;font-size:20px;color:var(--gray);display:flex;gap:22px}
+.legend i{display:inline-block;width:34px;height:18px;border-radius:3px;vertical-align:-3px;margin-right:8px}
+.band{position:absolute;left:112px;top:768px;width:1696px;display:grid;grid-template-columns:780px 1fr;gap:40px}
+.panel{background:var(--card);border:2px solid var(--beige);border-radius:12px;padding:16px 26px 12px}
+.ph{font-size:21px;color:var(--gray);margin-bottom:10px;display:flex;justify-content:space-between}
+.ph b{color:var(--ink);font-weight:700;font-size:22px}
+.row{display:flex;align-items:center;gap:12px;height:48px}
+.flag{width:38px;height:38px;border-radius:50%;color:#fff;font-family:'Noto Serif KR',serif;font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;flex:none}
+.chip{font-size:25px;padding:2px 14px;border-radius:6px;background:var(--hp);font-weight:500}
+table{border-collapse:collapse;width:100%}
+th{font-size:20px;color:var(--gray);font-weight:500;text-align:center;padding:0 0 6px}
+th:first-child{text-align:left}
+td{font-size:25px;height:42px;text-align:center}
+td:first-child{text-align:left;font-weight:700}
+td .n{font-weight:700}
+td.z{color:#b8b0a3}
+.dots{letter-spacing:2px;margin-right:8px;font-size:18px}
+.foot{position:absolute;left:112px;right:112px;bottom:20px;font-size:17px;color:var(--gray);line-height:1.5}
+/* ---------- 11 ---------- */
+.cols{position:absolute;left:112px;top:238px;width:1696px;display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.c{background:var(--card);border:2px solid var(--beige);border-radius:12px;overflow:hidden;height:676px;display:flex;flex-direction:column}
+.c .hd{padding:18px 26px 14px;background:#efe4cf;border-top:6px solid;display:flex;justify-content:space-between;align-items:baseline}
+.c .hd b{font-family:'Noto Serif KR',serif;font-size:30px}
+.c .hd span{font-size:20px;color:var(--gray)}
+.c .bd{padding:18px 26px 0;flex:1;display:flex;flex-direction:column}
+.lab{font-size:19px;color:var(--red);font-weight:700;letter-spacing:.02em;margin-bottom:6px}
+.sec{padding:12px 0 14px;border-bottom:1px dashed #d8c9ad}
+.sec:last-child{border-bottom:none}
+.name{font-size:42px;font-weight:700;line-height:1.2}
+.cnt{display:inline-block;font-size:20px;background:var(--beige);border-radius:999px;padding:2px 12px;margin-left:10px;vertical-align:8px;font-family:'Noto Sans KR',sans-serif;font-weight:500}
+.name2{font-size:32px;font-weight:700;line-height:1.35}
+.txt{font-size:23px;line-height:1.45}
+.quote{font-size:27px;line-height:1.4;font-weight:500}
+.tr{font-size:19px;color:var(--gray);margin-top:2px}
+.note{font-size:18px;color:var(--gray);margin-top:6px;line-height:1.4}
+.caveat{position:absolute;left:112px;right:112px;top:936px;font-size:20px;line-height:1.55;color:var(--gray)}
+.caveat b{color:var(--ink)}
+</style></head><body>
+<!-- ================= 슬라이드 10 ================= -->
+<div class="slide" id="s10">
+  <div class="title">세 서술을 같은 방법으로 읽는다</div>
+  <div class="sub">임진왜란 · 세 나라 요약 서술에 같은 계산 규칙을 적용</div>
+  <div class="shot-tag">실제 화면 · ‘세 나라의 서술’ 탭</div>
+  <div class="legend"><span><i style="background:var(--hy)"></i>세 서술에 모두 나온 단어</span><span><i style="background:var(--hp)"></i>이 서술에서 두드러진 단어</span></div>
+  <div class="shot"><img src="narr-crop.png"></div>
+  <div class="band">
+    <div class="panel">
+      <div class="ph"><b>서술마다 두드러지게 쓰는 말</b><span>다른 두 서술보다 많이 쓴 말</span></div>
+      <div class="row"><span class="flag" style="background:var(--kr)">韓</span><span class="chip">침략</span><span class="chip">항쟁</span><span class="chip">명목</span></div>
+      <div class="row"><span class="flag" style="background:var(--jp)">日</span><span class="chip">진출</span><span class="chip">히데요시</span><span class="chip">대륙</span></div>
+      <div class="row"><span class="flag" style="background:var(--cn)">中</span><span class="chip">의로운</span><span class="chip">전쟁</span><span class="chip">요청</span></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><b>같은 개념 사전으로 센 횟수</b><span>●: 서술 길이 대비 밀도</span></div>
+      <table>
+        <tr><th></th><th>한국 측</th><th>일본 측</th><th>중국 측</th></tr>
+        <tr><td>침략</td><td><span class="dots" style="color:var(--kr)">●●●</span><span class="n">4회</span></td><td class="z">0회</td><td><span class="dots" style="color:var(--cn)">●○○</span><span class="n">1회</span></td></tr>
+        <tr><td>출병·진출</td><td class="z">0회</td><td><span class="dots" style="color:var(--jp)">●●●</span><span class="n">4회</span></td><td class="z">0회</td></tr>
+        <tr><td>구원·지원</td><td><span class="dots" style="color:var(--kr)">●○○</span><span class="n">1회</span></td><td><span class="dots" style="color:var(--jp)">●○○</span><span class="n">1회</span></td><td><span class="dots" style="color:var(--cn)">●●●</span><span class="n">2회</span></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot">공통 단어: 조선 · 명나라 · 일본 &nbsp;|&nbsp; 어휘 유사도(코사인): 한–중 0.26 · 일–중 0.21 · 한–일 0.09 &nbsp;|&nbsp; 서술은 프로젝트가 선정·요약한 것(교과서 원문 아님) · 부정문도 언급으로 셈 · 자료: 앱 ‘어떻게 다를까?’ 탭 계산 결과</div>
+</div>
+
+<!-- ================= 슬라이드 11 ================= -->
+<div class="slide" id="s11">
+  <div class="title">네 번째 서술자: AI의 세 가지 답</div>
+  <div class="sub">임진왜란 · 사건 이름을 넣지 않은 같은 질문을 한국어·일본어·중국어로 각 3번</div>
+  <div class="cols">
+    <div class="c"><div class="hd" style="border-top-color:var(--kr)"><b>한국어로 물었을 때</b><span>답변 3건</span></div><div class="bd">
+      <div class="sec"><div class="lab">가장 먼저 쓴 이름</div><div class="name serif">임진왜란<span class="cnt">3건 중 3건</span></div></div>
+      <div class="sec"><div class="lab">이름이 처음 나온 자리</div><div class="txt">답변 첫 문장</div></div>
+      <div class="sec"><div class="lab">전쟁의 시작을 쓴 말 · 원문</div><div class="quote serif">“조선을 침략했어요”</div><div class="tr">2건</div><div class="quote serif" style="margin-top:6px">“쳐들어왔어요”</div><div class="tr">1건</div></div>
+      <div class="sec"><div class="lab">답변에 나온 이름 (자기 이름 포함)</div><div class="txt">5~7개 · 일본·중국의 이름 포함</div></div>
+    </div></div>
+    <div class="c"><div class="hd" style="border-top-color:var(--jp)"><b>일본어로 물었을 때</b><span>답변 3건</span></div><div class="bd">
+      <div class="sec"><div class="lab">가장 먼저 쓴 이름</div><div class="name ja">文禄・慶長の役<span class="cnt">3건 중 3건</span></div></div>
+      <div class="sec"><div class="lab">이름이 처음 나온 자리</div><div class="txt">설명을 마친 뒤 ‘이름’ 단락</div></div>
+      <div class="sec"><div class="lab">전쟁의 시작을 쓴 말 · 원문</div><div class="quote ja">“大軍を朝鮮に送りました”</div><div class="tr">대군을 조선에 보냈습니다 · 3건</div><div class="note">‘侵略’은 다른 이름(朝鮮侵略)을 소개하는 줄에만 나옴 · 3건</div></div>
+      <div class="sec"><div class="lab">답변에 나온 이름 (자기 이름 포함)</div><div class="txt">8~9개 · 한국·중국의 이름 포함</div></div>
+    </div></div>
+    <div class="c"><div class="hd" style="border-top-color:var(--cn)"><b>중국어로 물었을 때</b><span>답변 3건</span></div><div class="bd">
+      <div class="sec"><div class="lab">가장 먼저 쓴 이름</div><div class="name2 zh">万历朝鲜战争<span class="cnt">2건</span><br>万历朝鲜之役<span class="cnt">1건</span></div></div>
+      <div class="sec"><div class="lab">이름이 처음 나온 자리</div><div class="txt">설명을 마친 뒤 ‘이름’ 단락</div></div>
+      <div class="sec"><div class="lab">전쟁의 시작을 쓴 말 · 원문</div><div class="quote zh">“派大军渡海进攻朝鲜”</div><div class="tr">대군을 보내 바다 건너 조선을 공격했다 · 3건</div></div>
+      <div class="sec"><div class="lab">답변에 나온 이름 (자기 이름 포함)</div><div class="txt">6개 · 한국·일본의 이름 포함</div></div>
+    </div></div>
+  </div>
+  <div class="caveat"><b>표본</b> 임진왜란 답변 9건(언어별 3건, 전체 6개 사건 54건) · <b>모델</b> claude-opus-5-5 · <b>수집</b> 2026-10-22 · 매번 새 대화, 시스템 지시 없음, 기본 설정 · 답변 원문은 고치지 않았고 한국어 풀이는 참고 번역입니다.<br>특정 날짜·한 모델의 답변 9건에서 본 차이이며, 각 나라의 역사 인식이나 AI 전체를 대표하지 않습니다.</div>
+</div>
+<script>
+const p=new URLSearchParams(location.search);
+document.body.classList.add('s'+(p.get('s')||'10'));
+if(p.get('notitle'))document.body.classList.add('notitle');
+</script>
+</body></html>
