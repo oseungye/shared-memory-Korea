@@ -236,12 +236,31 @@ function fakeClient(handlers) {
   return client;
 }
 
-test('참여 집계 RPC: 합계 형식을 숫자로 읽는다', async () => {
-  global.db = fakeClient({ rpc: () => ({ data: [{ participants: '10', completed_participants: 6, expressions: 10 }], error: null }) });
+test('참여 집계 RPC: 합계 형식을 숫자로 읽고, 접속 로그 추정치는 빼서 서버 기록만 돌려준다', async () => {
+  global.db = fakeClient({ rpc: name => (name === 'participation_estimate'
+    ? { data: [{ estimated: '3', counted_until: '2026-10-23T13:25:00Z' }], error: null }
+    : { data: [{ participants: '10', completed_participants: 6, expressions: 10 }], error: null }) });
   try {
     const r = await Store.fetchParticipationSummary();
-    assert.deepEqual(r, { available: true, participants: 10, completedParticipants: 6, expressions: 10 });
+    assert.deepEqual(r, { available: true, participants: 7, completedParticipants: 6, expressions: 10 });
   } finally { delete global.db; }
+});
+
+test('참여 집계: 추정치를 확인하지 못하면(함수 없음·오류·합계보다 큼) 참여자 수를 돌려주지 않는다 (섞인 숫자 표시 금지)', async () => {
+  const summary = { data: [{ participants: 90, completed_participants: 7, expressions: 15 }], error: null };
+  for (const est of [
+    { data: null, error: { code: 'PGRST202', message: 'Could not find the function' } },
+    { data: [{ estimated: 120 }], error: null },
+    { data: [{ estimated: 'x' }], error: null }
+  ]) {
+    global.db = fakeClient({ rpc: name => (name === 'participation_estimate' ? est : summary) });
+    try {
+      const r = await Store.fetchParticipationSummary();
+      assert.equal(r.available, true);
+      assert.equal(r.participants, null, JSON.stringify(est));
+      assert.equal(r.expressions, 15);                // 공개 문장 수는 그대로 (추정치와 무관)
+    } finally { delete global.db; }
+  }
 });
 
 test('소표본 보호: 서버가 null로 가린 연령대는 0명 + suppressed로 처리되어 세부 분석이 숨겨진다', async () => {

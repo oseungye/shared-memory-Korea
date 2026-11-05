@@ -4758,7 +4758,7 @@ function countParticipation() {
   Store.recordParticipation(currentEventId).then(r => { if (r && r.ok && !r.already) loadParticipantCount(); }).catch(() => {});
 }
 
-/** 첫 화면의 참여자 수 — Supabase 집계 함수 결과만 사용합니다 (하드코딩 없음). */
+/** 첫 화면의 참여자 수 — 서버에 실제로 기록된 참여자만 (접속 로그 추정치는 빼고, 확인하지 못하면 숨김 · shared-store.js) */
 async function loadParticipantCount() {
   const el = document.getElementById('participantCount');
   if (!el || !Store || !Store.fetchParticipationSummary) return;
@@ -4770,7 +4770,7 @@ async function loadParticipantCount() {
 }
 
 /**
- * 첫 화면의 '지금까지 쌓인 기록' — 실제 서버 집계만 씁니다(지어낸 숫자 없음). 불러오지 못했거나 0이면 숨깁니다.
+ * 첫 화면의 '지금까지 쌓인 기록' — 실제 서버 기록만 씁니다(접속 로그 추정치는 빼고, 지어낸 숫자 없음). 불러오지 못했거나 0이면 숨깁니다.
  * · '왜 Shared Memory인가'의 결과 줄: 공개된 문장 수 (아카이브가 실제로 자라고 있음을 보여 줌)
  * · 넓은 화면의 예시 카드 아래: 참여자 수 · 공개된 문장 수 · 아카이브 바로 가기
  */
