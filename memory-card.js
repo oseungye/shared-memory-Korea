@@ -215,7 +215,7 @@
       stamps: quick ? [
         { id: 'compare', mark: '讀', label: '세 나라 서술', done: !!flow.viewedCompare },
         { id: 'choices', mark: '擇', label: '관점 고르기', done: choices.length > 0 },
-        { id: 'reflect', mark: '書', label: '한 줄 소감', done: !!after },
+        { id: 'reflect', mark: '書', label: '내 생각', done: !!after },
         { id: 'shared', mark: '共', label: '공개 참여', done: !!i.published }
       ] : [
         { id: 'compare', mark: '讀', label: '세 나라 서술', done: !!flow.viewedCompare },
@@ -422,12 +422,12 @@
         block('고른 관점이 없어요. (질문을 모두 건너뜀)', `400 26px ${UI}`, C.mute, 40, 1);
       }
       rule(40);
-      label('나의 한 줄 소감 · 직접 쓴 문장');
+      label('나의 생각 · 직접 쓴 문장');
       if (model.after) {
         const as = AFTER_SIZE[model.tiers.after];
         block(`“${model.after}”`, `${QF.weight} ${as}px ${QF.family}`, C.ink, Math.round(as * 1.5), lim.after);
       } else {
-        block('소감은 남기지 않았어요.', `400 26px ${UI}`, C.mute, 40, 1);
+        block('생각은 쓰지 않았어요.', `400 26px ${UI}`, C.mute, 40, 1);
       }
     } else {
     // 탐구 전
@@ -586,7 +586,7 @@
       m += 48; text('고른 관점이 없어요. (질문을 모두 건너뜀)', `400 26px ${UI}`, C.mute, X, m);
     }
 
-    m += 52; text('나의 한 줄 소감 · 직접 쓴 문장', `600 24px ${UI}`, C.accent, X, m);
+    m += 52; text('나의 생각 · 직접 쓴 문장', `600 24px ${UI}`, C.accent, X, m);
     m += 18;
     let afterSize = null;
     if (hasAfter) {
@@ -599,7 +599,7 @@
       const afterFont = `${QF.weight} ${fit.size}px ${QF.family}`;
       fit.lines.forEach(l => { m += fit.lineH; text(l, afterFont, C.ink, X, m - Math.round(fit.size * 0.18)); });
     } else {
-      m += 40; text('소감은 남기지 않았어요.', `400 26px ${UI}`, C.mute, X, m);
+      m += 40; text('생각은 쓰지 않았어요.', `400 26px ${UI}`, C.mute, X, m);
     }
     return { truncated, afterSize, bottom: m };
   }
@@ -754,7 +754,7 @@
     const m = model || {};
     const uniq = str => Array.from(new Set(Array.from(String(str || '').replace(/\s+/g, '')))).join('') || 'A';
     const stamps = (m.stamps || []).map(x => x.mark + x.label).join('');
-    const labels = '탐구전·나의첫생각후한문장새로쓴말계속다섯번째서술자내가담은것하며롭게발견관점아직남은질문참여자직접만든카드입니다정답이나점수를뜻하지않습니다긴일부생략↓고른객관식줄소감남기지았어요없모두건너뜀과()';
+    const labels = '탐구전·나의첫생각후한문장새로쓴말계속다섯번째서술자내가담은것하며롭게발견관점아직남은질문참여자직접만든카드입니다정답이나점수를뜻하지않습니다긴일부생략↓고른객관식줄소감남기지았어요없모두건너뜀과()쓰으예';
     const choiceText = (m.choices || []).map(ch => ch.question + ch.answer).join('');
     const quotes = [m.before, m.after, m.myQuestion, choiceText, '“”'].join('');
     const ui = [labels, stamps, choiceText, (m.discoveries || []).join(''), (m.change ? m.change.added.concat(m.change.kept).join('') : ''),

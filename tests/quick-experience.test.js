@@ -180,11 +180,11 @@ test('카드 그림(기본 체험): 모든 테마 × 카드/스토리 × 소감 
       const all = cv.texts.map(t => t.s).join('\n');
       const where = `${theme}/${format}/${after.length}`;
       assert.match(all, /내가 고른 관점 · 객관식/, where);
-      assert.match(all, /나의 한 줄 소감 · 직접 쓴 문장/, where);
+      assert.match(all, /나의 생각 · 직접 쓴 문장/, where);
       assert.doesNotMatch(all, /탐구 전 · 나의 첫 생각/, where);
       assert.match(all, /식민지 지배와 동원이라는 시작/, where);
       assert.match(all, /당사자의 이야기를 기록하고 듣기/, where);
-      if (!after) assert.match(all, /소감은 남기지 않았어요/, where);
+      if (!after) assert.match(all, /생각은 쓰지 않았어요/, where);
       else assert.match(all, /이 역사는|재일조선인의 역사는/, where);
       assert.match(all, /고른 관점과 직접 쓴 문장으로 만든 카드예요/, where);
       // 하단 안내가 본문 폭을 넘지 않음 (가장 긴 하단 문장 기준)
@@ -271,9 +271,14 @@ test('index.html: 첫 화면에 두 사건 큰 카드, 객관식·소감 단계,
   // 2026-10-23 운영자 결정: 기본 체험의 객관식 답·한 줄 소감은 동의 상자 없이 이름 없이 저장 → 동의 상자 없음,
   // 대신 소감 입력 바로 아래에 저장된다는 사실을 안내 (예전 "서버로 보내지 않아요" 안내는 남지 않음)
   assert.doesNotMatch(html, /id="choiceShareConsent"|id="reflectExtra"/);
-  assert.match(html, /id="reflectHint">[^<]*<span id="reflectCount">0<\/span>\/300자 · 카드에 담기고, 고른 관점과 함께 이름 없이 저장되어 프로젝트 분석에 쓰여요 \(다른 참여자에게는 공개되지 않아요\. 공개는 아래 ‘보태기’를 고른 경우에만\)/);
+  assert.match(html, /id="reflectHint">[^<]*<span id="reflectCount">0<\/span>\/300자 · 이름 없이 저장돼요\. 아래 공개를 고른 경우에만 다른 참여자에게 보여요\./);
   assert.doesNotMatch(html, /서버로 보내지 않아요/);
-  assert.match(html, /<label class="reflect-label" for="reflectInput">내 카드에 남길 소감<\/label>/);
+  assert.match(html, /<label class="reflect-label" for="reflectInput">내 생각<\/label>/);
+  // 3단계는 '내 생각 쓰기'(주관식): 고른 관점 → 생각을 돕는 열린 질문 → 입력란 순서, 공개는 따로 고르는 상자(기본 꺼짐)
+  const step3 = html.slice(html.indexOf('id="reflectStep"'), html.indexOf('id="stepCta"'));
+  assert.ok(step3.indexOf('id="reflectRecap"') < step3.indexOf('id="reflectPrompts"') && step3.indexOf('id="reflectPrompts"') < step3.indexOf('id="reflectInput"'));
+  assert.match(step3, /<input type="checkbox" id="reflectShareConsent" disabled \/>/);
+  assert.doesNotMatch(step3, /\(선택\)<\/small><\/p>|쓰지 않고 넘어가도/);                  // 건너뛰기를 여러 번 강조하지 않음
   const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]);
   assert.ok(srcs.indexOf('./choice-questions.js') >= 0 && srcs.indexOf('./choice-questions.js') < srcs.indexOf('./script.js'));
 });

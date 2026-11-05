@@ -215,9 +215,9 @@
             <p class="hero-card__label">내가 고른 관점 · 객관식</p>
             <p class="hero-card__quote hero-card__quote--before">— 서로 다른 이름을 함께 보여 주는 것</p>
             <p class="hero-card__arrow">↓</p>
-            <p class="hero-card__label">나의 한 줄 소감 · 직접 쓴 문장</p>
+            <p class="hero-card__label">나의 생각 · 직접 쓴 문장</p>
             <p class="hero-card__quote">“같은 전쟁을 세 나라는 서로 다른 이름과 기억으로 남겼다.”</p>
-            <ul class="hero-card__stamps"><li>서술</li><li>관점</li><li>소감</li></ul>
+            <ul class="hero-card__stamps"><li>서술</li><li>관점</li><li>생각</li></ul>
           </div>
           </div>
           <figcaption class="hero-card__caption" id="heroCardCaption">탐구를 마치면 받는 <strong>나만의 Memory Card</strong> <small>(예시 문장)</small></figcaption>
@@ -230,7 +230,7 @@
         <ol class="hero__steps hero__steps--v2" aria-label="기본 체험 4단계">
           <li><span class="hero__step-num">1</span><strong>세 나라 기록 비교</strong></li>
           <li><span class="hero__step-num">2</span><strong>관점 고르기</strong></li>
-          <li><span class="hero__step-num">3</span><strong>한 줄 소감</strong></li>
+          <li><span class="hero__step-num">3</span><strong>내 생각 쓰기</strong></li>
           <li><span class="hero__step-num">4</span><strong>Memory Card</strong></li>
         </ol>
       </div>
@@ -583,27 +583,34 @@
       <!-- 기본 체험 STEP 2: 관점 고르기 (한 화면에 질문 하나 · 정답 없음) — script.js renderChoiceStep -->
       <section class="choice-step" id="choiceStep" aria-labelledby="choicePrompt"><!-- JS --></section>
 
-      <!-- 기본 체험 STEP 3: 한 줄 소감 (건너뛰기 가능) — script.js renderReflectStep -->
+      <!-- 기본 체험 STEP 3: 내 생각 쓰기 (주관식 · 비워 두면 한 번 확인 후 넘어감) — script.js renderReflectStep -->
       <section class="reflect-step" id="reflectStep" aria-labelledby="reflectPrompt">
         <div class="step-head">
-          <p class="step-head__kicker">한 줄 소감 <small>(선택)</small></p>
-          <h3 class="step-head__q" id="reflectPrompt">탐구를 마친 지금, <span class="hl-ink">내 카드에 남길 소감</span>을 한 문장으로 적어 볼까요?</h3>
-          <p class="step-head__desc">적은 문장은 <strong>My Memory Card</strong>에 그대로 담겨요. 쓰지 않고 넘어가도 카드는 만들어져요.</p>
+          <p class="step-head__kicker">내 생각 쓰기</p>
+          <h3 class="step-head__q" id="reflectPrompt">세 나라의 기록과 내가 고른 관점을 떠올리며, <span class="hl-ink">이 역사를 어떻게 기억하면 좋을지</span> 한 문장으로 써 주세요.</h3>
+          <p class="step-head__desc">짧아도 괜찮아요. 쓴 문장은 내 <strong>My Memory Card</strong>에 그대로 담겨요.</p>
         </div>
-        <!-- 소감 입력을 가장 먼저 · 가장 크게 (카드에 담기고, 이름 없이 비공개로 저장 · 다른 참여자에게 공개하지 않음) -->
-        <label class="reflect-label" for="reflectInput">내 카드에 남길 소감</label>
-        <textarea id="reflectInput" class="shared-form__textarea shared-form__textarea--main" rows="3" maxlength="300" aria-describedby="reflectHint" placeholder="예: 이름 하나에도 각 나라가 이 전쟁을 보는 눈이 담겨 있다는 게 새로웠다."></textarea>
-        <p class="guide-step__hint" id="reflectHint"><span id="reflectCount">0</span>/300자 · 카드에 담기고, 고른 관점과 함께 이름 없이 저장되어 프로젝트 분석에 쓰여요 (다른 참여자에게는 공개되지 않아요. 공개는 아래 ‘보태기’를 고른 경우에만).</p>
-        <!-- 아카이브에 보태기 (선택 · 기본 꺼짐): 체크한 경우에만 '익명'으로 등록되고, 운영자가 확인한 뒤 Shared Archive에 실립니다 -->
+        <!-- 쓰는 동안 참고하도록: 내가 고른 관점(위) → 생각을 돕는 질문 → 입력란. 질문은 답을 정해 주지 않는 열린 질문만 -->
+        <div class="reflect-recap" id="reflectRecap"><!-- JS: 내가 고른 관점 --></div>
+        <div class="reflect-prompts" id="reflectPrompts">
+          <p class="reflect-prompts__label">생각을 돕는 질문 <small>(하나만 골라 답해도 돼요)</small></p>
+          <ul>
+            <li>세 나라의 기록에서 가장 다르게 느낀 점은 무엇인가요?</li>
+            <li>그 관점을 고른 이유는 무엇인가요?</li>
+          </ul>
+        </div>
+        <label class="reflect-label" for="reflectInput">내 생각</label>
+        <textarea id="reflectInput" class="shared-form__textarea shared-form__textarea--main" rows="3" maxlength="300" aria-describedby="reflectHint" placeholder="예: 세 나라의 기록에서 가장 다르게 느낀 점은 ___이다. 왜냐하면 ___."></textarea>
+        <p class="guide-step__hint" id="reflectHint"><span id="reflectCount">0</span>/300자 · 이름 없이 저장돼요. 아래 공개를 고른 경우에만 다른 참여자에게 보여요. 이름·학교·연락처는 쓰지 마세요.</p>
+        <!-- 공동 표현으로 공개 (선택 · 기본 꺼짐 · 쓴 문장이 있어야 고를 수 있음): 심화 탐구의 공동 표현 등록과 같은 테이블·같은 방식으로
+             '익명'으로 바로 공개됩니다(부적절한 글은 운영자가 is_hidden 으로 숨김). script.js saveQuickAnswers -->
         <label class="consent-check consent-check--soft reflect-share">
           <input type="checkbox" id="reflectShareConsent" disabled />
-          <span><strong>이 문장을 Shared Archive에 보태기</strong> <small>(선택) 이름 없이 ‘익명’으로, 운영자가 확인한 뒤 다른 참여자에게 공개돼요. 이름·학교·연락처는 쓰지 마세요.</small></span>
+          <span><strong>이 문장을 공동 표현으로 공개하기</strong> <small>(선택) 닉네임 없이 ‘익명’으로 Shared Archive와 ‘모두의 기억’에 실려, 다른 참여자가 읽고 공감할 수 있어요.</small></span>
         </label>
-        <div class="reflect-recap" id="reflectRecap"><!-- JS: 내가 고른 관점 --></div>
-
 
         <p class="deep-switch">
-          근거를 살펴보며 교과서에 실릴 한 문장을 함께 다듬고 싶다면 <button type="button" class="before-card__link" data-deep-switch="3">공동 표현 제안하기 (심화)</button>
+          사료·AI의 서술까지 살펴보며 문장을 더 다듬고 싶다면 <button type="button" class="before-card__link" data-deep-switch="3">심화 탐구에서 다듬기</button>
         </p>
       </section>
 
@@ -688,11 +695,11 @@
         <details class="faq__item"><summary>분석 결과가 미리 정해진(하드코딩된) 값은 아닌가요?</summary>
           <p>아닙니다. 모든 수치는 화면에 보이는 서술 텍스트와 저장된 참여 문장에서 매번 계산됩니다. 서술 문장을 바꾸면 결과도 바뀌며, 이를 자동 테스트로 확인합니다. 사람이 쓴 해석(편집자 해설)은 자동 분석과 구분해 따로 표시합니다.</p></details>
         <details class="faq__item"><summary>학생 데이터는 어떻게 보호하나요?</summary>
-          <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개용 키와 접근 규칙으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다. 첫 화면의 참여자 수를 세기 위해, 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 <strong>사건 이름과 이 브라우저의 무작위 키만</strong> 한 번 기록합니다. 기본 체험에서 카드를 만들면 <strong>고른 관점(객관식)과 한 줄 소감을 이름 없이</strong> 저장해 프로젝트 분석에 씁니다. 소감은 다른 참여자에게 공개하지 않으며 운영자만 볼 수 있습니다. 단, 소감 아래 ‘Shared Archive에 보태기’를 따로 고르면 그 문장만 이름 없이(‘익명’) 등록되고, 운영자가 확인한 뒤 Shared Archive에 공개됩니다. 소감에는 이름·학교·연락처를 쓰지 말아 주세요.</p></details>
+          <p>이름·연락처·학교·정확한 나이는 받지 않고, 연령대는 10년 단위로만 선택합니다. 공개되는 닉네임에 연락처·학교명이 들어가면 등록을 막습니다. 데이터베이스는 공개용 키와 접근 규칙으로 보호되며, 참여자 구분용 무작위 키는 외부에서 읽을 수 없습니다. 5명 미만인 연령대는 서버에서 연령대 정보를 가립니다. 첫 화면의 참여자 수를 세기 위해, 설문을 마치거나 카드를 만들거나 공동 표현을 등록하면 <strong>사건 이름과 이 브라우저의 무작위 키만</strong> 한 번 기록합니다. 기본 체험에서 카드를 만들면 <strong>고른 관점(객관식)과 ‘내 생각’에 쓴 문장을 이름 없이</strong> 저장해 프로젝트 분석에 씁니다. 이 문장은 ‘공동 표현으로 공개하기’를 따로 고른 경우에만 닉네임 없이(‘익명’) 공개되고, 그렇지 않으면 운영자만 볼 수 있습니다. 문장에는 이름·학교·연락처를 쓰지 말아 주세요.</p></details>
         <details class="faq__item"><summary>실제 수업에서는 어떻게 쓰나요?</summary>
           <p><strong>QR로 5분 체험:</strong> 첫 화면의 ‘수업·전시용 사건별 QR 만들기’에서 사건별 QR을 인쇄해 나눠 주면, 학생은 QR을 찍어 바로 그 사건의 탐구를 시작하고 마지막에 My Memory Card를 저장합니다. <strong>한 차시 수업:</strong> 한 차시(약 20–30분) 기준으로, ① 탐구 전 한 문장 → ② 세 나라의 서술 읽기 → ③ ‘어떻게 다를까?’에서 공통점·차이점 확인 → ④ 관련 사료 1개 확인 → ⑤ 내 한 문장 쓰기 → ⑥ 반 전체의 기억 보기 순서로 진행할 수 있습니다. 교사는 ⑥의 표현군과 탐구 전·후 변화를 토론 자료로 쓸 수 있습니다.</p></details>
         <details class="faq__item"><summary>My Memory Card에는 무엇이 담기고, 어디에 저장되나요?</summary>
-          <p>사건과 역사적 질문, 참여자가 직접 쓴 탐구 전·후 문장, 직접 고른 ‘새롭게 발견한 관점’과 남은 질문, 실제로 열어 본 탐구 단계(세 나라 서술·비교 분석·사료)가 담깁니다. 문장을 고치거나 요약하지 않으며, 탐구 전·후 비교는 실제로 새로 쓴 단어와 계속 쓴 단어만 보여 줍니다. 카드 이미지는 참여자의 기기 안에서만 만들어지고 서버로 보내지 않습니다. 다만 기본 체험에서 고른 관점(객관식)과 한 줄 소감은 이름 없이 저장되어 프로젝트 분석에 쓰이며, 다른 참여자에게는 공개되지 않습니다(‘Shared Archive에 보태기’를 따로 고른 소감만 운영자 확인 후 공개). 공개 등록은 별도의 동의를 받을 때만 이루어지며, 공개하지 않아도 카드를 받을 수 있습니다.</p></details>
+          <p>사건과 역사적 질문, 참여자가 직접 쓴 탐구 전·후 문장, 직접 고른 ‘새롭게 발견한 관점’과 남은 질문, 실제로 열어 본 탐구 단계(세 나라 서술·비교 분석·사료)가 담깁니다. 문장을 고치거나 요약하지 않으며, 탐구 전·후 비교는 실제로 새로 쓴 단어와 계속 쓴 단어만 보여 줍니다. 카드 이미지는 참여자의 기기 안에서만 만들어지고 서버로 보내지 않습니다. 다만 기본 체험에서 고른 관점(객관식)과 ‘내 생각’에 쓴 문장은 이름 없이 저장되어 프로젝트 분석에 쓰이며, ‘공동 표현으로 공개하기’를 고른 문장만 다른 참여자에게 공개됩니다. 공개 등록은 별도의 동의를 받을 때만 이루어지며, 공개하지 않아도 카드를 받을 수 있습니다.</p></details>
         <details class="faq__item"><summary>활동 전·후 변화가 교육 효과를 증명하나요?</summary>
           <p>그렇게 말할 수 없습니다. 탐구 전·후 문장의 어휘·개념 변화는 이 활동 안에서 관찰된 기술적(descriptive) 결과이며, 대조군이 없고 참여자가 무작위 표본이 아니므로 교육 효과를 증명하지 않습니다. “표현이 이렇게 달라졌다”는 관찰 자료로만 사용합니다.</p></details>
         <details class="faq__item"><summary>사료와 분석 결과는 어떻게 연결되나요?</summary>
@@ -754,7 +761,7 @@
           <p class="card-actions__hint no-print" id="cardStoryHint" hidden>휴대폰에서 <strong>‘인스타 스토리로 공유’</strong>를 누른 뒤 Instagram → <strong>스토리</strong>를 고르면 바로 올릴 수 있어요. 공유 메뉴가 없으면 이미지를 저장하고 인스타그램 스토리에서 사진을 고르세요.</p>
           <p class="card-actions__status no-print" id="cardActionStatus" role="status" aria-live="polite"></p>
           <p class="card-actions__status no-print"><button type="button" class="before-card__link" data-card-action="open-image" hidden>저장이 안 되나요? 이미지로 열기 (길게 눌러 저장)</button></p>
-          <p class="card-actions__note no-print">카드 이미지는 이 기기 안에서만 만들어지고 서버로 보내지 않습니다. (기본 체험에서 고른 관점과 한 줄 소감은 이름 없이 저장되며, ‘보태기’를 고른 소감만 운영자 확인 뒤 공개됩니다.) 공용 기기라면 저장한 뒤 ‘새 참여자로 시작’을 눌러 주세요.</p>
+          <p class="card-actions__note no-print">카드 이미지는 이 기기 안에서만 만들어지고 서버로 보내지 않습니다. (기본 체험에서 고른 관점과 ‘내 생각’에 쓴 문장은 이름 없이 저장되며, 공개를 고른 문장만 다른 참여자에게 보입니다.) 공용 기기라면 저장한 뒤 ‘새 참여자로 시작’을 눌러 주세요.</p>
           <!-- 기본 체험: 아카이브 입구 — 다른 참여자가 공개한 문장 3개 · 공감 · 제안하기 (script.js renderArchiveEntry) -->
           <section class="archive-entry no-print" id="archiveEntry" aria-labelledby="archiveEntryTitle" hidden></section>
           <!-- 기본 체험: 다른 참여자들이 고른 관점 (객관식 집계 · 질문별 5명 미만이면 숨김) -->
@@ -833,7 +840,7 @@
       <ol class="flow-guide__steps">
         <li><b aria-hidden="true">1</b><div><strong>세 나라 기록 읽기</strong><span>같은 사건을 한국·일본·중국이 어떻게 적었는지 읽어요.</span></div></li>
         <li><b aria-hidden="true">2</b><div><strong>관점 고르기 <small>(3문항)</small></strong><span>내 생각에 가장 가까운 것을 하나씩 골라요.</span></div></li>
-        <li><b aria-hidden="true">3</b><div><strong>한 줄 소감 <small>(쓰지 않아도 돼요)</small></strong><span>느낀 점을 한 문장으로 남겨요.</span></div></li>
+        <li><b aria-hidden="true">3</b><div><strong>내 생각 쓰기</strong><span>세 나라의 기록과 내가 고른 관점을 떠올리며, 내 생각을 한 문장으로 써요.</span></div></li>
         <li><b aria-hidden="true">4</b><div><strong>나만의 카드 받기</strong><span>이미지로 저장하고, 다른 사람들이 남긴 문장도 읽어요.</span></div></li>
       </ol>
       <p class="flow-guide__tip" id="flowGuideTip">화면 <strong>맨 아래 버튼</strong>을 누르면 다음 단계로 가요. 이름이나 연락처는 묻지 않아요.</p>

@@ -4168,3 +4168,12 @@ body.has-flow-guide { overflow: hidden; }
   .page--home { padding-top: 1.5rem; }
   .hero--v2 { padding-top: 1rem; }
 }
+
+/* ---------- 29. 3단계 '내 생각 쓰기': 고른 관점(참고) → 생각을 돕는 질문 → 입력란 ---------- */
+.reflect-step .reflect-recap { margin: 0.6rem 0 0.7rem; padding: 0.65rem 0.85rem; }
+.reflect-step .reflect-recap__list { font-size: var(--fs-sm); gap: 0.25rem; }
+.reflect-step .reflect-recap__list small { display: none; }               /* 질문 이름은 생략, 고른 관점만 짧게 */
+.reflect-prompts { margin: 0 0 0.8rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+.reflect-prompts__label { font-weight: 600; color: var(--ink); margin-bottom: 0.25rem; }
+.reflect-prompts__label small { font-weight: 400; color: var(--ink-mute); }
+.reflect-prompts ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; line-height: 1.55; }
