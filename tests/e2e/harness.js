@@ -54,8 +54,10 @@ function serve() {
  * 같은 주소 밖 요청은 모두 막고, supabase-js 요청(CDN 또는 vendor 파일)만 mock-supabase.js로 바꿉니다.
  * Playwright는 나중에 등록한 route를 먼저 적용하므로 차단 규칙을 먼저 등록합니다.
  */
-async function mockPage(context, base) {
+async function mockPage(context, base, opts) {
   const page = await context.newPage();
+  // 기본 체험 첫 진입의 진행 안내(대화 상자)는 다른 테스트의 클릭을 가리므로 건너뜁니다. 안내 자체는 { guide: true }로 확인.
+  if (!(opts && opts.guide)) await page.addInitScript(() => { window.__SM_SKIP_GUIDE = true; });
   page.__errors = [];
   page.on('pageerror', e => page.__errors.push(e.message));
   page.on('dialog', d => (page.__dialogAnswer === false ? d.dismiss() : d.accept()));
@@ -107,7 +109,7 @@ async function run(name, body) {
   const base = `http://127.0.0.1:${server.address().port}/`;
   let error = null;
   try {
-    await body({ browser, base, check, mockPage: ctx => mockPage(ctx, base), presetContinue: presetContinueScript() });
+    await body({ browser, base, check, mockPage: (ctx, opts) => mockPage(ctx, base, opts), presetContinue: presetContinueScript() });
   } catch (e) {
     error = e;
     console.error(`실행 오류: ${e && e.stack ? e.stack : e}`);

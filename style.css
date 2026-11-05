@@ -4010,3 +4010,202 @@ h3, h4 { font-weight: 600; }
   .ask-turn--student { margin-left: 0.8rem; }
   .ask-ai__row .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* ---------- 23. 아카이브 입구 · 보태기 (기본 체험) ----------
+   카드를 만든 뒤 다른 참여자의 문장을 읽고 공감하고, 공동 표현 제안하기(심화)로 이어지는 자리 */
+.reflect-share { margin: 0.6rem 0 1rem; }
+.reflect-share input:disabled + span { opacity: 0.55; }
+.archive-entry {
+  margin-top: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.1rem 1.15rem 1.2rem;
+}
+.archive-entry__title { font-size: var(--fs-xl); margin-bottom: 0.25rem; }
+.archive-entry__status { font-size: var(--fs-sm); color: var(--accent); background: var(--bg-soft); border-radius: 10px; padding: 0.55rem 0.75rem; margin: 0.6rem 0; }
+.archive-entry__list { list-style: none; display: grid; gap: 0.7rem; margin: 0.9rem 0 1rem; }
+.archive-entry__item { border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.archive-entry__item:first-child { border-top: 0; padding-top: 0; }
+.archive-entry__text { font-family: var(--font-quote); font-size: var(--fs-lg); line-height: 1.7; color: var(--ink); margin: 0 0 0.35rem; }
+.archive-entry__meta { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: var(--fs-xs); color: var(--ink-mute); }
+.archive-entry__empathy {
+  min-height: 40px; padding: 0.3rem 0.85rem; border-radius: 999px;
+  border: 1px solid rgba(139, 58, 58, 0.4); background: transparent; color: var(--accent);
+  font-size: var(--fs-xs); font-family: var(--font-ui);
+}
+.archive-entry__empathy.is-done { background: var(--bg-soft); border-color: var(--line); color: var(--ink-soft); }
+@media (hover: hover) { .archive-entry__empathy:not(:disabled):hover { background: var(--accent); color: #fff; } }
+.archive-entry__empty { font-size: var(--fs-sm); color: var(--ink-soft); margin: 0.8rem 0 1rem; }
+.archive-entry__actions { display: grid; gap: 0.8rem; border-top: 1px solid var(--line); padding-top: 0.9rem; }
+.archive-entry__actions .btn { min-height: 44px; justify-content: center; }
+.archive-entry__propose-btn { background: var(--accent); color: #fff; width: 100%; }
+@media (hover: hover) { .archive-entry__propose-btn:hover { background: #6f2c2c; color: #fff; } }
+.archive-entry__propose .nlp-meta { margin-top: 0.35rem; }
+/* 기본 체험 카드 화면: 같은 일을 하는 아래 버튼(다른 사람 기억 보기·공개하기)은 아카이브 입구로 대신합니다 */
+.page--card[data-mode="quick"] .card-builder__next .btn--small,
+.page--card[data-mode="quick"] .card-builder__next [data-card-action="publish"] { display: none; }
+/* 넓은 화면: 아카이브 입구가 카드 옆 오른쪽 칸('카드 다듬기' 상자) 맨 위에 들어갑니다 (script.js placeArchiveEntry) */
+.card-builder .archive-entry { border: 0; padding: 0; margin: 0 0 1.2rem; background: none; }
+
+/* ---------- 24. 분석 방법은 궁금한 분만 (접힌 상자) ---------- */
+.method-note { margin: 0.4rem 0 0.8rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+.method-note summary { cursor: pointer; min-height: 40px; display: inline-flex; align-items: center; color: var(--accent); }
+.method-note p { margin-top: 0.3rem; line-height: var(--lh-text); }
+
+/* ---------- 25. 휴대폰: 글자가 화면 끝에서 반쯤 잘리지 않게 ----------
+   옆으로 밀어야 보이던 줄(탭·카드 디자인)을 여러 줄로 감쌉니다. */
+@media (max-width: 640px) {
+  .tabs { flex-wrap: wrap; overflow-x: visible; gap: 0.4rem; border-bottom: 0; padding-bottom: 0.2rem; }
+  .tab {
+    padding: 0.55rem 0.8rem; min-height: 44px; justify-content: center;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg-card);
+    white-space: normal; font-size: var(--fs-sm);
+  }
+  .tab::after { display: none; }
+  .tab.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .tab__sub { display: none; }
+  .card-design__themes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: visible; margin: 0; padding: 0; }
+  .card-theme { flex: none; }
+}
+
+/* ---------- 26. 처음 온 사람을 위한 진행 안내 ---------- */
+.flow-guide {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(26, 26, 26, 0.45);
+  padding: 1rem;
+}
+.flow-guide[hidden] { display: none; }
+body.has-flow-guide { overflow: hidden; }
+.flow-guide__card {
+  width: 100%; max-width: 440px; max-height: calc(100vh - 2rem); overflow-y: auto;
+  background: var(--bg-main); border-radius: 18px;
+  padding: 1.4rem 1.3rem 1.2rem;
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.5);
+}
+@media (min-width: 641px) { .flow-guide { align-items: center; } }
+.flow-guide__kicker { color: var(--accent); font-size: var(--fs-sm); font-weight: 600; }
+.flow-guide__title { font-size: 1.45rem; margin: 0.15rem 0 0.9rem; }
+.flow-guide__title small { font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: 500; color: var(--ink-mute); margin-left: 0.3rem; }
+.flow-guide__steps { list-style: none; display: grid; gap: 0.75rem; margin-bottom: 0.9rem; }
+.flow-guide__steps li { display: grid; grid-template-columns: 2rem 1fr; gap: 0.7rem; align-items: start; }
+.flow-guide__steps b {
+  width: 2rem; height: 2rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-family: var(--font-latin); font-size: var(--fs-md);
+}
+.flow-guide__steps strong { display: block; font-size: var(--fs-base); }
+.flow-guide__steps strong small { font-weight: 400; color: var(--ink-mute); font-size: var(--fs-xs); }
+.flow-guide__steps span { display: block; font-size: var(--fs-md); color: var(--ink-soft); line-height: 1.55; }
+.flow-guide__tip { font-size: var(--fs-sm); color: var(--ink-soft); background: var(--bg-soft); border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
+.flow-guide__start { width: 100%; justify-content: center; min-height: 52px; background: var(--accent); border-radius: 999px; }
+.stepper__help {
+  margin-top: 0.3rem; min-height: 36px; padding: 0.2rem 0.75rem;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--bg-card);
+  font-size: var(--fs-xs); color: var(--ink-soft);
+}
+@media (hover: hover) { .stepper__help:hover { color: var(--accent); border-color: var(--accent); } }
+
+/* ---------- 27. 이름의 뜻 (같은 사건, 서로 다른 이름) ---------- */
+.sum-card__names li { align-items: flex-start; }
+.sum-card__name { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.sum-card__name-note { font-family: var(--font-ui); font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.55; }
+/* 네 번째 서술자 '빈자리' 표: 휴대폰 폭 안에 들어오게 (넘치면 휴대폰 브라우저가 페이지 전체를 넓혀 글자가 잘려 보임) */
+@media (max-width: 640px) {
+  .gap-table { table-layout: fixed; font-size: var(--fs-xs); }
+  .gap-table th, .gap-table td { white-space: normal; padding: 0.45rem 0.15rem; overflow-wrap: anywhere; word-break: keep-all; }
+  .gap-table thead th { font-size: var(--fs-2xs); line-height: 1.3; }
+  .gap-table thead th .dot { display: block; margin: 0 auto 0.2rem; }
+  .gap-table tbody th[scope="row"], .gap-table thead th:first-child { width: 5.6rem; min-width: 0; padding-left: 0.5rem; }
+  .gap-table tr.gap-group th { padding-left: 0.5rem; }
+}
+
+/* ---------- 28. 첫 화면: 목적 한 줄 · 왜 Shared Memory인가 · 지금까지 쌓인 기록 ---------- */
+.hero__mission {
+  font-family: var(--font-serif); font-size: var(--fs-lg); line-height: 1.7; color: var(--ink-soft);
+  margin: -0.4rem 0 1.3rem; max-width: 34em;
+}
+.hero__mission strong { color: var(--ink); font-weight: 600; }
+.why {
+  margin-top: 2rem; padding: 1.2rem 1.25rem 1.1rem;
+  border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, 0.55);
+}
+.why__title { font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; margin-bottom: 0.7rem; }
+.why__list { display: grid; gap: 0.65rem; margin: 0; }
+.why__row { display: grid; grid-template-columns: 3.2rem 1fr; gap: 0.7rem; align-items: baseline; }
+.why__row dt { font-size: var(--fs-xs); font-weight: 700; color: var(--accent); letter-spacing: 0.08em; }
+.why__row dd { margin: 0; font-size: var(--fs-md); line-height: 1.65; color: var(--ink-soft); }
+.why__row dd strong { color: var(--ink); }
+.why__live { display: block; margin-top: 0.2rem; color: var(--accent); font-weight: 600; }
+.why__live[hidden] { display: none; }
+.why__links { display: flex; flex-wrap: wrap; gap: 0.3rem 1.1rem; margin-top: 0.95rem; padding-top: 0.8rem; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.why__links a { color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; min-height: 40px; display: inline-flex; align-items: center; }
+.why__links a:hover { color: var(--accent); text-decoration-color: currentColor; }
+
+.hero-record { margin-top: 1.3rem; padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-card); text-align: center; }
+.hero-record[hidden] { display: none; }
+.hero-record__label { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--ink-mute); margin-bottom: 0.35rem; }
+.hero-record__nums { display: flex; justify-content: center; gap: 1.6rem; }
+.hero-record__nums div { display: flex; flex-direction: column; align-items: center; }
+.hero-record__nums strong { font-family: var(--font-latin); font-size: 1.9rem; font-weight: 500; color: var(--accent); line-height: 1.1; }
+.hero-record__nums span { font-size: var(--fs-xs); color: var(--ink-soft); }
+.hero-record__link { display: inline-flex; align-items: center; min-height: 40px; margin-top: 0.3rem; font-size: var(--fs-sm); color: var(--accent); }
+/* 넓은 화면에서는 참여자 수를 예시 카드 아래 기록 상자로 보여 주므로 왼쪽 줄은 숨김. 좁은 화면에서는 기록 상자 대신 왼쪽 줄 */
+@media (min-width: 901px) { .page--home .hero__count.is-shown-elsewhere { display: none; } }
+@media (max-width: 900px) { .hero-record { display: none !important; } }
+@media (max-width: 640px) {
+  .hero__mission { font-size: var(--fs-md); margin: -0.3rem 0 1rem; }
+  .why { margin-top: 1.4rem; padding: 1rem 1rem 0.9rem; }
+  .why__row { grid-template-columns: 2.8rem 1fr; gap: 0.5rem; }
+  .why__row dd { font-size: var(--fs-sm); }
+}
+@media (min-width: 901px) {
+  .hero--v2 .hero__grid { align-items: start; }
+  .hero--v2 .hero-card { margin-top: 2.2rem; }
+  .hero-record { margin-top: 1rem; }
+}
+@media (min-width: 901px) {
+  .page--home { padding-top: 1.5rem; }
+  .hero--v2 { padding-top: 1rem; }
+}
+
+/* ---------- 29. 3단계 '내 생각 쓰기': 고른 관점(참고) → 생각을 돕는 질문 → 입력란 ---------- */
+.reflect-step .reflect-recap { margin: 0.6rem 0 0.7rem; padding: 0.65rem 0.85rem; }
+.reflect-step .reflect-recap__list { font-size: var(--fs-sm); gap: 0.25rem; }
+.reflect-step .reflect-recap__list small { display: none; }               /* 질문 이름은 생략, 고른 관점만 짧게 */
+.reflect-prompts { margin: 0 0 0.8rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+.reflect-prompts__label { font-weight: 600; color: var(--ink); margin-bottom: 0.25rem; }
+.reflect-prompts__label small { font-weight: 400; color: var(--ink-mute); }
+.reflect-prompts ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; line-height: 1.55; }
+
+/* ---------- 30. 내 생각 기록 (3단계) · 기록 뒤 공개 묻기 ---------- */
+/* 휴대폰 진행 표시: 지금 단계와 '다음 단계' 이름을 함께 보여 줌 (기본 체험) */
+@media (max-width: 640px) {
+  .page--detail[data-mode="quick"] .flow-progress__step.is-next .flow-progress__label {
+    position: static; width: auto; height: auto; overflow: visible; clip: auto; color: var(--ink-mute);
+  }
+}
+.choice-step__next { color: var(--ink-mute); font-weight: 400; }
+.reflect-step .step-head { margin-bottom: 0.6rem; }
+.reflect-skip {
+  display: inline-flex; align-items: center; min-height: 44px; margin: 0.15rem 0 0.4rem;
+  padding: 0.35rem 0.9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-card);
+  font-size: var(--fs-sm); color: var(--ink-soft);
+}
+@media (hover: hover) { .reflect-skip:hover { color: var(--accent); border-color: var(--accent); } }
+.reflect-help { margin: 0.4rem 0 0.6rem; font-size: var(--fs-sm); color: var(--ink-soft); }
+.reflect-help summary { cursor: pointer; min-height: 40px; display: inline-flex; align-items: center; color: var(--accent); }
+.reflect-help .reflect-prompts { margin: 0.3rem 0 0.6rem; }
+.share-prompt {
+  max-width: 980px; margin: 0 auto 1.2rem; padding: 1rem 1.1rem;
+  background: var(--bg-card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px;
+}
+.share-prompt[hidden] { display: none; }
+.share-prompt__done { font-weight: 600; color: var(--accent); margin-bottom: 0.3rem; }
+.share-prompt__q { font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; margin-bottom: 0.2rem; }
+.share-prompt__desc { font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6; margin-bottom: 0.7rem; }
+.share-prompt__msg { font-size: var(--fs-sm); color: var(--korea); margin-bottom: 0.6rem; }
+.share-prompt__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.share-prompt__actions .btn { min-height: 46px; justify-content: center; }
+.share-prompt__yes { background: var(--accent); border-radius: 999px; padding: 0.7rem 1.4rem; }
+@media (max-width: 640px) { .share-prompt__actions .btn { flex: 1 1 0; } .share-prompt { margin: 0 0 1rem; } }
