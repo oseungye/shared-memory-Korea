@@ -1,6 +1,6 @@
 /* 기본 체험(객관식 관점 고르기) — 모바일 중심 브라우저 E2E (가짜 Supabase 사용, 실제 DB 접속 없음)
    실행: node tests/e2e/quick-experience.e2e.js   (전체: npm run test:e2e)
-   첫 화면 큰 사건 카드 → 세 나라 비교 → 객관식 질문(한 화면에 하나·정답 없음·건너뛰기) → 한 줄 소감(건너뛰기) → 카드.
+   첫 화면 큰 사건 카드 → 세 나라 비교 → 객관식 질문(한 화면에 하나·정답 없음·건너뛰기) → 내 생각 쓰기(비워 두면 한 번 확인) → 카드.
    탭 수 · 이전/다음 · 화살표 키 · 답 유지 · 고른 관점과 소감의 구분 · 공개/통계 동의 분리 · 별도 테이블 저장 ·
    소표본 숨김 · SQL 실행 전 · 심화 탐구 전환과 복귀 · 다른 사건은 기존 흐름 · 새 참여자 초기화 · 가로 넘침 · 오류 */
 'use strict';
@@ -98,13 +98,14 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
     (await page.$$eval('#choiceStep [aria-checked="true"]', els => els.length)) === 0 && /이 질문 건너뛰기/.test(await page.textContent('[data-step-main="q2"]')));
   await tap('[data-step-main="q2"]');                               // 2번은 고르지 않고 넘어감 (건너뛰기)
   await page.waitForTimeout(300);
-  check('질문 3/3 · 고르기 전 마지막 버튼 "이 질문 건너뛰고 소감 쓰기"', /질문 3\/3/.test(await page.$eval('#choiceStep', el => el.textContent)) &&
-    /이 질문 건너뛰고 소감 쓰기/.test(await page.textContent('[data-step-main="q2"]')));
-  check('마지막 질문 안내는 "한 줄 소감 쓰러 가기"', /‘한 줄 소감 쓰러 가기’를 눌러/.test(await page.$eval('#choiceStep', el => el.textContent)));
+  check('질문 3/3 · 고르기 전 마지막 버튼 "이 질문 건너뛰고 내 생각 기록으로"', /질문 3\/3/.test(await page.$eval('#choiceStep', el => el.textContent)) &&
+    /이 질문 건너뛰고 내 생각 기록으로/.test(await page.textContent('[data-step-main="q2"]')));
+  check('마지막 질문 안내는 "내 생각 기록하러 가기"', /‘내 생각 기록하러 가기’를 눌러/.test(await page.$eval('#choiceStep', el => el.textContent)));
+  check('객관식 화면에서 다음 단계(내 생각 기록)를 미리 알 수 있음 (스크롤 없이)', /다음: 내 생각 기록/.test(await page.textContent('#choiceStep .step-head__kicker')) && await inViewport(page, '#choiceStep .step-head__kicker'));
   await tap('[data-choice-option="side_by_side"]');
   await page.waitForTimeout(600);
-  check('마지막 질문에서 고르면 버튼이 "한 줄 소감 쓰러 가기" · 자동으로 넘어가지 않음', (await step(page)) === 'quick:2' &&
-    (await page.textContent('[data-step-main="q2"]')).trim().startsWith('한 줄 소감 쓰러 가기'));
+  check('마지막 질문에서 고르면 버튼이 "내 생각 기록하러 가기" · 자동으로 넘어가지 않음', (await step(page)) === 'quick:2' &&
+    (await page.textContent('[data-step-main="q2"]')).trim().startsWith('내 생각 기록하러 가기'));
   await page.click('[data-step-back]');
   await page.click('[data-step-back]');
   check('이전 버튼으로 질문 1로 돌아가도 고른 답 유지 · 버튼 "다음 질문"', /질문 1\/3/.test(await page.$eval('#choiceStep', el => el.textContent)) &&
@@ -114,40 +115,54 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
   await page.click('[data-step-main="q2"]');
   check('다시 질문 3: 고른 답 유지', await page.$eval('[data-choice-option="side_by_side"]', el => el.getAttribute('aria-checked') === 'true'));
   check('관점 고르기 화면 가로 넘침 없음', await noHScroll(page));
-  await tap('[data-step-main="q2"]');                               // 한 줄 소감 쓰러 가기
+  await tap('[data-step-main="q2"]');                               // 내 생각 기록하러 가기
   await page.waitForFunction(() => document.querySelector('.page--detail').dataset.step === '3');
   await page.waitForTimeout(300);
 
-  /* ---------- 3. 한 줄 소감 (건너뛰기 가능) ---------- */
-  check('STEP 3 · 한 줄 소감', (await step(page)) === 'quick:3' && await page.isVisible('#reflectInput'));
+  /* ---------- 3. 내 생각 기록 (주관식 · 질문 바로 아래 입력란 · 건너뛰기는 한 번에) ---------- */
+  check('STEP 3 · 내 생각 기록 (진행 표시에도 같은 이름)', (await step(page)) === 'quick:3' && /STEP 3 · 내 생각 기록/.test(await page.textContent('#reflectStep .step-head__kicker')) &&
+    /내 생각 기록/.test(await page.textContent('#flowProgress .flow-progress__step.is-current')));
+  check('질문·입력란·건너뛰기가 스크롤 없이 한 화면에 (아래 버튼에 가리지 않음)', await page.evaluate(() => {
+    const ctaTop = document.getElementById('stepCta').getBoundingClientRect().top;
+    return ['#reflectPrompt', '#reflectInput', '[data-reflect-skip]'].every(q => { const r = document.querySelector(q).getBoundingClientRect(); return r.top >= 0 && r.bottom <= ctaTop; });
+  }));
+  check('입력란 아래 짧은 안내: "한두 문장이면 충분해요 · 이름 없이 저장돼요" · 통계 동의·공개 체크 상자 없음',
+    /한두 문장이면 충분해요/.test(await page.textContent('#reflectHint')) && /이름 없이 저장돼요/.test(await page.textContent('#reflectHint')) &&
+    !(await page.$('#choiceShareConsent')) && !(await page.$('#reflectShareConsent')));
+  check('예시는 특정 의견이 아닌 빈칸 틀 (사건과 관계없이 같음)', /___/.test(await page.getAttribute('#reflectInput', 'placeholder')));
+  check('도움(열린 질문 2개·고른 관점)은 접혀 있음', !(await page.$eval('.reflect-help', el => el.open)) && (await page.$$eval('#reflectPrompts li', els => els.length)) === 2);
+  await page.click('.reflect-help summary');
   const recap = await page.$eval('#reflectRecap', el => el.innerText);
-  check('내가 고른 관점 다시 보기 (건너뛴 질문은 없음)', /서로 다른 이름을 함께 보여 주는 것/.test(recap) && /서로 다른 이름과 시선/.test(recap) && !/꼭 기억할 장면/.test(recap), recap);
-  check('동의 상자 없음 · 소감 바로 아래에 "이름 없이 저장 · 다른 참여자에게 비공개" 안내', !(await page.$('#choiceShareConsent')) &&
-    /이름 없이 저장되어 프로젝트 분석에 쓰여요/.test(await page.textContent('#reflectHint')) && /공개되지 않아요/.test(await page.textContent('#reflectHint')) &&
-    await page.isVisible('#reflectHint'));
-  check('소감 입력란 이름 "내 카드에 남길 소감" · 카드에 담긴다는 안내', /내 카드에 남길 소감/.test(await page.textContent('label[for="reflectInput"]')) &&
-    await page.isVisible('label[for="reflectInput"]') && /My Memory Card/.test(await page.textContent('#reflectStep .step-head__desc')));
-  check('소감 입력란이 첫 화면 안에 보임 (모바일)', await inViewport(page, '#reflectInput'));
-  check('버튼은 하나: 소감이 비어 있으면 "소감 없이 카드 만들기"', JSON.stringify(await visibleMains(page)) === '["q3"]' &&
-    /소감 없이 카드 만들기/.test(await page.textContent('[data-step-main="q3"]')) && !(await page.$('[data-reflect-skip]')));
-  await page.fill('#reflectInput', '가');
-  const typedLabel = await page.textContent('[data-step-main="q3"]');
-  await page.fill('#reflectInput', '');
-  check('한 글자라도 쓰면 "My Memory Card 만들기"', /My Memory Card 만들기/.test(typedLabel));
+  check('펼치면 내가 고른 관점 다시 보기 (건너뛴 질문은 없음)', /서로 다른 이름을 함께 보여 주는 것/.test(recap) && /서로 다른 이름과 시선/.test(recap) && !/꼭 기억할 장면/.test(recap), recap);
+  await page.click('.reflect-help summary');
+  check('주요 행동은 "내 생각 기록하기" 하나 + 눈에 보이는 건너뛰기', JSON.stringify(await visibleMains(page)) === '["q3"]' &&
+    /내 생각 기록하기/.test(await page.textContent('[data-step-main="q3"]')) && await page.isVisible('[data-reflect-skip]') &&
+    /이번엔 건너뛰고 카드 보기/.test(await page.textContent('[data-reflect-skip]')));
   await tap('[data-step-main="q3"]');
+  await page.waitForTimeout(300);
+  check('비어 있는데 "기록하기"를 누르면 넘어가지 않고 안내 · 입력란에 초점', (await step(page)) === 'quick:3' &&
+    /한 문장만 써 주세요/.test(await page.textContent('#stepCtaHint')) && await page.isVisible('#stepCtaHint') &&
+    await page.evaluate(() => document.activeElement && document.activeElement.id === 'reflectInput'));
+  await tap('[data-step-main="q3"]');
+  await page.waitForTimeout(200);
+  check('여러 번 눌러도 비어 있으면 카드로 넘어가지 않음 (건너뛰기는 따로)', (await step(page)) === 'quick:3');
+  await page.fill('#reflectInput', '가');
+  check('쓰기 시작하면 안내가 사라짐', !(await page.isVisible('#stepCtaHint')));
+  await page.fill('#reflectInput', '');
+  await tap('[data-reflect-skip]');                                 // 건너뛰기: 한 번에 카드
   await page.waitForSelector('.page--card.active');
-  check(`첫 화면부터 카드까지 탭 ${taps}번 (사용법 설명 없이 · 8번 이하: 고르기와 다음을 따로 누름)`, taps <= 8, String(taps));
+  check(`첫 화면부터 카드까지 탭 ${taps}번 (건너뛰기는 한 번에)`, taps <= 11, String(taps));
 
   /* ---------- 4. 카드: 고른 관점(객관식)과 직접 쓴 소감 구분 ---------- */
   await page.waitForTimeout(500);
   const labels = await page.$$eval('#memoryCard .memory-card__label', els => els.map(e => e.textContent));
-  check('카드 칸 이름: "내가 고른 관점 · 객관식" / "나의 한 줄 소감 · 직접 쓴 문장"', labels.includes('내가 고른 관점 · 객관식') && labels.includes('나의 한 줄 소감 · 직접 쓴 문장') &&
+  check('카드 칸 이름: "내가 고른 관점 · 객관식" / "나의 생각 · 직접 쓴 문장"', labels.includes('내가 고른 관점 · 객관식') && labels.includes('나의 생각 · 직접 쓴 문장') &&
     !labels.some(l => /탐구 전/.test(l)), labels.join(' | '));
   const picked = await page.$$eval('#memoryCard .memory-card__choices li span', els => els.map(e => e.textContent));
   check('카드에 고른 관점 2개만 (건너뛴 질문 없음)', JSON.stringify(picked) === JSON.stringify(['서로 다른 이름을 함께 보여 주는 것', '서로 다른 이름과 시선']), JSON.stringify(picked));
-  check('소감을 건너뛰면 "소감은 남기지 않았어요" (지어내지 않음)', /소감은 남기지 않았어요/.test(await page.$eval('#memoryCard .memory-card__reflect', el => el.textContent)));
+  check('생각을 쓰지 않으면 "생각은 쓰지 않았어요" (지어내지 않음)', /생각은 쓰지 않았어요/.test(await page.$eval('#memoryCard .memory-card__reflect', el => el.textContent)));
   const stamps = await page.$$eval('#memoryCard .memory-card__stamps li', els => els.map(e => [e.textContent.trim().slice(1, 6), e.classList.contains('is-done')]));
-  check('도장: 관점 고르기 ✓, 한 줄 소감 ✗, 공개 ✗', stamps[1][1] === true && stamps[2][1] === false && stamps[3][1] === false, JSON.stringify(stamps));
+  check('도장: 관점 고르기 ✓, 내 생각 ✗, 공개 ✗', stamps[1][1] === true && stamps[2][1] === false && stamps[3][1] === false, JSON.stringify(stamps));
   await page.waitForFunction(() => window.__mockDb.read().exploration_choices.length === 2);
   let d = await db(page);
   check('카드를 만들면 동의 상자 없이 객관식 답 저장 (건너뛴 질문 제외) · 공동 표현은 0건', JSON.stringify(d.exploration_choices.map(r => [r.question_id, r.option_id])) === JSON.stringify([['name_focus', 'many_names'], ['textbook_line', 'side_by_side']]) &&
@@ -159,8 +174,8 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
   const order = await page.evaluate(() => ['#memoryCard', '[data-card-action="png"]', '.card-design'].map(sel => document.querySelector(sel).getBoundingClientRect().top));
   check('카드가 먼저, 저장 버튼, 그다음 디자인 고르기', order[0] < order[1] && order[1] < order[2], JSON.stringify(order.map(Math.round)));
   check('저장 버튼이 스크롤 없이 보임 (휴대폰 아래 고정)', await inViewport(page, '[data-card-action="png"]'));
-  check('기본 체험 카드 화면: 진행 표시·심화용 "카드 다듬기"는 숨김, 돌아가기는 "한 줄 소감 고치기"', !(await page.isVisible('#cardProgress')) &&
-    !(await page.isVisible('#discoveryOptions')) && /한 줄 소감 고치기/.test(await page.textContent('[data-card-action="back"]')));
+  check('기본 체험 카드 화면: 진행 표시·심화용 "카드 다듬기"는 숨김, 돌아가기는 "내 생각 고치기"', !(await page.isVisible('#cardProgress')) &&
+    !(await page.isVisible('#discoveryOptions')) && /내 생각 고치기/.test(await page.textContent('[data-card-action="back"]')));
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-card-action="png"]')]);
   const png = pngSize(fs.readFileSync(await dl.path()));
   check('기본 체험 카드도 PNG 저장 (1080px)', png.png && png.width === 1080 && png.height >= 1350, JSON.stringify(png));
@@ -168,7 +183,7 @@ run('quick-experience', async ({ browser, base, check, mockPage }) => {
   /* ---------- 5. 소감을 쓰면 → 비공개 테이블에 같은 묶음 번호로 저장 ---------- */
   await page.click('[data-card-action="back"]');
   await page.waitForSelector('.page--detail.active');
-  check('카드에서 돌아오면 STEP 3, 고른 관점 그대로', (await step(page)) === 'quick:3' && /서로 다른 이름을 함께 보여 주는 것/.test(await page.$eval('#reflectRecap', el => el.innerText)));
+  check('카드에서 돌아오면 STEP 3, 고른 관점 그대로', (await step(page)) === 'quick:3' && /서로 다른 이름을 함께 보여 주는 것/.test(await page.$eval('#reflectRecap', el => el.textContent)));
   const REFLECT = '이름 하나에도 각 나라가 이 전쟁을 보는 눈이 담겨 있다는 게 새로웠다.';
   await page.fill('#reflectInput', REFLECT);
   await page.click('[data-step-main="q3"]');
