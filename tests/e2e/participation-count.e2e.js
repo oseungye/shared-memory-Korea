@@ -90,4 +90,30 @@ run('participation-count', async ({ browser, base, check, mockPage }) => {
     /SQL 실행 전의 소감/.test(await page.$eval('#memoryCard', el => el.textContent)) && !/저장하지 못했어요/.test(await page.$eval('#choiceOthers', el => el.textContent)));
   check('페이지 오류 없음', page.__errors.length === 0, page.__errors.join(' | '));
   await ctx.close();
+
+  /* ---------- 5. 접속 로그 추정치는 참여자 수에 넣지 않음 (서버에 실제로 기록된 참여만) ---------- */
+  const est = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await est.addInitScript(() => {
+    if (sessionStorage.getItem('__mock_db')) return;
+    sessionStorage.setItem('__mock_db', JSON.stringify({
+      shared_expressions: [], expression_participants: [], expression_empathy: [], exploration_choices: [], exploration_reflections: [],
+      participation_pings: [{ event_key: 'imjin', participant_key: 'p_recorded_a1', created_at: '2026-10-24T01:00:00Z' },
+        { event_key: 'zainichi', participant_key: 'p_recorded_b2', created_at: '2026-10-24T02:00:00Z' }],
+      participation_baseline: [{ source: 'quick_card_screens_logs', participants: 52, counted_until: '2026-10-23T13:25:00Z' }],
+      nextId: 100
+    }));
+  });
+  const ep = await mockPage(est);
+  await ep.goto(base + 'index.html');
+  check('추정치 52명이 있어도 첫 화면 참여자 수는 서버 기록 2명', (await shownCount(ep)) === 2);
+  await ep.waitForFunction(() => !document.getElementById('heroRecord').hidden || document.getElementById('heroRecord').innerHTML === '');
+  const record = await ep.$eval('#heroRecord', el => el.textContent);
+  check('지금까지 쌓인 기록에도 추정치를 섞지 않음 (54 없음)', !/54/.test(record) && !/52/.test(record), record.replace(/\s+/g, ' '));
+  await ep.evaluate(() => { window.__mockDb.noEstimateFn = true; });
+  await ep.evaluate(() => loadParticipantCount());
+  await ep.waitForTimeout(400);
+  check('추정치를 확인하지 못하면 참여자 수를 숨김 (합계 54를 보여 주지 않음)',
+    await ep.$eval('#participantCount', el => el.hidden) && !/54/.test(await ep.$eval('#heroRecord', el => el.textContent)));
+  check('추정치 확인 화면에서 페이지 오류 없음', ep.__errors.length === 0, ep.__errors.join(' | '));
+  await est.close();
 });

@@ -114,6 +114,7 @@ test('shared-store 호환: 공감 수·참여 현황·연령대 RPC', async () =
   const { client } = clientWith(req => {
     if (req.url.includes('/rpc/empathy_counts')) return { body: [{ expression_id: 3, empathy_count: 2 }] };
     if (req.url.includes('/rpc/participation_summary')) return { body: [{ participants: 10, completed_participants: 6, expressions: 10 }] };
+    if (req.url.includes('/rpc/participation_estimate')) return { body: [{ estimated: 0, counted_until: null }] };
     if (req.url.includes('/rpc/age_group_participants')) return { body: [{ age_group: '10s', participants: null }] };
     return { status: 404, body: {} };
   });

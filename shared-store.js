@@ -15,6 +15,7 @@
   const EMPATHY_RPC = 'empathy_counts';
   const PARTICIPANT_TABLE = 'expression_participants';
   const SUMMARY_RPC = 'participation_summary';
+  const ESTIMATE_RPC = 'participation_estimate';   // 참여 기록 시작 전 접속 로그 추정치 (supabase/2026-10-participation-estimate.sql)
   const AGE_RPC = 'age_group_participants';
   const LIST_RPC = 'public_expressions';
   const CHOICE_TABLE = 'exploration_choices';   // 기본 체험 객관식 응답 (공동 표현과 별도 테이블)
@@ -494,18 +495,27 @@
 
   /* ---------- 참여 현황 집계 (RPC만 사용, 원본 키는 받지 않음) ---------- */
 
-  /** 전체 참여자 수 → { available, participants, completedParticipants, expressions } */
+  /**
+   * 전체 참여자 수 → { available, participants, completedParticipants, expressions }
+   * participants 는 **서버에 실제로 기록된 참여자만**입니다. 서버 합계(participation_summary)에는 참여 기록을 시작하기 전
+   * 접속 로그로 만든 추정치(participation_baseline)가 더해져 있으므로, participation_estimate 로 그 값을 받아 뺍니다.
+   * 추정치를 확인하지 못하면(함수 없음·오류) 섞인 숫자를 보여 주지 않도록 participants 를 null 로 둡니다(화면은 숨김).
+   */
   async function fetchParticipationSummary() {
     const c = client();
     if (!c || typeof c.rpc !== 'function') return { available: false };
     try {
-      const res = await c.rpc(SUMMARY_RPC);
+      const [res, est] = await Promise.all([c.rpc(SUMMARY_RPC), c.rpc(ESTIMATE_RPC)]);
       if (res.error) return { available: false, error: res.error };
       const r = Array.isArray(res.data) ? res.data[0] : res.data;
       if (!r) return { available: false };
+      const e = est && !est.error ? (Array.isArray(est.data) ? est.data[0] : est.data) : null;
+      const estimated = e ? Number(e.estimated) : NaN;
+      const total = Number(r.participants) || 0;
+      const recorded = Number.isFinite(estimated) && estimated >= 0 && estimated <= total ? total - estimated : null;
       return {
         available: true,
-        participants: Number(r.participants) || 0,
+        participants: recorded,
         completedParticipants: Number(r.completed_participants) || 0,
         expressions: Number(r.expressions) || 0
       };
