@@ -10,7 +10,17 @@
 | 구성 | 정적 웹사이트(HTML·CSS·JavaScript, 빌드 없음) · GitHub Pages · Supabase(PostgreSQL·RLS·RPC, Edge Function 1개) |
 | 개발 기록 전체 | [README.md](README.md) (기능별 상세·분석 방법·DB 변경 이력) |
 
-> 공모전 공식 제출 지침(제출 방식·ZIP·파일명·용량·마감)은 이 문서 작성 시점에 확인되지 않았습니다. 지침에 맞춰 이 문서를 고쳐 주세요.
+## 0. 공식 제출물 (운영사무국 안내 · 마감 2026-11-15(일) 23:59 · 이메일 swfd@sw.or.kr)
+
+| # | 필수 제출물 | Shared Memory |
+|---|---|---|
+| 1 | 최종 완성 작품 — 정상 작동하는 웹 서비스 URL | https://oseungye.github.io/shared-memory-Korea/ |
+| 2 | 소스코드 — GitHub 저장소 URL 또는 ZIP 중 하나 | https://github.com/oseungye/shared-memory-Korea (공개 저장소) |
+| 3 | 최종 발표 PPT — 15분 발표·기능 시연용 | 발표자가 별도 제출 |
+
+이 문서와 테스트 보고서·DB 재현 SQL 등은 저장소 안의 **보조 자료**이며 공식 필수 제출물이 아닙니다.
+배포 사이트는 저장소 `main` 브랜치를 GitHub Pages로 그대로 배포하므로, 제출 시점의 `main`과 사이트가 같은 버전입니다
+(확인: 저장소 Actions의 `pages build and deployment` 최신 실행이 `main` 최신 커밋에서 성공했는지).
 
 ## 1. 무엇을 하나요
 
