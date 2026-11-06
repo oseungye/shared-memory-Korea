@@ -2253,11 +2253,14 @@ async function submitSharedNarrative() {
     nameInput.focus();
     return;
   }
-  // 공개 문장·이유에 링크·이메일·전화번호가 있으면 막습니다 (부적절 게시물 예방).
+  // 공개 문장·이유·탐구 전 문장(before_content로 함께 공개)에 링크·이메일·전화번호가 있으면 막습니다 (부적절 게시물 예방).
   if (Guide.checkPublicText) {
-    const bad = [[text, narrativeInput], [reason, reasonInput]].find(([v]) => !Guide.checkPublicText(v).ok);
+    const bad = [[text, narrativeInput], [reason, reasonInput], [getBefore(), document.getElementById('beforeInput')]]
+      .find(([v]) => !Guide.checkPublicText(v).ok);
     if (bad) {
-      setSubmitStatus(Guide.PUBLIC_TEXT_MESSAGE, 'error');
+      setSubmitStatus(bad[0] === getBefore()
+        ? '함께 공개되는 ‘탐구 전 한 문장’에 링크·이메일·전화번호가 있어요. STEP 1에서 그 부분을 지운 뒤 다시 등록해 주세요.'
+        : Guide.PUBLIC_TEXT_MESSAGE, 'error');
       bad[1]?.focus();
       return;
     }
@@ -3627,6 +3630,13 @@ function makeQuickCard(skipReflection) {
     return;
   }
   reflectEmptyHint = false;
+  // '내 생각'은 동의 상자 없이 이름 없이 저장되므로, 나를 알아볼 수 있는 내용이 있으면 저장·참여 기록·카드 전에 고치게 합니다.
+  if (!skipReflection && Guide.checkPrivateText && !Guide.checkPrivateText(typed).ok) {
+    setCardStatus(Guide.PRIVATE_TEXT_MESSAGE, 'error');
+    if (exploreStep !== 3) gotoQuickStep(3);
+    input?.focus({ preventScroll: true });
+    return;
+  }
   choiceState.reflection = skipReflection ? '' : typed;
   choiceState.reflectionSkipped = !!skipReflection || !typed;
   const summary = chosenSummary();
@@ -4758,7 +4768,7 @@ function countParticipation() {
   Store.recordParticipation(currentEventId).then(r => { if (r && r.ok && !r.already) loadParticipantCount(); }).catch(() => {});
 }
 
-/** 첫 화면의 참여자 수 — Supabase 집계 함수 결과만 사용합니다 (하드코딩 없음). */
+/** 첫 화면의 참여자 수 — 서버에 실제로 기록된 참여자만 (접속 로그 추정치는 빼고, 확인하지 못하면 숨김 · shared-store.js) */
 async function loadParticipantCount() {
   const el = document.getElementById('participantCount');
   if (!el || !Store || !Store.fetchParticipationSummary) return;
@@ -4770,7 +4780,7 @@ async function loadParticipantCount() {
 }
 
 /**
- * 첫 화면의 '지금까지 쌓인 기록' — 실제 서버 집계만 씁니다(지어낸 숫자 없음). 불러오지 못했거나 0이면 숨깁니다.
+ * 첫 화면의 '지금까지 쌓인 기록' — 실제 서버 기록만 씁니다(접속 로그 추정치는 빼고, 지어낸 숫자 없음). 불러오지 못했거나 0이면 숨깁니다.
  * · '왜 Shared Memory인가'의 결과 줄: 공개된 문장 수 (아카이브가 실제로 자라고 있음을 보여 줌)
  * · 넓은 화면의 예시 카드 아래: 참여자 수 · 공개된 문장 수 · 아카이브 바로 가기
  */

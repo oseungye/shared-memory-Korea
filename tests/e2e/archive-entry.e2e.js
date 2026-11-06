@@ -186,12 +186,16 @@ run('archive-entry', async ({ browser, base, check, mockPage }) => {
     /빈칸\(___\)이 남아 있어 공개하지 않았어요/.test(await page.textContent('#sharePrompt')));
   await page.click('[data-card-action="back"]');
   await page.waitForSelector('.page--detail.active');
+  // 링크·연락처가 든 '내 생각'은 기록(비공개 저장) 단계에서 먼저 막힙니다 (P0-2: 자유 입력 개인정보 확인) → 공개 단계까지 가지 않음
+  const reflectionsBefore = (await db(page)).exploration_reflections.length;
   await page.fill('#reflectInput', '자세한 내용은 www.example.com 에서');
+  await page.click('[data-step-main="q3"]');
+  await page.waitForFunction(() => /나를 알아볼 수 있는 내용은 지운 뒤/.test(document.getElementById('cardStatus').textContent));
+  d = await db(page);
+  check('링크·연락처가 있으면 기록 단계에서 막고 비공개 저장·공개 모두 하지 않음', !(await page.isVisible('.page--card.active')) &&
+    d.shared_expressions.length === 0 && d.exploration_reflections.length === reflectionsBefore);
+  await page.fill('#reflectInput', '이름이 다르면 같은 사건도 다르게 느껴진다는 걸 알았다.');
   await makeCard(page);
-  await page.waitForFunction(() => !!document.querySelector('#sharePrompt [data-share-publish]'));
-  await page.click('#sharePrompt [data-share-publish]');
-  await page.waitForFunction(() => /링크/.test(document.getElementById('sharePrompt').textContent));
-  check('링크·연락처가 있으면 공개하지 않음 (심화 탐구와 같은 검사)', (await db(page)).shared_expressions.length === 0);
   check('공개된 문장이 없으면 "아직 공개된 문장이 없어요" + 제안하기 입구', /아직 공개된 문장이 없어요/.test(await page.textContent('#archiveEntry')) &&
     await page.isVisible('#archiveEntry [data-card-action="propose"]'));
   check('작은 화면(360px) 카드 화면 가로 넘침 없음', await noHScroll(page));
