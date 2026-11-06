@@ -1,0 +1,132 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f5f1e8;--ink:#1a1a1a;--red:#8b3a3a;--beige:#e8d5b7;--card:#fffdf8;--gray:#6f685f;--soft:#efe4cf;--green:#3f6b4a}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg)}
+body{font-family:'Noto Sans KR',sans-serif;color:var(--ink);word-break:keep-all;position:relative}
+.title{position:absolute;left:112px;top:82px;font-family:'Noto Serif KR',serif;font-weight:700;font-size:64px;line-height:1.18}
+.sub{position:absolute;left:114px;top:176px;font-size:28px;color:var(--red);font-weight:500}
+body.notitle .title,body.notitle .sub{visibility:hidden}
+.slide{display:none}
+body.a #a,body.b #b{display:block}
+.foot{position:absolute;left:112px;right:112px;bottom:22px;font-size:17px;color:var(--gray);line-height:1.5}
+
+/* ---------- A: 작동 구조 (스윔레인) ---------- */
+#a .grid{position:absolute;left:112px;top:238px;width:1696px;display:grid;grid-template-columns:250px repeat(4,1fr);column-gap:14px;row-gap:12px}
+.step{background:var(--red);color:#fff;border-radius:10px;height:84px;display:flex;align-items:center;gap:14px;padding:0 18px;position:relative}
+.step .h{font-family:'Noto Serif KR',serif;font-weight:700;font-size:34px;width:46px;height:46px;border:2px solid rgba(255,255,255,.6);border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}
+.step b{font-size:27px;display:block;line-height:1.15}
+.step small{font-size:17px;opacity:.85}
+.step:not(.last)::after{content:'';position:absolute;right:-13px;top:30px;border:12px solid transparent;border-left:12px solid var(--red);border-right:0;z-index:2}
+.corner{display:flex;align-items:flex-end;padding:0 0 10px 4px;font-size:19px;color:var(--gray)}
+.lane{border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;justify-content:center}
+.lane b{font-size:24px;display:block;line-height:1.2}
+.lane span{font-size:17px;color:var(--gray);display:block;margin-top:6px;line-height:1.35}
+.cell{background:var(--card);border:2px solid var(--beige);border-radius:10px;padding:12px 16px;font-size:20px;line-height:1.38}
+.cell.empty{background:transparent;border:2px dashed #dccbb0}
+.cell .k{display:inline-block;font-size:15px;font-weight:700;color:var(--red);background:var(--soft);border-radius:4px;padding:1px 8px;margin-bottom:5px}
+.cell .ai{color:#fff;background:#5a4a7a}
+.cell small{display:block;font-size:16px;color:var(--gray);margin-top:4px;line-height:1.35}
+.l1{background:#e9dcc3}.l2{background:#ece4d6}.l3{background:#e4e0d4}
+.r1{height:196px}.r2{height:150px}.r3{height:196px}
+.bottom{position:absolute;left:112px;top:938px;width:1696px;display:flex;gap:16px}
+.pill{flex:1;background:var(--card);border:2px solid var(--beige);border-radius:10px;padding:10px 18px;font-size:19px;line-height:1.4}
+.pill b{color:var(--red)}
+
+/* ---------- B: 검증 ---------- */
+#b .cols{position:absolute;left:112px;top:240px;width:1696px;display:grid;grid-template-columns:520px 1fr;gap:32px}
+.box{background:var(--card);border:2px solid var(--beige);border-radius:12px;padding:20px 26px}
+.box h3{font-size:22px;color:var(--gray);font-weight:500;margin-bottom:12px}
+.big{display:flex;align-items:baseline;gap:14px;margin:6px 0 2px}
+.big .n{font-family:'Noto Serif KR',serif;font-weight:700;font-size:64px;color:var(--ink);line-height:1}
+.big .n i{font-style:normal;font-size:34px;color:var(--gray)}
+.big .t{font-size:24px;font-weight:700}
+.desc{font-size:18px;color:var(--gray);line-height:1.4;margin-bottom:14px}
+.ok{display:inline-block;background:var(--green);color:#fff;font-size:15px;font-weight:700;border-radius:4px;padding:2px 8px;vertical-align:4px;margin-left:6px}
+.rec{display:flex;gap:26px;margin-top:4px}
+.rec div{font-size:18px;color:var(--gray)}
+.rec b{display:block;font-family:'Noto Serif KR',serif;font-size:38px;color:var(--ink)}
+table{border-collapse:collapse;width:100%}
+th{font-size:18px;color:var(--gray);font-weight:500;text-align:left;padding:0 10px 8px 0;border-bottom:2px solid var(--beige)}
+td{font-size:22px;padding:12px 10px 12px 0;border-bottom:1px solid #eee3d0;vertical-align:top;line-height:1.35}
+td.pr{font-size:17px;color:var(--gray);white-space:nowrap;width:110px}
+td .arrow{color:var(--red);font-weight:700}
+.unv{position:absolute;left:112px;top:800px;width:1696px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.unv .pill{font-size:19px}
+.unv .pill.no b{color:#7a6a3a}
+</style></head><body>
+
+<!-- ===================== A ===================== -->
+<div class="slide" id="a">
+  <div class="title">판정하지 않고, 근거를 보여 준다</div>
+  <div class="sub">무엇을 어디서 계산하는지 — 사용자 참여부터 결과까지</div>
+  <div class="grid">
+    <div class="corner">어디서 ↓ · 무엇을 →</div>
+    <div class="step"><div class="h">問</div><div><b>사용자 참여</b><small>사건 고르기 · 관점 · 내 생각</small></div></div>
+    <div class="step"><div class="h">述</div><div><b>서술 비교</b><small>세 나라 + AI 답변 기록</small></div></div>
+    <div class="step"><div class="h">讀</div><div><b>분석</b><small>같은 방법으로 읽기 · 빈자리</small></div></div>
+    <div class="step last"><div class="h">書</div><div><b>결과 확인</b><small>카드 · 지도 · 아카이브</small></div></div>
+
+    <div class="lane l1 r1"><b>학생의 브라우저</b><span>GitHub Pages 정적 사이트<br>HTML·CSS·JavaScript · 빌드 없음</span></div>
+    <div class="cell r1"><span class="k">입력 검사</span><br>연락처·링크·학교·학년/반이 든 문장은 <b>저장 전에</b> 막음</div>
+    <div class="cell r1"><span class="k">나란히 보기</span><br>한·일·중 서술과 AI 답변을 같은 화면에<small>형광펜: 컴퓨터가 센 단어에만 칠함</small></div>
+    <div class="cell r1"><span class="k">규칙 기반 계산 · AI 아님</span><br>TF-IDF · 코사인/Jaccard 유사도 · 두드러진 말 · 개념 사전 26개 · 기억의 빈자리<small>같은 입력이면 같은 결과, 근거 단어 표시</small></div>
+    <div class="cell r1"><span class="k">My Memory Card</span><br>고른 관점 · 내 문장 · 다섯 번째 서술자 비교를 PNG로 저장<small>참여 문장 군집·프레이밍도 브라우저에서 계산</small></div>
+
+    <div class="lane l2 r2"><b>저장소의 기록 데이터</b><span>코드와 함께 공개 · 바뀌지 않음</span></div>
+    <div class="cell empty r2"></div>
+    <div class="cell r2"><span class="k">기록된 AI 답변 54건</span><br>6개 사건 × 한·일·중 × 3회<small>Claude, 2026-10-22 수집 · 보는 동안 AI 호출 없음</small></div>
+    <div class="cell r2"><span class="k">기준 자료</span><br>다국어 개념 사전 26개 · 사료 21건<small>사료 출처 확인 5 · 일부 2 · 검토 전 14</small></div>
+    <div class="cell empty r2"></div>
+
+    <div class="lane l3 r3"><b>서버 (Supabase)</b><span>PostgreSQL · 모든 테이블 RLS<br>브라우저에는 공개용 키만</span></div>
+    <div class="cell r3"><span class="k">이름 없이 저장</span><br>객관식 · 내 생각은 다른 참여자에게 비공개<small>‘공개하기’를 누른 문장만 아카이브로</small></div>
+    <div class="cell empty r3"></div>
+    <div class="cell r3"><span class="k ai">질문하는 AI · 동의한 경우만</span><br>서버 함수가 Anthropic API를 대신 호출 · 최대 2회<small>키는 서버에만 · 대화 저장 안 함 · 실패하면 준비된 질문</small></div>
+    <div class="cell r3"><span class="k">집계</span><br>관점 분포 · 공개 문장 · 참여자 수(서버 기록만)<small>연령대 비교는 5명 미만이면 숨김</small></div>
+  </div>
+  <div class="bottom">
+    <div class="pill"><b>AI가 쓰이는 곳은 두 곳뿐</b> — 기록해 둔 답변 54건(실시간 호출 없음), 동의한 학생의 질문하는 AI</div>
+    <div class="pill"><b>나머지는 모두 공식과 사전</b> — 비교·빈자리·군집·집계·개인정보 검사는 AI를 쓰지 않음</div>
+  </div>
+</div>
+
+<!-- ===================== B ===================== -->
+<div class="slide" id="b">
+  <div class="title">돌려 보고, 고치고, 다시 확인했습니다</div>
+  <div class="sub">아이디어가 아니라, 작동하고 검증된 소프트웨어</div>
+  <div class="cols">
+    <div class="box">
+      <h3>자동 테스트 · 2026-11-06 다시 실행</h3>
+      <div class="big"><span class="n">234<i> / 234</i></span><span class="t">단위 테스트<span class="ok">통과</span></span></div>
+      <div class="desc">분석 공식 · 개인정보 검사 · AI 응답 처리 등 26개 파일</div>
+      <div class="big"><span class="n">556<i> / 556</i></span><span class="t">브라우저 테스트<span class="ok">통과</span></span></div>
+      <div class="desc">실제 Chromium으로 휴대폰·PC 화면을 눌러 보는 15개 묶음<br>(시험용 가짜 DB 사용 — 운영 데이터는 건드리지 않음)</div>
+      <h3 style="margin-top:6px">개발 기록 · GitHub 공개 저장소</h3>
+      <div class="rec"><div><b>129</b>커밋</div><div><b>43</b>PR 병합</div><div><b>5.24–11.05</b>개발 기간</div></div>
+      <div class="desc" style="margin-top:8px;margin-bottom:0">PR마다 GitHub Actions가 같은 테스트를 자동 실행</div>
+    </div>
+    <div class="box">
+      <h3>발견하고 고친 문제 — 실제 PR 기록</h3>
+      <table>
+        <tr><th>문제</th><th>고친 방법</th><th></th></tr>
+        <tr><td>공용 기기에서 앞사람의 기록이 남음</td><td><span class="arrow">→</span> ‘새 참여자로 시작’으로 기록 분리</td><td class="pr">PR #7</td></tr>
+        <tr><td>학교망이 외부 라이브러리를 막으면 저장이 안 됨</td><td><span class="arrow">→</span> 라이브러리를 저장소에 보관·버전 고정</td><td class="pr">PR #8</td></tr>
+        <tr><td>사용자 피드백: 어려운 말, 휴대폰 글자 잘림</td><td><span class="arrow">→</span> 쉬운 말 · 진행 안내 · 글자 잘림 수정</td><td class="pr">PR #46</td></tr>
+        <tr><td>질문하는 AI 사용 한도가 접속자별로 걸리지 않음</td><td><span class="arrow">→</span> 실제 접속 IP 기준으로 한도 적용</td><td class="pr">PR #45</td></tr>
+        <tr><td>참여자 수에 추정치가 섞임</td><td><span class="arrow">→</span> 서버에 기록된 참여만 셈</td><td class="pr">PR #48</td></tr>
+        <tr><td>자유 입력에 개인정보가 들어갈 수 있음</td><td><span class="arrow">→</span> 저장 전 연락처·학교·학년/반 검사</td><td class="pr">PR #48</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="unv">
+    <div class="pill"><b>운영 점검</b> — 테이블 8개 모두 접근 제한(RLS) · 저장소에 비밀 키 없음 · 빈 DB에 재현 SQL로 같은 구조 확인</div>
+    <div class="pill no"><b>아직 확인 못 한 것</b> — 기종별 실제 휴대폰 · 학생 실사용(진행 전) · 질문하는 AI 운영 호출은 3건뿐</div>
+  </div>
+</div>
+
+<script>
+const q=new URLSearchParams(location.search);document.body.classList.add(q.get('s')||'a');if(q.get('notitle'))document.body.classList.add('notitle');
+</script>
+</body></html>
