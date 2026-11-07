@@ -57,6 +57,7 @@ python3 -m http.server 8000      # 저장소 폴더에서 → 브라우저 http:
 ## 5. AI 활용 범위와 개발자 기여
 
 [docs/AI_USE_AND_CONTRIBUTION.md](docs/AI_USE_AND_CONTRIBUTION.md) — 서비스 안의 AI 활용 범위(사실)와, 개발 과정에서의 AI 도구 사용 · **개발자 본인 기여(직접 작성)**.
+커밋·PR 기록만으로 정리한 단계별 흐름과 고친 문제: [docs/DEVELOPMENT_EVIDENCE.md](docs/DEVELOPMENT_EVIDENCE.md).
 
 ## 6. 테스트 결과 · 미검증 항목
 
