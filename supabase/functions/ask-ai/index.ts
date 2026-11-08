@@ -27,7 +27,7 @@ const PER_DAY = 250;           // 전체 하루 상한 = 비용 상한 (약 125�
 const MODEL_TIMEOUT_MS = 12_000;   // 브라우저는 15초(supabase-config.js)에 끊으므로 그보다 짧게 — 늦은 응답은 과금만 되고 버려짐
 
 const DATA_URL = 'https://oseungye.github.io/shared-memory-Korea/supabase/functions/ask-ai/data.json';
-const DATA_SHA256 = '7e4f6ef13e2d425552b53a7530ef4213c0fb461d9569031502c7c7c8566fdca4';   // tools/build-ask-ai-data.mjs가 갱신
+const DATA_SHA256 = '40204f119fe7e596e5f3f0853dd9b882f15022865b3e23a580614b4d7bbe697e';   // tools/build-ask-ai-data.mjs가 갱신
 const DATA_SHA = DATA_SHA256.slice(0, 12);   // 응답 헤더 x-ask-ai-data (런북 1-4)
 
 async function sha256(text: string) {
