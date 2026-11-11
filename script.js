@@ -166,10 +166,20 @@ function openEventDetail(eventId, opts) {
     { key: 'china', name: '중국', en: 'CHINA', flag: '中', titleField: event.titleCN, lang: 'zh-Hans' }
   ];
 
+  const heads = document.getElementById('threeHeads');
+  if (heads) {
+    heads.innerHTML = `<p class="three-heads__label">세 나라 서술을 한눈에 <small>(누르면 그 카드로 이동)</small></p>
+      <div class="three-heads__row">${countries.map(c => `
+        <button type="button" class="three-heads__item three-heads__item--${c.key}" data-scroll-narrative="${c.key}">
+          <span class="three-heads__who">${c.name} 측</span>
+          <span class="three-heads__title">${escapeHtml(event[c.key].title)}</span>
+        </button>`).join('')}</div>`;
+  }
+
   document.getElementById('narrativesGrid').innerHTML = countries.map(c => {
     const n = event[c.key];
     return `
-      <div class="narrative-card narrative-card--${c.key}">
+      <div class="narrative-card narrative-card--${c.key}" id="narrative-${c.key}">
         <div class="narrative-card__flag">
           <div class="narrative-card__flag-mark">${c.flag}</div>
           <div>
@@ -1709,7 +1719,7 @@ function renderMultilingualSection() {
     const badge = getLangBadge(lang);
     const f = a.framing.byLanguage[lang] || {};
     const frameText = frames.map(fr => `${fr.short} ${f[fr.id] || 0}`).join(' · ');
-    return `<li>${badge.flag} ${badge.label} — 제안 ${a.byLanguage[lang]}건 <span class="nlp-meta">(표현 프레임 어휘: ${frameText})</span></li>`;
+    return `<li>${badge.label} — 제안 ${a.byLanguage[lang]}건 <span class="nlp-meta">(표현 프레임 어휘: ${frameText})</span></li>`;
   }).join('');
 
   const concepts = a.topConcepts.slice(0, 6).map(c => `<li>“${escapeHtml(c.label)}” — ${c.count}건의 제안에서 등장 <span class="nlp-meta">(${c.langs.map(l => getLangBadge(l).label).join('·')})</span></li>`).join('')
@@ -2516,7 +2526,6 @@ function renderSharedList() {
   const visible = items.slice(0, sharedVisibleCount);
 
   list.innerHTML = visible.map(item => {
-    const badge = getLangBadge(item.lang || 'unknown');
     const id = escapeAttr(String(item.id));
 
     let translationHtml = '';
@@ -2527,7 +2536,7 @@ function renderSharedList() {
           const b = getLangBadge(lang);
           return `
             <div class="shared-item__translation-row">
-              <span class="narrative-card__keyword">${b.flag} ${b.label}</span>
+              ${langChipHtml(lang)}
               <div class="shared-item__translation-text">${escapeHtml(txt)}</div>
             </div>
           `;
@@ -2568,7 +2577,7 @@ function renderSharedList() {
         <div class="shared-item__header">
           <div class="shared-item__user">
             ${escapeHtml(item.user)}
-            <span class="narrative-card__keyword">${badge.flag} ${badge.label}</span>
+            ${langChipHtml(item.lang)}
             ${item.style ? `<span class="shared-item__style">${escapeHtml(styleLabel(item.style))}</span>` : ''}
           </div>
           <div class="shared-item__date">${escapeHtml(item.date || '')}</div>
@@ -2704,7 +2713,6 @@ function renderArchive() {
   list.innerHTML = `<p class="nlp-meta">공개 동의를 받은 표현 ${archiveItems.length}건 · 최신순</p>
     <div class="archive-grid">${visible.map(item => {
       const id = escapeAttr(String(item.id));
-      const badge = getLangBadge(item.lang || 'unknown');
       const count = archiveCounts[String(item.id)] || 0;
       const mine = empathized.has(String(item.id));
       const empathy = archiveEmpathyAvailable ? `
@@ -2717,7 +2725,7 @@ function renderArchive() {
           <div class="shared-item__header">
             <div class="shared-item__user">
               ${escapeHtml(item.user)}
-              <span class="narrative-card__keyword">${badge.flag} ${badge.label}</span>
+              ${langChipHtml(item.lang)}
             </div>
             <div class="shared-item__date">${escapeHtml(formatSharedDate(item.createdAt))}</div>
           </div>
@@ -2808,6 +2816,14 @@ function textLangAttr(code) {
   const map = { ja: 'ja', zh: 'zh-Hans', en: 'en' };
   const c = String(code || '').toLowerCase();
   return map[c] ? ` lang="${map[c]}"` : '';
+}
+
+/**
+ * 작성 언어 칩: 언어 이름만 한 번 보여 줍니다.
+ * (예전에는 표시 글자와 이름을 함께 써서 '한 한국어'·'中 中文'처럼 같은 말이 두 번 보였습니다)
+ */
+function langChipHtml(code) {
+  return `<span class="narrative-card__keyword lang-chip">${escapeHtml(getLangBadge(code).label)}</span>`;
 }
 
 function getLangBadge(code) {
@@ -3796,6 +3812,8 @@ ENTRY_WIDE?.addEventListener?.('change', placeArchiveEntry);
 async function renderArchiveEntry(shareMsg) {
   const box = document.getElementById('archiveEntry');
   if (!box) return;
+  const next = document.getElementById('cardNext');
+  if (next) next.hidden = cardState.mode !== 'quick';
   if (cardState.mode !== 'quick') { box.hidden = true; box.innerHTML = ''; return; }
   placeArchiveEntry();
   const eventId = currentEventId;
@@ -4570,6 +4588,23 @@ function handleCardAction(action) {
   if (action === 'print') { window.print(); return; }
   if (action === 'memory') { navigateTo('detail'); setRouteHash(currentEventId); gotoTab('memory'); return; }
   if (action === 'archive') { openArchive(currentEventId); return; }
+  if (action === 'others') {
+    // 카드 아래(넓은 화면은 오른쪽 칸 위)에 있는 '다른 사람들이 남긴 문장'으로 이동
+    const box = document.getElementById('archiveEntry');
+    if (box && !box.hidden) {
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      box.querySelector('h3')?.setAttribute('tabindex', '-1');
+      box.querySelector('h3')?.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (action === 'deep') {
+    // 기본 체험 카드 → 심화 탐구 (AI의 서술·단어 분석·사료가 있는 단계)
+    navigateTo('detail');
+    setRouteHash(currentEventId);
+    switchToDeep(2);
+    return;
+  }
   if (action === 'propose') {
     // 기본 체험 카드 → 공동 표현 제안하기 (심화). 쓴 소감은 제안 칸에 옮겨 둡니다(공개는 따로 동의).
     navigateTo('detail');
@@ -5208,6 +5243,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('[data-quick-next]')) { quickAdvance(); return; }
     const choiceOpt = e.target.closest('[data-choice-option]');
     if (choiceOpt) { pickChoice(choiceOpt.dataset.choiceOption); return; }
+    const headBtn = e.target.closest('[data-scroll-narrative]');
+    if (headBtn) {
+      const card = document.getElementById('narrative-' + headBtn.dataset.scrollNarrative);
+      card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const deep = e.target.closest('[data-deep-switch]');
     if (deep) { switchToDeep(deep.dataset.deepSwitch); return; }
     if (e.target.closest('[data-quick-return]')) { switchToQuick(); return; }

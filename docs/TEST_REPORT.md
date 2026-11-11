@@ -1,6 +1,6 @@
-# 테스트 결과 · 미검증 항목 (2026-11-07 재실행)
+# 테스트 결과 · 미검증 항목 (2026-11-11 재실행)
 
-기준: `main` 75cb522 (PR #48 병합 후 · 2026-11-05 첫 작성은 148406c + P0 수정 브랜치 기준)
+기준: `main` 1629157 + 11/11 시연 피드백 수정 브랜치 `ccr-233804b0-i8f5q5-pilot` (2026-11-07판은 75cb522, 2026-11-05 첫 작성은 148406c 기준)
 환경: Node.js v22.22.0 · Playwright 1.56.1 · Chromium 141.0.7390.37 · Linux
 
 ## 1. 자동 테스트 — 통과
@@ -8,9 +8,9 @@
 | 구분 | 결과 |
 |---|---|
 | 단위 테스트 `npm test` (node:test) | **234 / 234 통과** (실패 0 · 건너뜀 0) |
-| 브라우저 E2E `npm run test:e2e` (실제 Chromium · 가짜 Supabase) | **15개 스위트 556 / 556 통과** |
+| 브라우저 E2E `npm run test:e2e` (실제 Chromium · 가짜 Supabase) | **16개 스위트 578 / 578 통과** |
 
-E2E 스위트별: archive-entry 39 · ask-ai 39 · card-save 42 · explore-steps 46 · feedback-round1 37 · fourth-narrator 43 · live-refresh 17 · memory-card 64 · offline-vendor 20 · participation-count 18 · quick-experience 90 · reflection-privacy 13 · regression-smoke 22 · shared-archive 20 · shared-device 46 (합계 556 — 2026-11-05판의 ‘557’은 합계를 잘못 적은 것으로, 스위트별 숫자는 그때와 같음)
+E2E 스위트별: archive-entry 39 · ask-ai 39 · card-save 42 · explore-steps 46 · feedback-round1 37 · fourth-narrator 43 · live-refresh 17 · memory-card 64 · offline-vendor 20 · participation-count 18 · pilot-feedback 22 (11/11 추가) · quick-experience 90 · reflection-privacy 13 · regression-smoke 22 · shared-archive 20 · shared-device 46 (합계 578. 11/7판의 556에 pilot-feedback 22가 더해졌습니다. 2026-11-05판의 ‘557’은 합계를 잘못 적은 것)
 
 GitHub Actions(`.github/workflows/test.yml`)가 PR마다 같은 테스트를 실행합니다(테스트 0개·실행 못함도 실패로 처리).
 
