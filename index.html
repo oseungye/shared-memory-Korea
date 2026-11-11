@@ -310,6 +310,9 @@
         <p class="quick-only quick-scope">각 나라 교과서 원문이 아니라, 비교를 위해 요약한 서술이에요. (근거 자료는 심화 탐구에서)</p>
         <!-- 형광펜 범례: 강조는 NLP로 실제 계산된 표현에만 적용합니다 (script.js narrativeTextHtml) -->
         <p class="hl-legend" id="hlLegend" hidden></p>
+        <!-- 좁은 화면(카드가 한 줄씩 쌓일 때)에서 세 나라 서술의 제목을 한 줄에 나란히 (11/11 시연 피드백: 세 나라 입장을 동시에 보고 싶음).
+             누르면 그 나라 카드로 이동합니다. 넓은 화면은 카드가 이미 나란히 있어 숨깁니다. script.js renderDetail -->
+        <nav class="three-heads no-print" id="threeHeads" aria-label="세 나라 서술 제목 한눈에 보기"></nav>
         <div class="narratives" id="narrativesGrid">
           <!-- JS가 한국/일본/중국 카드를 채워줍니다 -->
         </div>
@@ -727,6 +730,14 @@
 
       <!-- 기본 체험: 내 생각을 기록한 뒤 공개 여부를 버튼으로 묻습니다 (누르는 것이 곧 동의 · 기본은 비공개). script.js renderSharePrompt -->
       <section class="share-prompt no-print" id="sharePrompt" aria-live="polite" hidden></section>
+
+      <!-- 기본 체험 카드: 이어서 할 수 있는 것 (11/11 시연 피드백 — 다른 사람의 문장·심화 탐구를 찾지 못함).
+           새 기능이 아니라 이미 있는 '다른 사람들이 남긴 문장'(아래)과 심화 탐구로 가는 바로가기입니다. script.js renderArchiveEntry -->
+      <nav class="card-next no-print" id="cardNext" aria-label="카드를 만든 뒤 이어서 할 수 있는 것" hidden>
+        <span class="card-next__label">이어서 해 보기</span>
+        <button type="button" class="card-next__btn" data-card-action="others">다른 사람들이 남긴 문장 보기 <span aria-hidden="true">↓</span></button>
+        <button type="button" class="card-next__btn" data-card-action="deep">심화 탐구 · AI의 서술과 사료 보기 <span aria-hidden="true">→</span></button>
+      </nav>
 
       <div class="card-layout">
         <!-- 카드 미리보기 (화면·인쇄) -->

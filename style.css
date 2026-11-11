@@ -4209,3 +4209,35 @@ body.has-flow-guide { overflow: hidden; }
 .share-prompt__actions .btn { min-height: 46px; justify-content: center; }
 .share-prompt__yes { background: var(--accent); border-radius: 999px; padding: 0.7rem 1.4rem; }
 @media (max-width: 640px) { .share-prompt__actions .btn { flex: 1 1 0; } .share-prompt { margin: 0 0 1rem; } }
+/* 기본 체험 카드: 이어서 해 보기 (다른 사람들의 문장 · 심화 탐구 바로가기) */
+.card-next {
+  max-width: 980px; margin: 0 auto 1.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+}
+.card-next[hidden] { display: none; }
+.card-next__label { font-size: var(--fs-sm); color: var(--ink-soft); margin-right: 0.2rem; }
+.card-next__btn {
+  min-height: 44px; padding: 0.5rem 1rem; border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--bg-card); color: var(--accent); font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+}
+@media (hover: hover) { .card-next__btn:hover { background: var(--accent); color: #fff; } }
+@media (max-width: 640px) { .card-next { margin: 0 0 1rem; } .card-next__label { width: 100%; } .card-next__btn { flex: 1 1 100%; text-align: left; } }
+
+/* 세 나라 서술 제목 한눈에 (좁은 화면에서만 · 카드가 한 줄씩 쌓일 때) */
+.three-heads { display: none; }
+@media (max-width: 1024px) {
+  .three-heads { display: block; margin: 0 0 1rem; }
+  .three-heads__label { font-size: var(--fs-sm); font-weight: 600; margin-bottom: 0.4rem; }
+  .three-heads__label small { font-weight: 400; color: var(--ink-mute); }
+  .three-heads__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; }
+  .three-heads__item {
+    display: flex; flex-direction: column; gap: 0.2rem; text-align: left; min-height: 44px;
+    padding: 0.5rem 0.55rem; background: var(--bg-card); border: 1px solid var(--line);
+    border-top: 3px solid var(--line); border-radius: 10px; cursor: pointer; color: var(--ink);
+  }
+  .three-heads__item--korea { border-top-color: var(--korea); }
+  .three-heads__item--japan { border-top-color: var(--japan); }
+  .three-heads__item--china { border-top-color: var(--china); }
+  .three-heads__who { font-size: var(--fs-xs); color: var(--ink-soft); font-weight: 600; }
+  .three-heads__title { font-size: var(--fs-sm); font-weight: 600; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+  .narrative-card { scroll-margin-top: 80px; }
+}
