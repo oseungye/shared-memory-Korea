@@ -13,7 +13,7 @@
 | 커밋 (병합 제외) | 85 | `git log --no-merges --oneline main \| wc -l` |
 | 그중 `Co-Authored-By: Claude` 표시 | 74 | `git log --no-merges --format=%B main \| grep -c 'Co-Authored-By: Claude'` |
 | 커밋 작성자 이름 | Claude 68 · oseungye 15 · OhSeungWan 2 | `git log --no-merges --format=%an main \| sort \| uniq -c` |
-| PR | 52개 중 GitHub에서 병합 49 · 그 밖에 열림 3(#22 #35 #42) | GitHub PR 목록 (#25는 병합 커밋 없이 반영) |
+| PR | 52개 중 GitHub에서 병합 49 · 병합되지 않은 3개(#22 #35 #42)는 2026-11-12에 닫음 | GitHub PR 목록 (#25는 병합 커밋 없이 반영) |
 | 자동 테스트 (2026-11-12, b4a3e7f 재실행) | 단위 234/234 · E2E 16개 스위트 578/578 · GitHub Actions run #92 성공 | `npm test` · `npm run test:e2e` |
 
 - `OhSeungWan` 계정이 연 PR은 #25(AI 답변 54건 수집)와 #43(질문하는 AI 첫 구현) 두 개입니다. 나머지 PR은 `oseungye` 계정이 열었습니다. `OhSeungWan`은 개발자의 오빠(협력자)이며, 역할은 [AI_USE_AND_CONTRIBUTION.md](AI_USE_AND_CONTRIBUTION.md) 4절에 개발자 진술과 기록을 대조해 적었습니다.
