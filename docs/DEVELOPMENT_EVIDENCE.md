@@ -2,21 +2,21 @@
 
 이 문서는 저장소 기록(`git log`, GitHub PR)만으로 정리한 **사실 목록**입니다. 누가 어떤 판단을 했는지는 기록만으로 알 수 없으므로 적지 않았습니다. 판단과 이유는 [AI_USE_AND_CONTRIBUTION.md](AI_USE_AND_CONTRIBUTION.md) 3절에 개발자가 직접 적습니다.
 
-기준: 2026-11-07, `main` 75cb522 (PR #48 병합 후)
+기준: 2026-11-12, `main` f319362 (PR #51 병합 후. 이전판: 2026-11-07, 75cb522)
 
 ## 1. 숫자로 보는 기록
 
 | 항목 | 값 | 확인 방법 |
 |---|---|---|
-| 기간 | 2026-05-24(첫 커밋) ~ 2026-11-05 | `git log --reverse` |
-| 커밋 (병합 포함) | 129 | `git log --oneline main \| wc -l` |
-| 커밋 (병합 제외) | 79 | `git log --no-merges --oneline main \| wc -l` |
-| 그중 `Co-Authored-By: Claude` 표시 | 68 | `git log --no-merges --format=%B main \| grep -c 'Co-Authored-By: Claude'` |
-| 커밋 작성자 이름 | Claude 62 · oseungye 15 · OhSeungWan 2 | `git log --no-merges --format=%an main \| sort \| uniq -c` |
-| PR | 48개 중 병합 44 · 열림 4(#22 #23 #35 #42) | GitHub PR 목록 |
-| 자동 테스트 (2026-11-07 재실행) | 단위 234/234 · E2E 15개 스위트 556/556 | `npm test` · `npm run test:e2e` |
+| 기간 | 2026-05-24(첫 커밋) ~ 2026-11-12 | `git log --reverse` |
+| 커밋 (병합 포함) | 138 | `git log --oneline main \| wc -l` |
+| 커밋 (병합 제외) | 84 | `git log --no-merges --oneline main \| wc -l` |
+| 그중 `Co-Authored-By: Claude` 표시 | 73 | `git log --no-merges --format=%B main \| grep -c 'Co-Authored-By: Claude'` |
+| 커밋 작성자 이름 | Claude 67 · oseungye 15 · OhSeungWan 2 | `git log --no-merges --format=%an main \| sort \| uniq -c` |
+| PR | 51개 중 GitHub에서 병합 48 · 열림 3(#22 #35 #42) | GitHub PR 목록 (#25는 병합 커밋 없이 반영) |
+| 자동 테스트 (2026-11-12 재실행) | 단위 234/234 · E2E 16개 스위트 578/578 | `npm test` · `npm run test:e2e` |
 
-- `OhSeungWan` 계정이 연 PR은 #25(AI 답변 54건 수집)와 #43(질문하는 AI 첫 구현) 두 개입니다. 나머지 46개 PR은 `oseungye` 계정이 열었습니다. **이 계정이 누구이고 어떤 역할이었는지는 개발자가 직접 밝혀야 합니다**(AI_USE_AND_CONTRIBUTION.md Q17).
+- `OhSeungWan` 계정이 연 PR은 #25(AI 답변 54건 수집)와 #43(질문하는 AI 첫 구현) 두 개입니다. 나머지 PR은 `oseungye` 계정이 열었습니다. `OhSeungWan`은 개발자의 오빠(협력자)이며, 역할은 [AI_USE_AND_CONTRIBUTION.md](AI_USE_AND_CONTRIBUTION.md) 4절에 개발자 진술과 기록을 대조해 적었습니다.
 - 커밋 날짜가 몰린 날: 10-19(16), 10-22(16), 10-16(7). 대부분 Claude Code 세션의 커밋입니다.
 
 ## 2. 단계별 흐름 (PR 제목 그대로)
@@ -34,6 +34,7 @@
 | 10/26~27 | #43 #44 | 질문하는 AI 구현(#43)과 배포 조건(외부 전송 동의·명시적 켜기·한도·자료 지문 검증, #44) |
 | 11/2 | #45 #46 | 질문하는 AI IP 한도 수정, **사용자 피드백 1차** 반영(커밋 edbfd77) |
 | 11/5 | #47 #48 | 3단계 ‘내 생각 기록’, 참여자 수를 서버 기록만으로 표시, 자유 입력 개인정보 확인, 제출 문서 |
+| 11/11~12 | #50 #51 | 11/11 학생 시연 피드백 4건 대응(#50: 언어 표시 수정·‘이어서 해 보기’·바로가기·좁은 화면 세 나라 제목), 개발 기여 문서 정리(#51). 11/12 질문하는 AI 함수 v6 재배포(코드 변경 없음, 자료 지문 일치) |
 
 ## 3. 방향을 바꾼 기록 (설계 결정의 흔적)
 

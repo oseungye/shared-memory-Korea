@@ -12,17 +12,17 @@
 | `supabase/functions/ask-ai/core.mjs` | 순수 부분(입력 검증·system prompt·JSON 스키마·근거 id 대조). `npm test`가 검사 |
 | `supabase/functions/ask-ai/data.json` | 함수가 근거로 쓰는 사이트 자료(세 나라 서술·AI 답변 9건·사료·관찰·사전 질문). `node tools/build-ask-ai-data.mjs`로 생성(이때 `index.ts`의 `DATA_SHA256`도 갱신). 함수에 올리지 않고 GitHub Pages에서 받음 |
 | `supabase/2026-10-ask-ai-limit.sql` | 한도 기록 테이블 `ask_ai_calls`(IP 해시·시각만) + anon 권한 회수 + 7일 정리 함수 |
-| `ask-ai.js` · `fourth-narrator-data.js`의 `dialogue` | 화면·상태기 · 미리 써 둔 질문(사건마다 3개, **2026-10-26 초안 — 확정 필요**) |
+| `ask-ai.js` · `fourth-narrator-data.js`의 `dialogue` | 화면·상태기 · 미리 써 둔 질문(사건마다 3개, 2026-10-26 Claude 초안 → 개발자 검토 후 그대로 사용(진술)) |
 
-## 현재 상태 (2026-11-02)
+## 현재 상태 (2026-11-12)
 
 | 단계 | 상태 |
 |---|---|
 | SQL `ask_ai_limit` (테이블 `ask_ai_calls`·정리 함수) | **적용 완료** — anon·authenticated 권한 없음, RLS 켜짐 확인 |
-| Edge Function `ask-ai` | **배포 완료 (v5, Verify JWT 끔)** — `index.ts`·`core.mjs`. v5: 한도용 IP를 `cf-connecting-ip` 기준으로 수정 |
+| Edge Function `ask-ai` | **배포 완료 (v6, Verify JWT 끔)** — `index.ts`·`core.mjs`. v5: 한도용 IP를 `cf-connecting-ip` 기준으로 수정. v6(2026-11-12): 코드 변경 없이 main f319362 그대로 재배포 — PR #23 이후 자료 지문(`DATA_SHA256`)이 사이트 `data.json`과 어긋나 503(폴백)이던 상태를 해소, 지문 `40204f11…` 일치 |
 | secret `ANTHROPIC_API_KEY` · `ASK_AI_IP_SALT` | **등록 완료** (운영자가 대시보드에서 직접 입력) |
 | secret `ASK_AI_ENABLED` | **`true` — 켜짐** (운영자 결정, 2026-11-02) |
-| 실제 서버 확인 | 2026-11-02 배포 사이트(휴대폰)에서 2회 대화: 호출 1 200(8.9초)·호출 2 200(4.9초), 한도 기록 정상 |
+| 실제 서버 확인 | 2026-11-02 배포 사이트(휴대폰)에서 2회 대화: 호출 1 200(8.9초)·호출 2 200(4.9초), 한도 기록 정상. 2026-11-12 v6 재배포 뒤 개발자가 사이트에서 확인, 한도 기록 2건 정상 |
 
 ## 1. 배포 순서 (처음 한 번)
 
