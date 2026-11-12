@@ -1,6 +1,6 @@
-# 테스트 결과 · 미검증 항목 (2026-11-11 재실행)
+# 테스트 결과 · 미검증 항목 (2026-11-12 재실행)
 
-기준: `main` 1629157 + 11/11 시연 피드백 수정 브랜치 `ccr-233804b0-i8f5q5-pilot` (2026-11-07판은 75cb522, 2026-11-05 첫 작성은 148406c 기준)
+기준: `main` f319362 (PR #50 시연 피드백 수정·PR #51 기여 문서 병합 후. 2026-11-11판은 1629157 + pilot 브랜치, 2026-11-07판은 75cb522, 2026-11-05 첫 작성은 148406c 기준)
 환경: Node.js v22.22.0 · Playwright 1.56.1 · Chromium 141.0.7390.37 · Linux
 
 ## 1. 자동 테스트 — 통과
@@ -37,7 +37,7 @@ P0 수정 뒤에는 위 동선을 포함한 E2E 전체(1절)로 다시 확인했
 |---|---|
 | Supabase 테이블 8개 RLS | 모두 켜짐 |
 | Security Advisor | WARN 6 = 공개 집계 함수(의도된 SECURITY DEFINER) · INFO 2 = 정책 없는 비공개 테이블(의도) |
-| Edge Function `ask-ai` | v5 동작, Verify JWT 끔(사이트가 publishable 키로 호출), 코드의 자료 지문 = 저장소 `data.json` |
+| Edge Function `ask-ai` | **v6** (2026-11-12 재배포, main f319362의 `index.ts`·`core.mjs` 그대로) · Verify JWT 끔(사이트가 publishable 키로 호출) · 함수의 `DATA_SHA256` `40204f11…` = 저장소 `data.json`. 재배포 뒤 실제 호출 2회 정상(한도 기록 확인). **주의:** 2026-11-08(PR #23 이후)부터 11-12 재배포 전까지는 배포된 v5의 지문(`7e4f6ef1…`)이 사이트 자료와 달라, 질문하는 AI가 503 → 미리 써 둔 질문으로 폴백했습니다 |
 | 비밀정보 | 저장소에 비밀 키·서비스 롤 키·JWT 없음(브라우저용 publishable 키만) |
 | CI · Pages 배포 (148406c) | 성공 |
 | DB 재현 | 빈 PostgreSQL 16에 `supabase/reproduce/README.md` 순서 적용 → 테이블 8개·함수 12개가 운영과 같음 |
